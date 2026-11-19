@@ -1,0 +1,165 @@
+"""Bring the cut kit parts into the app.
+
+  public/assets/ghosts/<id>/<part>.webp   (kit ghosts at 2x the sheet size, Volti as is)
+  public/assets/items/<id>.webp           (wardrobe items at 2x)
+  src/data/rigs.gen.ts                    (rig landmarks and item placements)
+
+Usage: python -I tools/import_kits.py <kits_dir> <rig_tools_dir> <volti_parts_dir> <app_root> [--force]
+"""
+import json
+import shutil
+import sys
+from pathlib import Path
+
+import numpy as np
+from PIL import Image, ImageFilter
+
+kits, tools, volti_dir, app = (Path(p) for p in sys.argv[1:5])
+sys.path.insert(0, str(tools))
+from kit_rigs import ITEMS, RIGS, SLOT_ORDER  # noqa: E402
+
+UP = 2.0  # kit sheets are small: store parts at twice their size
+PUB = app / "public" / "assets"
+PARTS = ["body", "eye_open_L", "eye_open_R", "eye_happy_L", "eye_happy_R", "eye_sleep_L", "eye_sleep_R",
+         "mouth_smile", "mouth_laugh", "mouth_o", "mouth_line", "blush_L", "blush_R", "arm_L", "arm_R"]
+
+# Volti's own rig (hand-tuned in its body space, 1x)
+VOLTI = dict(k=0.37, cx=349, cy=360, pivot=240, eyeY=405, eyeDX=112, mouth=[349, 505], blush=[192, 488, 0.82],
+             fs=1, ms=0.8, u=1, m=1, eyes="LR", armL=dict(at=[70, 520], anchor=[138, 40], s=1),
+             armR=dict(at=[628, 520], anchor=[33, 40], s=1), tuft=dict(at=[345, 32], anchor=[62, 190], rest=-8),
+             flow=[110, 368], breath=[150, 230], tail=[590, 765, 560, 650], top=3)
+K = 0.52            # body units -> stage units for kit ghosts
+FOOT = 459          # stage y of the lowest body point (as Volti)
+PLAIN_FACE = (RIGS["ember"]["cx"] * UP, RIGS["ember"]["eye_y"] * UP)
+
+
+def up(im, f=UP):
+    im = im.resize((round(im.width * f), round(im.height * f)), Image.LANCZOS)
+    a = np.asarray(im).copy()
+    rgb = Image.fromarray(a[..., :3]).filter(ImageFilter.UnsharpMask(radius=1.4, percent=45, threshold=1))
+    out = np.dstack([np.asarray(rgb), a[..., 3]])
+    out[out[..., 3] == 0, :3] = 0
+    return Image.fromarray(out)
+
+
+FORCE = "--force" in sys.argv
+
+
+def save(im, path):
+    """Write a webp (slow at method 6), unless it is already there."""
+    if path.exists() and not FORCE:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    im.save(path, "WEBP", quality=90, method=6)
+
+
+def bbox(im):
+    a = np.asarray(im)[..., 3] > 40
+    ys, xs = np.nonzero(a)
+    return int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1
+
+
+def hand_point(im, anchor):
+    """The arm tip: mean of the opaque pixels farthest from the shoulder."""
+    a = np.asarray(im)[..., 3] > 120
+    ys, xs = np.nonzero(a)
+    d = (xs - anchor[0]) ** 2 + (ys - anchor[1]) ** 2
+    far = d >= np.quantile(d, 0.92)
+    return [round(float(xs[far].mean()), 1), round(float(ys[far].mean()), 1)]
+
+
+rigs = {}
+sizes = {}
+
+# ---------- Volti ----------
+vdst = PUB / "ghosts" / "volti"
+vdst.mkdir(parents=True, exist_ok=True)
+for p in PARTS + ["tuft"]:
+    src = PUB / "companions" / "volti" / f"{p}.webp"
+    if src.exists():
+        shutil.copyfile(src, vdst / f"{p}.webp")
+    else:
+        save(Image.open(volti_dir / f"{p}.png").convert("RGBA"), vdst / f"{p}.webp")
+va = Image.open(volti_dir / "arm_L.png").convert("RGBA")
+vb = Image.open(volti_dir / "arm_R.png").convert("RGBA")
+VOLTI["armL"]["hand"] = hand_point(va, VOLTI["armL"]["anchor"])
+VOLTI["armR"]["hand"] = hand_point(vb, VOLTI["armR"]["anchor"])
+vbody = Image.open(volti_dir / "body.png").convert("RGBA")
+VOLTI["wear"] = round((bbox(vbody)[2] - bbox(vbody)[0]) / ((bbox(Image.open(kits / "ember" / "body.png"))[2] - bbox(Image.open(kits / "ember" / "body.png"))[0]) * UP), 3)
+rigs["volti"] = VOLTI
+
+# ---------- kit ghosts ----------
+for gid, R in RIGS.items():
+    dst = PUB / "ghosts" / gid
+    names = PARTS + (["tuft"] if "tuft" in R else [])
+    ims = {}
+    for p in names:
+        im = up(Image.open(kits / gid / f"{p}.png").convert("RGBA"))
+        save(im, dst / f"{p}.webp")
+        ims[p] = im
+    body = ims["body"]
+    x0, y0, x1, y1 = bbox(body)
+    W, H = x1 - x0, y1 - y0
+    m = 0.37 / K  # Volti's motion constants are in its own units
+    cy = y1 - (FOOT - 280) / K
+    f = UP
+    aL, aR = ims["arm_L"], ims["arm_R"]
+    ancL = [round(aL.width * 0.8, 1), round(aL.height * 0.28, 1)]
+    ancR = [round(aR.width * 0.2, 1), round(aR.height * 0.28, 1)]
+    rig = dict(
+        # pivot, flow and breath are measured from cy, like Volti's, scaled to this body
+        k=K, cx=R["cx"] * f, cy=round(cy, 1), pivot=round(VOLTI["pivot"] * m, 1),
+        eyeY=R["eye_y"] * f, eyeDX=R["eye_dx"] * f, mouth=[R["cx"] * f, R["mouth_y"] * f],
+        blush=[R["blush"][0] * f, R["blush"][1] * f, R["fs"]],
+        fs=R["fs"], ms=round(0.85 * R["fs"], 3), u=round(R["fs"] * ims["eye_open_L"].width / 141, 3), m=round(m, 3),
+        eyes=R["eyes"],
+        armL=dict(at=[R["arm_l"][0] * f, R["arm_l"][1] * f], anchor=ancL, s=R["arm_s"], hand=hand_point(aL, ancL)),
+        armR=dict(at=[R["arm_r"][0] * f, R["arm_r"][1] * f], anchor=ancR, s=R["arm_s"], hand=hand_point(aR, ancR)),
+        tuft=None,
+        flow=[round(VOLTI["flow"][0] * m, 1), round(VOLTI["flow"][1] * m, 1)],
+        breath=[round(VOLTI["breath"][0] * m, 1), round(VOLTI["breath"][1] * m, 1)],
+        tail=[round(x0 + 0.77 * W, 1), x1, round(y0 + 0.66 * H, 1), round(y0 + 0.77 * H, 1)],
+        top=y0,
+        wear=1 if R.get("wardrobe") else None,
+    )
+    if "tuft" in R:
+        t = ims["tuft"]
+        rig["tuft"] = dict(at=[R["tuft"][0] * f, R["tuft"][1] * f], anchor=[round(t.width / 2, 1), round(t.height * 0.97, 1)], rest=0)
+    rigs[gid] = rig
+    sizes[gid] = [body.width, body.height]
+
+# ---------- items ----------
+items = {}
+for iid, it in ITEMS.items():
+    im = up(Image.open(kits / "items" / f"{iid}.png").convert("RGBA"))
+    save(im, PUB / "items" / f"{iid}.webp")
+    items[iid] = dict(
+        slot=it["slot"], w=im.width, h=im.height, anchor=list(it["anchor"]),
+        # offset from the plain ghost's face centre, in kit body units
+        at=[round(it["at"][0] * UP - PLAIN_FACE[0], 1), round(it["at"][1] * UP - PLAIN_FACE[1], 1)],
+        s=it["s"], rot=it.get("rot", 0), hide=it.get("hide", []),
+    )
+
+
+NL = chr(10)
+
+
+def obj(d):
+    """One entry per line keeps the generated file short and its diffs readable."""
+    rows = [f"  {json.dumps(k)}: {json.dumps(v, separators=(', ', ': '))}," for k, v in d.items()]
+    return "{" + NL + NL.join(rows) + NL + "}"
+
+
+ts = [
+    "// Generated by tools/import_kits.py from rig_tools/kit_rigs.py. Do not edit by hand.",
+    "import type { ItemRig, RigConfig } from './rigTypes';",
+    "",
+    f"export const RIGS: Record<string, RigConfig> = {obj(rigs)};",
+    "",
+    f"export const ITEM_RIGS: Record<string, ItemRig> = {obj(items)};",
+    "",
+    f"export const SLOT_ORDER = {json.dumps(SLOT_ORDER)} as const;",
+    "",
+]
+(app / "src" / "data" / "rigs.gen.ts").write_text("\n".join(ts), encoding="utf-8")
+print(len(rigs), "rigs,", len(items), "items")

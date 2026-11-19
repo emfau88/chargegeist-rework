@@ -1,0 +1,624 @@
+<title>Volti in Bewegung</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:wght@400;600;700;800&display=swap">
+<style>
+/* Layout: one large night stage holding the character (SVG sky behind, WebGL ghost, SVG particles in front), state chips inside it, three short notes below. Single deliberate dark look (the app's night world). */
+:root{
+  color-scheme: dark;
+  --ink:#0c0a1c;
+  --surface:#1d1938;
+  --line:rgba(190,180,255,.14);
+  --text:#f3f1ff;
+  --muted:#a7a1cb;
+  --charge:#5be3ff;
+  --display:"Fredoka","Nunito",system-ui,sans-serif;
+  --body:"Nunito",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{background:var(--ink);color:var(--text)}
+body{font-family:var(--body);font-size:15px;line-height:1.5;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+  padding-block:20px 36px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid var(--charge);outline-offset:3px}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header h1{font-family:var(--display);font-weight:600;font-size:clamp(28px,4.4vw,40px);margin:0;line-height:1.1;text-wrap:balance}
+header h1 span{color:var(--charge)}
+header p{margin:6px 0 0;color:var(--muted);max-width:66ch}
+
+.stage{position:relative;border-radius:30px;overflow:hidden;border:1px solid var(--line);height:min(700px,82vh);min-height:480px;
+  background:
+    radial-gradient(60% 45% at 50% 42%,rgba(91,227,255,.10),transparent 70%),
+    radial-gradient(90% 70% at 50% 30%,#2b2366 0%,#18143d 52%,#0f0c25 100%)}
+.stage > svg,.stage > canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#gl{pointer-events:none}
+#front{touch-action:none}
+#hit{cursor:pointer;outline:none}
+#hit:focus-visible{stroke:var(--charge);stroke-width:3;stroke-dasharray:8 9}
+.hud{position:absolute;left:16px;right:16px;top:14px;display:flex;justify-content:space-between;align-items:center;gap:10px;pointer-events:none}
+.badge{white-space:nowrap;display:flex;align-items:center;gap:8px;font-weight:800;font-size:13px;background:rgba(14,12,32,.6);border:1px solid var(--line);border-radius:999px;padding:6px 12px;backdrop-filter:blur(8px)}
+.badge i{width:8px;height:8px;border-radius:50%;background:var(--charge);box-shadow:0 0 10px var(--charge)}
+.hud small{font-size:12px;font-weight:700;color:var(--muted);text-align:right}
+.chips{position:absolute;left:14px;right:14px;bottom:14px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.chips button{border:1.5px solid var(--line);background:rgba(14,12,32,.72);backdrop-filter:blur(8px);border-radius:999px;padding:9px 16px;font-weight:800;font-size:14px}
+.chips button[aria-pressed="true"]{border-color:var(--charge);color:var(--charge);background:rgba(91,227,255,.12)}
+.chips .cheer{background:#ffc76b;color:#2d1a00;border-color:transparent}
+.loading{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-weight:700;pointer-events:none}
+
+.twinkle{animation:tw 3.6s ease-in-out infinite}
+@keyframes tw{0%,100%{opacity:.25}50%{opacity:.85}}
+
+.notes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.notes div{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px 16px;min-width:0}
+.notes b{display:block;font-family:var(--display);font-weight:600;font-size:17px;margin-bottom:4px}
+.notes p{margin:0;font-size:14px;color:#d9d5f3}
+@media (max-width:820px){.notes{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:520px){.stage{height:74vh;min-height:460px}.chips button{padding:8px 13px;font-size:13px}}
+@media (prefers-reduced-motion:reduce){.twinkle{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Volti <span>in Bewegung</span></h1>
+    <p>Ein neuer Geist für ChargeGeist, gebaut aus dem Teilebogen von ChatGPT. Körper, Augen, Münder, Wangen, Arme und Locke sind einzelne Bilder, die sich unabhängig voneinander bewegen.</p>
+  </header>
+
+  <div class="stage" id="stage">
+    <svg id="back" viewBox="0 0 600 620" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <radialGradient id="glowG">
+          <stop offset="0" stop-color="#5be3ff" stop-opacity="0.5"/>
+          <stop offset="0.5" stop-color="#5be3ff" stop-opacity="0.12"/>
+          <stop offset="1" stop-color="#5be3ff" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="tuftG">
+          <stop offset="0" stop-color="#f4ffb0" stop-opacity="0.85"/>
+          <stop offset="0.45" stop-color="#9ff6ff" stop-opacity="0.3"/>
+          <stop offset="1" stop-color="#5be3ff" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="sparkG">
+          <stop offset="0" stop-color="#ffffff"/>
+          <stop offset="0.35" stop-color="#bff8ff" stop-opacity="0.9"/>
+          <stop offset="1" stop-color="#5be3ff" stop-opacity="0"/>
+        </radialGradient>
+        <filter id="blur9" x="-60%" y="-200%" width="220%" height="500%"><feGaussianBlur stdDeviation="9"/></filter>
+      </defs>
+      <g id="sky"></g>
+      <circle id="glow" cx="300" cy="300" r="270" fill="url(#glowG)" opacity="0.3"/>
+      <g id="ring" opacity="0" transform="rotate(-90 300 300)">
+        <circle cx="300" cy="300" r="205" fill="none" stroke="#5be3ff" stroke-opacity="0.14" stroke-width="7"/>
+        <circle id="ringFill" cx="300" cy="300" r="205" fill="none" stroke="#9ff6ff" stroke-width="7" stroke-linecap="round" stroke-dasharray="1289" stroke-dashoffset="1289"/>
+      </g>
+      <circle id="tuftGlow" cx="300" cy="120" r="70" fill="url(#tuftG)" opacity="0"/>
+      <g id="particlesBack"></g>
+      <ellipse id="shadow" cx="300" cy="524" rx="112" ry="15" fill="#03020a" opacity="0.55" filter="url(#blur9)"/>
+    </svg>
+
+    <canvas id="gl" aria-hidden="true"></canvas>
+
+    <svg id="front" viewBox="0 0 600 620" preserveAspectRatio="none" aria-labelledby="sceneTitle">
+      <title id="sceneTitle">Volti, ein animierter Geist</title>
+      <ellipse id="hit" cx="300" cy="300" rx="150" ry="172" fill="transparent" tabindex="0" role="button" aria-label="Volti antippen"/>
+      <g id="particles" pointer-events="none"></g>
+    </svg>
+
+    <div class="loading" id="loading">Volti wird geladen …</div>
+    <div class="hud"><span class="badge"><i></i><span id="status">Volti ist bereit</span></span><small id="hint">Maus bewegen · Volti antippen</small></div>
+    <div class="chips">
+      <button type="button" data-mode="idle" aria-pressed="true">Ruhig</button>
+      <button type="button" data-mode="focus" aria-pressed="false">Fokus starten</button>
+      <button type="button" data-mode="sleep" aria-pressed="false">Schlafen</button>
+      <button type="button" class="cheer" id="cheer">Jubeln</button>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div><b>Probier ihn aus</b><p>Er schaut deiner Maus nach und kichert, wenn du ihn antippst. Im Fokus schaut er konzentriert nach unten und füllt sich mit Energie. Ist er voll, springt er vor Freude. Wenn er schläft, weckt ihn ein Tippen.</p></div>
+    <div><b>So ist er gebaut</b><p>ChatGPT hat 16 Teile auf einem Bogen geliefert. Ich habe sie ausgeschnitten und neu zusammengesetzt. Der Körper liegt auf einem verformbaren Netz: Der Saum wellt sich, der Schweif schwingt, und das Gesicht wandert mit.</p></div>
+    <div><b>Für die App</b><p>Flutter kann Bilder genauso auf ein Netz legen (<code>drawVertices</code>). Jeder weitere Geist braucht nur einen neuen Bogen mit demselben Prompt. Die Bewegungen bleiben gleich.</p></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const PARTS = __PARTS__;
+const NS = "http://www.w3.org/2000/svg";
+const $ = id => document.getElementById(id);
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const smooth = (a, b, v) => { const x = clamp((v - a) / (b - a), 0, 1); return x * x * (3 - 2 * x); };
+const RAD = Math.PI / 180;
+
+/* ---------------- rig: where every part sits, in pixels of the body image ---------------- */
+const R = {
+  k: 0.37,                  // stage units per body pixel
+  cx: 349, cy: 360,         // head centre = ghost origin
+  pivot: 240,               // squash pivot, below the head centre
+  eyeY: 405, eyeDX: 112,
+  mouth: [349, 505],
+  blush: [192, 488, 0.82],
+  armL: { at: [70, 520], anchor: [138, 40] },
+  armR: { at: [628, 520], anchor: [33, 40] },
+  tuft: { at: [345, 32], anchor: [62, 190], rest: -8 },
+};
+
+/* ---------------- springs: every soft motion runs through one of these ---------------- */
+class Spring {
+  constructor(x, k, d) { this.x = x; this.v = 0; this.t = x; this.k = k; this.d = d; }
+  step(h) { const a = (this.t - this.x) * this.k - this.v * this.d; this.v += a * h; this.x += this.v * h; }
+}
+const S = {
+  squash: new Spring(1, 230, 9), lean: new Spring(0, 70, 8),
+  lookX: new Spring(0, 110, 15), lookY: new Spring(0, 110, 15),
+  eye: new Spring(1, 1500, 58), wide: new Spring(0, 160, 14),
+  happy: new Spring(0, 240, 28), sleepy: new Spring(0, 26, 10), focus: new Spring(0, 40, 12),
+  armL: new Spring(0, 110, 8), armR: new Spring(0, 110, 8),
+  tuft: new Spring(0, 55, 4.5), glow: new Spring(0, 30, 11), ring: new Spring(0, 26, 10), low: new Spring(0, 14, 8),
+  pop: new Spring(0, 520, 16),
+};
+const M = { smile: new Spring(1, 900, 60), laugh: new Spring(0, 900, 60), o: new Spring(0, 900, 60), line: new Spring(0, 900, 60) };
+let mouthNow = "smile";
+
+/* ---------------- night sky ---------------- */
+(function sky() {
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const g = $("sky");
+  for (let i = 0; i < 80; i++) {
+    const c = document.createElementNS(NS, "circle");
+    c.setAttribute("cx", (-500 + rnd() * 1600).toFixed(1)); c.setAttribute("cy", (-260 + rnd() * 760).toFixed(1));
+    c.setAttribute("r", (0.7 + rnd() * 1.4).toFixed(2)); c.setAttribute("fill", "#d8deff");
+    c.setAttribute("class", "twinkle"); c.style.animationDelay = (-rnd() * 3.6).toFixed(2) + "s";
+    g.appendChild(c);
+  }
+})();
+
+/* ---------------- view: the stage shows at least 440 x 620 units around the ghost ---------------- */
+const stage = $("stage"), back = $("back"), front = $("front");
+let canvas = $("gl");
+const view = { x: 0, y: 0, w: 600, h: 620 };
+function layout() {
+  const r = stage.getBoundingClientRect();
+  const W = Math.max(1, r.width), H = Math.max(1, r.height);
+  let vw, vh;
+  if (W / H >= 440 / 620) { vh = 620; vw = 620 * W / H; } else { vw = 440; vh = 440 * H / W; }
+  view.x = 300 - vw / 2; view.y = 310 - vh / 2; view.w = vw; view.h = vh;
+  const vb = `${view.x.toFixed(2)} ${view.y.toFixed(2)} ${vw.toFixed(2)} ${vh.toFixed(2)}`;
+  back.setAttribute("viewBox", vb); front.setAttribute("viewBox", vb);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+}
+
+/* ---------------- renderer: WebGL2 mesh, or flat 2D canvas as a fallback ---------------- */
+let gl = null, ctx2d = null, prog, vbo;
+const loc = {}, ibos = new Map(), TEX = {};
+const VERTS = new Float32Array(4 * 41 * 41);
+function initGL() {
+  gl = canvas.getContext("webgl2", { premultipliedAlpha: true, antialias: true, alpha: true });
+  if (!gl) throw new Error("no webgl2");
+  const vs = `#version 300 es
+in vec2 aPos; in vec2 aUV; uniform vec4 uView; out vec2 vUV;
+void main(){ vUV = aUV; gl_Position = vec4((aPos.x - uView.x) * uView.z - 1.0, 1.0 - (aPos.y - uView.y) * uView.w, 0.0, 1.0); }`;
+  const fs = `#version 300 es
+precision mediump float;
+in vec2 vUV; uniform sampler2D uTex; uniform float uAlpha, uLevel, uTime, uGlow, uDim; out vec4 outColor;
+void main(){
+  vec4 c = texture(uTex, vUV);
+  vec3 rgb = c.a > 0.0 ? c.rgb / c.a : vec3(0.0);
+  float skin = smoothstep(0.30, 0.50, dot(rgb, vec3(0.3, 0.55, 0.15)));
+  if (uLevel > 0.001) {
+    float line = 1.0 - uLevel * 1.03 + sin(vUV.x * 14.0 + uTime * 3.2) * 0.012 + sin(vUV.x * 27.0 - uTime * 2.1) * 0.006;
+    float fill = smoothstep(line - 0.004, line + 0.004, vUV.y);
+    float crest = exp(-pow((vUV.y - line) / 0.012, 2.0));
+    rgb = mix(rgb, vec3(0.66, 0.98, 1.0), skin * clamp(fill * 0.36 + crest * 0.6, 0.0, 1.0));
+  }
+  rgb += skin * uGlow * vec3(0.15, 0.19, 0.18);
+  rgb *= 1.0 - uDim * vec3(0.20, 0.14, 0.06);
+  outColor = vec4(rgb * c.a, c.a) * uAlpha;
+}`;
+  const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+  prog = gl.createProgram();
+  gl.attachShader(prog, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+  gl.useProgram(prog);
+  for (const n of ["uView", "uTex", "uAlpha", "uLevel", "uTime", "uGlow", "uDim"]) loc[n] = gl.getUniformLocation(prog, n);
+  gl.bindVertexArray(gl.createVertexArray());
+  vbo = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+  gl.bufferData(gl.ARRAY_BUFFER, VERTS.byteLength, gl.DYNAMIC_DRAW);
+  const aPos = gl.getAttribLocation(prog, "aPos"), aUV = gl.getAttribLocation(prog, "aUV");
+  gl.enableVertexAttribArray(aPos); gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 16, 0);
+  gl.enableVertexAttribArray(aUV); gl.vertexAttribPointer(aUV, 2, gl.FLOAT, false, 16, 8);
+  gl.uniform1i(loc.uTex, 0);
+  gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+}
+try { initGL(); } catch (err) {
+  gl = null;
+  const c2 = document.createElement("canvas"); c2.id = "gl"; c2.setAttribute("aria-hidden", "true");
+  canvas.replaceWith(c2); canvas = c2; ctx2d = canvas.getContext("2d");
+}
+function ibo(nx, ny) {
+  const key = nx + "x" + ny;
+  if (ibos.has(key)) return ibos.get(key);
+  const idx = new Uint16Array(nx * ny * 6); let o = 0;
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    const a = j * (nx + 1) + i, b = a + 1, c = a + nx + 1, d = c + 1;
+    idx[o++] = a; idx[o++] = b; idx[o++] = c; idx[o++] = b; idx[o++] = d; idx[o++] = c;
+  }
+  const buf = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW);
+  ibos.set(key, buf); return buf;
+}
+function addTex(name, img) {
+  const t = { w: img.naturalWidth, h: img.naturalHeight, img };
+  if (gl) {
+    t.t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t.t);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  }
+  TEX[name] = t;
+}
+// Draw one image as an (nx x ny) grid; map(s, t) gives the stage position of image point (s, t) in 0..1.
+function drawGrid(name, nx, ny, map, alpha, fx) {
+  const tx = TEX[name];
+  if (!tx || alpha <= 0.003) return;
+  if (gl) {
+    let o = 0;
+    for (let j = 0; j <= ny; j++) for (let i = 0; i <= nx; i++) {
+      const s = i / nx, t = j / ny, p = map(s, t);
+      VERTS[o++] = p[0]; VERTS[o++] = p[1]; VERTS[o++] = s; VERTS[o++] = t;
+    }
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, VERTS, 0, o);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo(nx, ny));
+    gl.bindTexture(gl.TEXTURE_2D, tx.t);
+    gl.uniform1f(loc.uAlpha, Math.min(1, alpha));
+    gl.uniform1f(loc.uLevel, fx && fx.level || 0);
+    gl.uniform1f(loc.uGlow, fx && fx.glow || 0);
+    gl.drawElements(gl.TRIANGLES, nx * ny * 6, gl.UNSIGNED_SHORT, 0);
+  } else if (ctx2d) {
+    const p0 = map(0, 0), p1 = map(1, 0), p2 = map(0, 1), sc = canvas.width / view.w;
+    ctx2d.setTransform((p1[0] - p0[0]) / tx.w * sc, (p1[1] - p0[1]) / tx.w * sc, (p2[0] - p0[0]) / tx.h * sc, (p2[1] - p0[1]) / tx.h * sc,
+      (p0[0] - view.x) * sc, (p0[1] - view.y) * sc);
+    ctx2d.globalAlpha = Math.min(1, alpha);
+    ctx2d.drawImage(tx.img, 0, 0);
+  }
+}
+
+/* ---------------- body deformation: body pixel (u, v) -> stage point ---------------- */
+const F = { t: 0, sway: 0, drag: 0, breath: 0, sx: 1, sy: 1, c: 1, s: 0, gx: 300, gy: 280 };
+function D(u, v) {
+  let x = u - R.cx, y = v - R.cy;
+  const n = clamp((y - 110) / 368, 0, 1), n2 = n * n, n3 = n2 * n;
+  x *= 1 + F.breath * Math.exp(-(((y - 150) / 230) ** 2));
+  // the skirt trails behind every motion and ripples along the hem
+  x += F.sway * n2 + Math.sin(F.t * 2.3 - y * 0.018) * 8 * n3;
+  y += Math.sin(F.t * 2.6 + x * 0.017) * 12 * n3 - F.drag * n2 * n;
+  // the tail tip swings on its own
+  const wt = smooth(590, 765, u) * smooth(560, 650, v);
+  x += wt * Math.sin(F.t * 1.6) * 16; y += wt * Math.cos(F.t * 1.6 + 0.5) * 14;
+  // squash and stretch, lean, then into the stage
+  x *= F.sx; y = (y - R.pivot) * F.sy + R.pivot;
+  return [(x * F.c - y * F.s) * R.k + F.gx, (x * F.s + y * F.c) * R.k + F.gy];
+}
+// a part painted onto the skin: every grid point follows the body
+function skin(name, cx, cy, sx, sy, alpha, grid = 4) {
+  const t = TEX[name]; if (!t) return;
+  drawGrid(name, grid, grid, (s, q) => D(cx + (s - 0.5) * t.w * sx, cy + (q - 0.5) * t.h * sy), alpha);
+}
+// a rigid part hinged at a point of the body (arms, tuft)
+function hinged(name, at, anchor, deg, alpha, fx) {
+  const t = TEX[name]; if (!t) return;
+  const P = D(at[0], at[1]), X = D(at[0] + 1, at[1]), Y = D(at[0], at[1] + 1);
+  const jx = [X[0] - P[0], X[1] - P[1]], jy = [Y[0] - P[0], Y[1] - P[1]];
+  const c = Math.cos(deg * RAD), s = Math.sin(deg * RAD);
+  drawGrid(name, 1, 1, (a, b) => {
+    const lx = a * t.w - anchor[0], ly = b * t.h - anchor[1];
+    const rx = lx * c - ly * s, ry = lx * s + ly * c;
+    return [P[0] + jx[0] * rx + jy[0] * ry, P[1] + jx[1] * rx + jy[1] * ry];
+  }, alpha, fx);
+}
+
+/* ---------------- particles (hearts, stars, sparks, z) ---------------- */
+const HEART = "M0,7 C-13,-3 -11,-14 -4.5,-14 C-1.5,-14 0,-11.5 0,-9.5 C0,-11.5 1.5,-14 4.5,-14 C11,-14 13,-3 0,7 Z";
+const STAR = "M0,-12 C2,-3 3,-2 12,0 C3,2 2,3 0,12 C-2,3 -3,2 -12,0 C-3,-2 -2,-3 0,-12 Z";
+const parts = [];
+const pLayer = $("particles"), pBack = $("particlesBack");
+function spawn(kind, x, y, vx, vy, life, size, opts = {}) {
+  if (parts.length > 90) return;
+  let el;
+  if (kind === "z") {
+    el = document.createElementNS(NS, "text"); el.textContent = "z";
+    el.setAttribute("font-family", "Fredoka, Nunito, sans-serif"); el.setAttribute("font-weight", "600");
+    el.setAttribute("font-size", "30"); el.setAttribute("text-anchor", "middle");
+    el.setAttribute("fill", "#dff1ff"); el.setAttribute("stroke", "#0e2533"); el.setAttribute("stroke-width", "2.2");
+    el.setAttribute("paint-order", "stroke");
+  } else if (kind === "spark") {
+    el = document.createElementNS(NS, "circle"); el.setAttribute("r", "1"); el.setAttribute("fill", "url(#sparkG)");
+  } else {
+    el = document.createElementNS(NS, "path");
+    el.setAttribute("d", kind === "heart" ? HEART : STAR);
+    el.setAttribute("fill", kind === "heart" ? "#ff7aa6" : "#ffd56b");
+    el.setAttribute("stroke", "#0e2533"); el.setAttribute("stroke-width", "2.4");
+    el.setAttribute("stroke-linejoin", "round"); el.setAttribute("vector-effect", "non-scaling-stroke");
+  }
+  (opts.back ? pBack : pLayer).appendChild(el);
+  parts.push({ el, kind, x, y, vx, vy, life, age: 0, size, rot: opts.rot || 0, vr: opts.vr || 0, g: opts.g || 0 });
+}
+function updateParts(dt) {
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i];
+    p.age += dt;
+    if (p.age >= p.life) { p.el.remove(); parts.splice(i, 1); continue; }
+    p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
+    if (p.kind === "heart" || p.kind === "z") p.x += Math.sin(p.age * 5 + p.size) * 18 * dt;
+    const k = p.age / p.life, pop = Math.min(1, p.age / 0.22);
+    const s = p.size * (p.kind === "z" ? 0.6 + k * 0.7 : (1.7 * pop - 0.7 * pop * pop) * (1 - 0.3 * k));
+    p.el.setAttribute("transform", `translate(${p.x.toFixed(1)},${p.y.toFixed(1)}) rotate(${p.rot.toFixed(1)}) scale(${Math.max(0.01, s).toFixed(3)})`);
+    p.el.setAttribute("opacity", (1 - k * k).toFixed(3));
+  }
+}
+
+/* ---------------- behaviour state ---------------- */
+let ghostY = 280, T = 0, waveT = 0, phase = 0, mode = "idle", charge = 0, drainAt = 0;
+let hopY = 0, hopV = 0, jumpAt = -1, jumpV = 0;
+let nextBlink = 1.4, blinkEnd = -1, nextLook = 0.8, nextFidget = 5, waveUntil = 0;
+let happyUntil = 0, wideUntil = 0, flashUntil = 0, statusUntil = 0, zNext = 0, sparkNext = 0;
+const pointer = { x: 300, y: 300, last: -10 };
+const statusEl = $("status");
+const STATUS = { idle: "Volti ist bereit", focus: "Volti lädt auf", sleep: "Volti schläft" };
+
+function say(text, secs) { statusEl.textContent = text; statusUntil = T + secs; }
+function jump(v) { if (reduce) return; S.squash.v -= 3.2; jumpAt = T + 0.09; jumpV = v; }
+function celebrate(fromFocus) {
+  jump(760);
+  happyUntil = T + 1.9; flashUntil = T + 0.5;
+  say(fromFocus ? "Voll geladen!" : "Juhu!", 2.2);
+  const n = reduce ? 5 : 12;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 + Math.random() * 0.3, sp = 250 + Math.random() * 170;
+    spawn("star", 300, ghostY + 40, Math.cos(a) * sp, Math.sin(a) * sp - 120, 1.1 + Math.random() * 0.4, 0.8 + Math.random() * 0.7, { g: 520, rot: Math.random() * 90, vr: (Math.random() - .5) * 400, back: true });
+  }
+  for (let i = 0; i < 3; i++) spawn("heart", 250 + i * 50, ghostY - 190, (i - 1) * 50, -230 - Math.random() * 60, 1.6, 1.1, { g: 90 });
+}
+function poke() {
+  if (mode === "sleep") { setMode("idle"); wideUntil = T + 0.9; jump(430); say("Huch, wach!", 1.6); return; }
+  S.squash.v -= 4.6;
+  S.lean.v += (Math.random() < 0.5 ? -1 : 1) * 95;
+  happyUntil = T + 1.15;
+  for (let i = 0; i < 3; i++) spawn("heart", 300 + (i - 1) * 38 + (Math.random() - .5) * 16, ghostY - 150, (i - 1) * 30, -120 - Math.random() * 50, 1.5, 0.9 + Math.random() * 0.4, { g: 40 });
+  if (statusUntil < T) say("Hihi!", 1.2);
+}
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll("[data-mode]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mode === m)));
+  if (m === "focus") charge = 0;
+  statusUntil = 0;
+}
+
+/* ---------------- simulation step ---------------- */
+function tick(dt) {
+  T += dt;
+  const sleepy = S.sleepy.x;
+  waveT += reduce ? 0 : dt * (1 - 0.55 * sleepy);
+  phase += reduce ? 0 : dt * 1.5 * (1 - 0.45 * sleepy);
+
+  // blinking (not while asleep or laughing)
+  if (T >= nextBlink) {
+    if (mode !== "sleep" && S.happy.x < 0.5) { S.eye.t = 0; blinkEnd = T + 0.085; }
+    nextBlink = T + (Math.random() < 0.2 ? 0.3 : 2.2 + Math.random() * 3.6);
+  }
+  if (T >= blinkEnd) S.eye.t = 1;
+
+  // gaze
+  if (mode === "sleep") { S.lookX.t = 0; S.lookY.t = 0.2; }
+  else if (mode === "focus") { S.lookX.t = Math.sin(T * 0.7) * 0.18; S.lookY.t = 0.6; }
+  else if (T - pointer.last < 2.5) {
+    S.lookX.t = clamp((pointer.x - 300) / 230, -1, 1);
+    S.lookY.t = clamp((pointer.y - ghostY - 20) / 230, -1, 1);
+  } else if (T >= nextLook) {
+    const center = Math.random() < 0.4;
+    S.lookX.t = center ? 0 : (Math.random() * 1.6 - 0.8);
+    S.lookY.t = center ? 0 : (Math.random() * 1.0 - 0.45);
+    nextLook = T + 1.2 + Math.random() * 2.8;
+  }
+
+  // small idle fidgets
+  if (mode === "idle" && T >= nextFidget && !reduce) {
+    const r = Math.random();
+    if (r < 0.4) waveUntil = T + 1.3;
+    else if (r < 0.7) S.lean.v += (Math.random() < 0.5 ? -1 : 1) * 70;
+    else jump(300);
+    nextFidget = T + 6 + Math.random() * 6;
+  }
+
+  // mood targets
+  const happy = T < happyUntil;
+  S.happy.t = happy ? 1 : 0;
+  S.wide.t = T < wideUntil ? 1 : 0;
+  S.focus.t = mode === "focus" ? 1 : 0;
+  S.sleepy.t = mode === "sleep" ? 1 : 0;
+  S.low.t = mode === "sleep" ? 1 : 0;
+  S.lean.t = mode === "idle" ? S.lookX.x * 5 : 0;
+  const want = happy ? "laugh" : T < wideUntil ? "o" : mode === "focus" ? "line" : mode === "sleep" ? "o" : "smile";
+  if (want !== mouthNow) { mouthNow = want; S.pop.v += 5; }
+  for (const key in M) M[key].t = key === want ? 1 : 0;
+
+  // arms: 0 = hanging as drawn, positive turns the left arm up, negative the right arm
+  const sw = reduce ? 0 : Math.sin(T * 1.8) * 5;
+  let aL = sw, aR = -(reduce ? 0 : Math.sin(T * 1.8 + 1) * 5);
+  if (mode === "focus") { aL = -16 + sw * 0.4; aR = 16 - sw * 0.4; }
+  if (mode === "sleep") { aL = -26; aR = 26; }
+  if (T < waveUntil && mode === "idle") aR = -70 - Math.sin(T * 16) * 22;
+  if (happy) { aL = 60 + Math.sin(T * 15) * 14; aR = -60 - Math.sin(T * 15 + 0.6) * 14; }
+  S.armL.t = aL; S.armR.t = aR;
+
+  // charging
+  if (mode === "focus") {
+    charge = Math.min(1, charge + dt / 9);
+    if (T >= sparkNext && !reduce) {
+      spawn("spark", 300 + (Math.random() - .5) * 250, 480 - Math.random() * 60, (Math.random() - .5) * 20, -90 - Math.random() * 90, 1.4 + Math.random() * 0.8, 5 + Math.random() * 5);
+      sparkNext = T + 0.06;
+    }
+    if (charge >= 1) { setMode("idle"); celebrate(true); drainAt = T + 1.6; }
+  } else if (T > drainAt) charge = Math.max(0, charge - dt * 0.4);
+
+  // sleep z's
+  if (mode === "sleep" && T >= zNext) { spawn("z", 395, ghostY - 120, 16, -30, 2.8, 1.35); zNext = T + 1.7; }
+
+  S.glow.t = charge * 0.8 + (T < flashUntil ? 0.9 : 0) - sleepy * 0.15;
+  S.ring.t = mode === "focus" ? 1 : 0;
+
+  // springs + hop physics, fixed substeps
+  let acc = dt;
+  while (acc > 1e-6) {
+    const h = Math.min(acc, 1 / 120);
+    for (const key in S) S[key].step(h);
+    for (const key in M) M[key].step(h);
+    if (jumpAt > 0 && T >= jumpAt) { hopV = -jumpV; S.squash.v += 3.5; jumpAt = -1; }
+    if (hopY < 0 || hopV < 0) {
+      hopV += 2600 * h; hopY += hopV * h;
+      if (hopY >= 0) { S.squash.v -= Math.min(6.5, hopV * 0.0065); hopY = 0; hopV = 0; }
+    }
+    acc -= h;
+  }
+  S.tuft.t = -S.lean.x * 0.8 + clamp(hopV * 0.02, -16, 16) + sleepy * 24 + Math.sin(T * 2.2) * 4 * (1 - sleepy);
+  updateParts(dt);
+  if (statusUntil && T > statusUntil) statusUntil = 0;
+}
+
+/* ---------------- draw ---------------- */
+const el = { shadow: $("shadow"), glow: $("glow"), ring: $("ring"), ringFill: $("ringFill"), tuftGlow: $("tuftGlow"), hit: $("hit") };
+const RING_C = 2 * Math.PI * 205;
+let loaded = false;
+function render() {
+  if (!loaded) return;
+  const sleepy = clamp(S.sleepy.x, 0, 1), happy = clamp(S.happy.x, 0, 1), focus = clamp(S.focus.x, 0, 1);
+  const amp = reduce ? 0 : 9 * (1 - 0.45 * sleepy);
+  const floatY = Math.sin(phase) * amp;
+  const velY = Math.cos(phase) * amp * 1.5 + hopV;
+
+  // frame parameters for the body deformation
+  const sy = S.squash.x;
+  F.t = waveT;
+  F.sway = (reduce ? 0 : Math.sin(waveT * 1.1) * 12) - clamp(S.lean.v * 0.28, -40, 40);
+  F.drag = clamp(velY * 0.035, -30, 30) / R.k;
+  F.breath = reduce ? 0 : Math.sin(T * 2.3) * 0.014 * (1 + sleepy);
+  F.sy = sy; F.sx = 1 + (1 - sy) * 0.85;
+  F.c = Math.cos(S.lean.x * RAD); F.s = Math.sin(S.lean.x * RAD);
+  F.gx = 300; F.gy = 280 + floatY + hopY + S.low.x * 20;
+  ghostY = F.gy;
+
+  // backdrop (SVG)
+  const lift = -(floatY + hopY);
+  el.shadow.setAttribute("transform", `translate(300,${(524 + S.low.x * 12).toFixed(1)}) scale(${clamp(1 - lift * 0.0028, 0.45, 1.2).toFixed(3)},1) translate(-300,-524)`);
+  el.shadow.setAttribute("opacity", clamp(0.55 - lift * 0.0022, 0.12, 0.7).toFixed(3));
+  el.glow.setAttribute("cy", (F.gy + 20).toFixed(1));
+  el.glow.setAttribute("opacity", clamp(0.3 + S.glow.x * 0.6, 0.1, 1).toFixed(3));
+  el.ring.setAttribute("opacity", clamp(S.ring.x, 0, 1).toFixed(3));
+  el.ringFill.setAttribute("stroke-dashoffset", (RING_C * (1 - charge)).toFixed(1));
+  const tg = D(R.tuft.at[0], R.tuft.at[1] - 80);
+  el.tuftGlow.setAttribute("cx", tg[0].toFixed(1)); el.tuftGlow.setAttribute("cy", tg[1].toFixed(1));
+  el.tuftGlow.setAttribute("opacity", clamp(charge * 1.1 + (T < flashUntil ? 0.8 : 0), 0, 1).toFixed(3));
+  el.hit.setAttribute("cy", (F.gy + 22).toFixed(1));
+
+  // ghost (WebGL)
+  if (gl) {
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.uniform4f(loc.uView, view.x, view.y, 2 / view.w, 2 / view.h);
+    gl.uniform1f(loc.uTime, T);
+    gl.uniform1f(loc.uDim, sleepy);
+  } else {
+    ctx2d.setTransform(1, 0, 0, 1, 0, 0); ctx2d.clearRect(0, 0, canvas.width, canvas.height);
+  }
+  const flash = T < flashUntil ? 0.9 : 0;
+  hinged("tuft", R.tuft.at, R.tuft.anchor, R.tuft.rest + S.tuft.x, 1, { glow: clamp(charge * 0.9 + flash, 0, 1.2) });
+  const body = TEX.body;
+  drawGrid("body", 30, 34, (s, q) => D(s * body.w, q * body.h), 1, { level: charge, glow: clamp((S.glow.x - charge * 0.6) * 0.6, 0, 1) });
+
+  // face: follows the gaze a little, eyes a little more
+  const lx = S.lookX.x, ly = S.lookY.x;
+  const fx = R.cx + lx * 24, fy = ly * 14 + sleepy * 8;
+  const bs = R.blush[2] * (1 + happy * 0.08);
+  const ba = 0.8 + happy * 0.2 - sleepy * 0.25;
+  skin("blush_L", fx - R.blush[0], R.blush[1] + fy, bs, bs, ba);
+  skin("blush_R", fx + R.blush[0], R.blush[1] + fy, bs, bs, ba);
+
+  // eyes squash shut, then swap to a drawn closed shape (no half-transparent eyes)
+  const blinkC = 1 - clamp(S.eye.x, 0, 1);
+  const close = Math.max(happy, sleepy, blinkC);
+  const w = 1 + clamp(S.wide.x, 0, 1.2) * 0.14;
+  const eyeSy = w * (1 - 0.18 * focus) * (1 - close);
+  const openA = smooth(0.2, 0.3, eyeSy), arcA = 1 - openA;
+  const happyArc = happy >= Math.max(sleepy, blinkC);
+  const ex = lx * 12, ey = R.eyeY + fy + ly * 9;
+  for (const side of [-1, 1]) {
+    const cx = fx + side * R.eyeDX + ex, tag = side < 0 ? "_L" : "_R";
+    skin("eye_open" + tag, cx, ey + 20 * (1 - eyeSy / w), w, Math.max(0.05, eyeSy), openA);
+    if (happyArc) skin("eye_happy" + tag, cx, ey - 4, 1, 1, arcA);
+    else skin("eye_sleep" + tag, cx, ey + 20, 1, 1, arcA);
+  }
+
+  const pop = 1 + S.pop.x * 0.6;
+  const my = R.mouth[1] + fy + ly * 4, mx = fx + lx * 6;
+  skin("mouth_smile", mx, my, 0.8 * pop, 0.8 * pop, M.smile.x);
+  skin("mouth_line", mx, my + 4, 0.7 * pop, 0.7 * pop, M.line.x);
+  const os = (0.75 - 0.25 * sleepy) * pop;
+  const breathe = 1 + Math.sin(T * 1.6) * 0.14 * sleepy;
+  skin("mouth_o", mx, my + 4, os, os * breathe, M.o.x);
+  const chatter = 1 + (reduce ? 0 : Math.sin(T * 17) * 0.07 * happy);
+  skin("mouth_laugh", mx, my + 16, 0.8 * pop, 0.8 * pop * chatter, M.laugh.x);
+
+  hinged("arm_L", R.armL.at, R.armL.anchor, S.armL.x, 1);
+  hinged("arm_R", R.armR.at, R.armR.anchor, S.armR.x, 1);
+
+  if (!statusUntil) {
+    const txt = mode === "focus" ? `Volti lädt auf · ${Math.round(charge * 100)} %` : STATUS[mode];
+    if (statusEl.textContent !== txt) statusEl.textContent = txt;
+  }
+}
+
+/* ---------------- input ---------------- */
+function toStage(e) {
+  const r = stage.getBoundingClientRect();
+  return { x: view.x + (e.clientX - r.left) / r.width * view.w, y: view.y + (e.clientY - r.top) / r.height * view.h };
+}
+front.addEventListener("pointermove", e => { const p = toStage(e); pointer.x = p.x; pointer.y = p.y; pointer.last = T; });
+el.hit.addEventListener("pointerdown", e => { e.preventDefault(); const p = toStage(e); pointer.x = p.x; pointer.y = p.y; pointer.last = T; poke(); });
+el.hit.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); poke(); } });
+document.querySelectorAll("[data-mode]").forEach(b => b.addEventListener("click", () => setMode(b.dataset.mode)));
+$("cheer").addEventListener("click", () => { if (mode === "sleep") setMode("idle"); celebrate(false); });
+if (matchMedia("(pointer: coarse)").matches) $("hint").textContent = "Volti antippen";
+
+/* ---------------- start ---------------- */
+layout();
+new ResizeObserver(() => { layout(); render(); }).observe(stage);
+{
+  const h = location.hash.slice(1);
+  if (h === "fokus") setMode("focus");
+  if (h === "schlafen") setMode("sleep");
+}
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
+  tick(dt); render();
+  requestAnimationFrame(frame);
+}
+const ready = Promise.all(Object.entries(PARTS).map(([name, uri]) => new Promise((res, rej) => {
+  const im = new Image(); im.onload = () => res([name, im]); im.onerror = () => rej(new Error(name)); im.src = uri;
+}))).then(list => {
+  for (const [name, im] of list) addTex(name, im);
+  loaded = true; $("loading").hidden = true;
+  render();
+  last = performance.now();
+  requestAnimationFrame(frame);
+}).catch(() => { $("loading").textContent = "Volti konnte nicht geladen werden."; });
+</script>

@@ -1,0 +1,248 @@
+import type { CSSProperties } from 'preact';
+import { useState } from 'preact/hooks';
+import { RARITY_COLOR, WISH_COST, ghost, item } from '../data/catalog';
+import { fmtDate, nameOf, t } from '../i18n';
+import { CHARGE_DAY_MIN, WEEK_TARGET, chargeWeek, minutesByDay } from '../logic/progress';
+import { fmtMinutes } from '../logic/time';
+import { sfx } from '../platform/audio';
+import { haptic } from '../platform/device';
+import {
+  companionName,
+  currentBoss,
+  dailyDropOpen,
+  now,
+  startSession,
+  todayMinutes,
+  useAppState,
+} from '../state/store';
+import type { TagId } from '../state/store';
+import { Bar, Btn, Chip, Icon, ItemImg } from '../ui/kit';
+import { CompanionSheet, DurationSheet, TagSheet, WardrobeSheet, WishSheet } from '../ui/sheets';
+import { CompanionStage, Portrait } from '../ui/stage';
+
+const PRESETS = [5, 15, 25, 50];
+
+function greeting(): string {
+  const h = new Date(now()).getHours();
+  if (h < 5) return t('hello_night');
+  if (h < 11) return t('hello_morning');
+  if (h < 18) return t('hello_day');
+  if (h < 23) return t('hello_evening');
+  return t('hello_night');
+}
+
+export function WeekDots({ compact }: { compact?: boolean }) {
+  const s = useAppState();
+  const wk = chargeWeek(minutesByDay(s.sessions), now());
+  const letters = t('wd').split(',');
+  return (
+    <div class={`week ${compact ? 'compact' : ''}`} aria-label={`${t('home_week')}: ${t('home_week_count', { n: wk.count, target: WEEK_TARGET })}`}>
+      {wk.days.map((d, i) => (
+        <span key={d.key} class={`wd ${d.charged ? 'on' : ''} ${d.today ? 'today' : ''} ${d.future ? 'future' : ''}`}>
+          <i>{d.charged ? <Icon name="bolt" size={compact ? 11 : 13} /> : null}</i>
+          <small>{letters[i]}</small>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; openPlus: () => void }) {
+  const s = useAppState();
+  const [durOpen, setDurOpen] = useState(false);
+  const [tagOpen, setTagOpen] = useState(false);
+  const [compOpen, setCompOpen] = useState(false);
+  const [wishOpen, setWishOpen] = useState(false);
+  const [dressOpen, setDressOpen] = useState(false);
+  const [dur, setDur] = useState(s.lastDuration);
+  const [tag, setTag] = useState<TagId>(s.lastTag);
+  const [cheer, setCheer] = useState(0);
+
+  const today = todayMinutes(s);
+  const level = Math.min(1, today / s.goal);
+  const full = today >= s.goal;
+  const name = companionName(s);
+  const wk = chargeWeek(minutesByDay(s.sessions), now());
+  const pending = s.pending[0];
+  const boss = currentBoss(s);
+  const bossG = ghost(boss.ghost);
+  const wish = s.wish.target ? item(s.wish.target) : null;
+  const wishCost = wish ? WISH_COST[wish.rarity] : 0;
+  const sleepy = new Date(now()).getHours() >= 23 || new Date(now()).getHours() < 5;
+
+  const start = () => {
+    sfx.start();
+    haptic.success();
+    startSession(dur, tag);
+  };
+
+  return (
+    <div class="page home">
+      <header class="home-head">
+        <div>
+          <p class="eyebrow">{fmtDate(now(), { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+          <h1>{greeting()}</h1>
+        </div>
+        {s.plus ? (
+          <span class="plus-badge" title="Plus">
+            <Icon name="crown" size={16} /> Plus
+          </span>
+        ) : (
+          <button type="button" class="plus-pill" onClick={openPlus}>
+            <Icon name="sparkle" size={15} /> Plus
+          </button>
+        )}
+      </header>
+
+      {s.settings.showWeek && (
+        <div class="week-row">
+          <WeekDots compact />
+          <span class={`week-label ${wk.done ? 'done' : ''}`}>{wk.done ? t('home_week_done') : t('home_week_count', { n: wk.count, target: WEEK_TARGET })}</span>
+        </div>
+      )}
+
+      <section class="hero">
+        <CompanionStage
+          ghostId={s.companion}
+          level={level}
+          mode={sleepy && !full ? 'sleep' : 'idle'}
+          interactive
+          zoom={1.3}
+          overscan={{ top: 0.25, side: 0.12, bottom: 0.06 }}
+          shiftY={10}
+          cheer={cheer}
+          cheerBig={false}
+          onPoke={() => {
+            sfx.poke();
+            haptic.tap();
+          }}
+          class={`hero-stage ${s.plus ? 'supporter' : ''}`}
+          label={name}
+        />
+        <button type="button" class="hero-dress" onClick={() => setDressOpen(true)} aria-label={t('home_dress')}>
+          <Icon name="hanger" size={20} />
+        </button>
+        <button type="button" class="hero-name" onClick={() => setCompOpen(true)} aria-label={t('home_companion_switch')}>
+          <b>{full ? t('home_charged', { name }) : sleepy ? t('home_sleeping', { name }) : t('home_ready', { name })}</b>
+          <Icon name="chevronDown" size={16} />
+        </button>
+        <div class="today-row">
+          <span>
+            <Icon name="bolt" size={14} /> {t('home_today')}
+          </span>
+          <Bar value={level} thin color="var(--charge)" />
+          <span class="today-num">{t('home_goal_of', { n: Math.round(today), goal: s.goal })}</span>
+        </div>
+      </section>
+
+      <section class="launch">
+        <div class="chips center">
+          {PRESETS.map((n) => (
+            <Chip key={n} active={dur === n} onClick={() => setDur(n)}>
+              {n} {t('min')}
+            </Chip>
+          ))}
+          <Chip active={!PRESETS.includes(dur)} onClick={() => setDurOpen(true)} icon="clock">
+            {PRESETS.includes(dur) ? t('home_custom') : `${dur} ${t('min')}`}
+          </Chip>
+        </div>
+        <div class="launch-row">
+          <button type="button" class="tag-btn" onClick={() => setTagOpen(true)}>
+            <Icon name="tag" size={16} /> {t(`tag_${tag}`)}
+          </button>
+          <Btn kind="primary" big icon="bolt" class="start-btn" onClick={start}>
+            {t('home_start')}
+          </Btn>
+        </div>
+      </section>
+
+      {pending ? (
+        <button type="button" class="card drop-card ready" onClick={() => openDrop(pending.id)}>
+          <span class="drop-icon">
+            <Icon name="gift" size={26} />
+          </span>
+          <span class="card-text">
+            <b>{t('home_drop_ready_title')}</b>
+            <small>{t('home_drop_ready_body')}</small>
+          </span>
+          <span class="btn btn-warm btn-small">{t('home_drop_open')}</span>
+        </button>
+      ) : dailyDropOpen(s) ? (
+        <div class="card drop-card">
+          <span class="drop-icon dim">
+            <Icon name="gift" size={24} />
+          </span>
+          <span class="card-text">
+            <b>{t('home_drop_next_title')}</b>
+            <small>{t('home_drop_next_body')}</small>
+          </span>
+          <span class="drop-meter">
+            <Bar value={today / CHARGE_DAY_MIN} thin color="var(--warm)" />
+            <small>{Math.min(CHARGE_DAY_MIN, Math.floor(today))}/{CHARGE_DAY_MIN}</small>
+          </span>
+        </div>
+      ) : (
+        <div class="card drop-card">
+          <span class="drop-icon dim">
+            <Icon name="check" size={24} />
+          </span>
+          <span class="card-text">
+            <b>{t('home_drop_done_title')}</b>
+            <small>{t('home_drop_done_body')}</small>
+          </span>
+        </div>
+      )}
+
+      <div class="duo">
+        <button type="button" class="card mini" onClick={() => setWishOpen(true)} style={{ '--rc': wish ? RARITY_COLOR[wish.rarity] : 'var(--warm)' } as CSSProperties}>
+          <span class="mini-head">
+            <Icon name="star" size={15} /> {t('home_wish')}
+          </span>
+          {wish ? (
+            <>
+              <ItemImg id={wish.id} size={54} class="mini-ghost" />
+              <b class="mini-title">{nameOf(wish)}</b>
+              <Bar value={s.wish.energy / wishCost} thin color="var(--rc)" />
+              <small>{s.wish.energy >= wishCost ? t('home_wish_ready') : `${s.wish.energy} / ${wishCost}`}</small>
+            </>
+          ) : (
+            <>
+              <span class="mini-empty">
+                <Icon name="plus" size={26} />
+              </span>
+              <small>{t('home_wish_pick')}</small>
+            </>
+          )}
+        </button>
+        <div class={`card mini boss ${boss.done ? 'done' : ''}`}>
+          <span class="mini-head">
+            <Icon name="flame" size={15} /> {t('home_boss')}
+          </span>
+          <Portrait id={bossG.id} size={62} class="mini-ghost" />
+          <b class="mini-title">{nameOf(bossG)}</b>
+          <Bar value={wk.minutes / boss.goal} thin color="var(--season)" />
+          <small>{boss.done ? (s.ghosts[boss.ghost]?.via === 'boss' ? t('home_boss_calmed') : t('home_boss_calmed_dupe')) : `${fmtMinutes(wk.minutes, true)} / ${fmtMinutes(boss.goal, true)}`}</small>
+        </div>
+      </div>
+
+      <DurationSheet open={durOpen} onClose={() => setDurOpen(false)} value={dur} onPick={setDur} />
+      <TagSheet open={tagOpen} onClose={() => setTagOpen(false)} value={tag} onPick={setTag} />
+      <CompanionSheet
+        open={compOpen}
+        onClose={() => {
+          setCompOpen(false);
+          setCheer((c) => c + 1);
+        }}
+      />
+      <WishSheet open={wishOpen} onClose={() => setWishOpen(false)} />
+      <WardrobeSheet
+        open={dressOpen}
+        onClose={() => {
+          setDressOpen(false);
+          setCheer((c) => c + 1);
+        }}
+      />
+    </div>
+  );
+}
+

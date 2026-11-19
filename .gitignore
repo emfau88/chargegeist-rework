@@ -1,0 +1,19 @@
+# dependencies and builds
+node_modules/
+dist/
+*.log
+
+# python
+__pycache__/
+*.pyc
+
+# local only: working notes with machine paths, early HTML experiments, screenshots
+PLAN_REWORK.md
+/*.html
+shots/
+
+# editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

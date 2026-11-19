@@ -1,0 +1,16 @@
+import { render } from 'preact';
+import '@fontsource/fredoka/500.css';
+import '@fontsource/fredoka/600.css';
+import '@fontsource/nunito/400.css';
+import '@fontsource/nunito/600.css';
+import '@fontsource/nunito/700.css';
+import '@fontsource/nunito/800.css';
+import './styles.css';
+import { App } from './app';
+import { dev, getState, mutate } from './state/store';
+
+if (import.meta.env.DEV || location.search.includes('debug')) {
+  (window as unknown as { __cg: unknown }).__cg = { dev, getState, mutate };
+}
+
+render(<App />, document.getElementById('app')!);
