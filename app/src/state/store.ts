@@ -77,6 +77,8 @@ export interface Settings {
   breakOffer: boolean;
   showWeek: boolean;
   lang: Lang;
+  /** The living sky: fog, shooting stars and the glow of the moment. */
+  sky: boolean;
 }
 export interface State {
   v: 3;
@@ -113,7 +115,8 @@ export interface State {
   settings: Settings;
   plus: boolean;
   plusOfferSeen: boolean;
-  dev: { speed: boolean; dayOffset: number };
+  /** skyHour: a fixed hour for the sky, to preview the time of day. */
+  dev: { speed: boolean; dayOffset: number; skyHour: number | null };
 }
 
 const KEY = 'chargegeist.v3';
@@ -159,10 +162,11 @@ export function defaultState(): State {
       breakOffer: true,
       showWeek: true,
       lang: 'auto',
+      sky: true,
     },
     plus: false,
     plusOfferSeen: false,
-    dev: { speed: false, dayOffset: 0 },
+    dev: { speed: false, dayOffset: 0, skyHour: null },
   };
 }
 

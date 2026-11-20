@@ -18,6 +18,7 @@ import {
 import type { Lang } from '../state/store';
 import { Btn, Chip, Row, Sheet, Toggle, toast } from '../ui/kit';
 import { AmbientSheet, CompanionSheet, OddsSheet, ThemeSheet } from '../ui/sheets';
+import { useReducedMotion } from '../ui/sky';
 import { Portrait } from '../ui/stage';
 import { theme } from '../ui/themes';
 
@@ -25,6 +26,7 @@ const GOALS = [15, 30, 45, 60, 90, 120];
 
 export function Settings({ openPlus }: { openPlus: () => void }) {
   const s = useAppState();
+  const reduce = useReducedMotion();
   const [sheet, setSheet] = useState<null | 'companion' | 'goal' | 'tags' | 'theme' | 'ambient' | 'lang' | 'privacy' | 'odds' | 'reset' | 'reminder'>(null);
   const close = () => setSheet(null);
   const langName = s.settings.lang === 'auto' ? t('set_lang_auto') : s.settings.lang === 'de' ? 'Deutsch' : 'English';
@@ -67,6 +69,9 @@ export function Settings({ openPlus }: { openPlus: () => void }) {
         </Row>
         <Row icon="calendar" label={t('set_week')}>
           <Toggle on={s.settings.showWeek} onChange={(v) => setSetting('showWeek', v)} label={t('set_week')} />
+        </Row>
+        <Row icon="star" label={t('set_sky')} hint={reduce ? t('set_sky_reduced') : undefined}>
+          <Toggle on={s.settings.sky && !reduce} onChange={(v) => setSetting('sky', v)} label={t('set_sky')} />
         </Row>
         <Row icon="globe" label={t('set_lang')} value={langName} onClick={() => setSheet('lang')} />
       </div>

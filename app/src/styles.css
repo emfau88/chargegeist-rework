@@ -139,15 +139,31 @@ img {
 }
 .stars circle {
   fill: #d8deff;
-  animation: twinkle 3.8s ease-in-out infinite;
+}
+.star-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.6;
+  will-change: opacity;
+  animation: twinkle 4.2s ease-in-out infinite;
+}
+.star-layer.tw-1 {
+  animation-delay: -1.4s;
+  animation-duration: 3.6s;
+}
+.star-layer.tw-2 {
+  animation-delay: -2.8s;
+  animation-duration: 5s;
 }
 @keyframes twinkle {
   0%,
   100% {
-    opacity: 0.2;
+    opacity: 0.25;
   }
   50% {
-    opacity: 0.85;
+    opacity: 0.95;
   }
 }
 .shell {
@@ -3495,4 +3511,182 @@ button.spark-meter:active {
 .bond-perks b {
   color: var(--heart);
   margin-right: 4px;
+}
+
+/* ---------------- living sky ---------------- */
+.sky {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.sky-layer {
+  position: absolute;
+  inset: 0;
+  transition: opacity 4s ease;
+}
+.sky-morning {
+  background:
+    radial-gradient(130% 60% at 50% 100%, rgba(255, 150, 190, 0.42), transparent 72%),
+    radial-gradient(70% 40% at 82% 14%, rgba(255, 185, 205, 0.18), transparent 70%),
+    linear-gradient(180deg, #4b3079 0%, #3b2262 48%, #2b1845 100%);
+}
+.sky-day {
+  background:
+    radial-gradient(80% 45% at 50% 20%, rgba(165, 205, 255, 0.28), transparent 70%),
+    linear-gradient(180deg, #4b5bb9 0%, #323b8a 48%, #1f2358 100%);
+}
+.sky-evening {
+  background:
+    radial-gradient(130% 58% at 50% 100%, rgba(255, 140, 70, 0.5), transparent 72%),
+    radial-gradient(60% 35% at 86% 10%, rgba(255, 110, 140, 0.2), transparent 70%),
+    linear-gradient(180deg, #3a2266 0%, #482250 50%, #3a1628 100%);
+}
+.sky .stars {
+  transition: opacity 4s ease;
+}
+.sky.still .star-layer {
+  animation: none;
+  will-change: auto;
+}
+.sky.paused,
+.sky.paused * {
+  animation-play-state: paused !important;
+}
+.fog {
+  position: absolute;
+  left: -35%;
+  top: -10%;
+  width: 170%;
+  height: 120%;
+  will-change: transform;
+}
+.fog-a {
+  background:
+    radial-gradient(38% 26% at 30% 38%, rgba(150, 130, 255, 0.15), transparent 70%),
+    radial-gradient(32% 22% at 72% 72%, rgba(91, 227, 255, 0.09), transparent 70%);
+  animation: fog-a 45s ease-in-out infinite alternate;
+}
+.fog-b {
+  background:
+    radial-gradient(36% 24% at 66% 28%, rgba(255, 140, 200, 0.1), transparent 70%),
+    radial-gradient(44% 28% at 24% 82%, rgba(120, 160, 255, 0.11), transparent 70%);
+  animation: fog-b 70s ease-in-out infinite alternate;
+}
+@keyframes fog-a {
+  from {
+    transform: translate3d(-9%, 1%, 0);
+  }
+  to {
+    transform: translate3d(10%, -4%, 0);
+  }
+}
+@keyframes fog-b {
+  from {
+    transform: translate3d(9%, 3%, 0);
+  }
+  to {
+    transform: translate3d(-11%, -2%, 0);
+  }
+}
+.shoot {
+  position: absolute;
+  width: 140px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgba(220, 235, 255, 0), rgba(235, 244, 255, 0.95));
+  transform-origin: 100% 50%;
+  opacity: 0;
+  animation: shoot 1.3s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+.shoot::after {
+  content: '';
+  position: absolute;
+  right: -2px;
+  top: -2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 8px 2px rgba(200, 225, 255, 0.8);
+}
+@keyframes shoot {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--a)) translateX(-30px) scaleX(0.3);
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--a)) translateX(300px) scaleX(1);
+  }
+}
+.sky-mood {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+}
+.sky-mood.mood-focus {
+  background: radial-gradient(62% 44% at 50% 36%, color-mix(in srgb, var(--sky-glow) 62%, transparent), transparent 72%);
+  opacity: 0.7;
+}
+.sky.moving .mood-focus {
+  animation: sky-breathe 7s ease-in-out infinite;
+}
+@keyframes sky-breathe {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.95;
+  }
+}
+.sky-mood.mood-drop {
+  background:
+    radial-gradient(70% 28% at 50% 0%, rgba(255, 205, 110, 0.2), transparent 70%),
+    radial-gradient(40% 24% at 85% 92%, rgba(255, 199, 107, 0.1), transparent 70%);
+  opacity: 0.7;
+}
+.sky.moving .mood-drop {
+  animation: sky-gold 6s ease-in-out infinite;
+}
+@keyframes sky-gold {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+.sky-mood.mood-done {
+  background: radial-gradient(60% 40% at 50% 30%, rgba(255, 230, 150, 0.15), transparent 70%);
+  opacity: 1;
+}
+.spark-rain i {
+  position: absolute;
+  top: -10px;
+  border-radius: 50%;
+  background: #fff3c4;
+  box-shadow: 0 0 8px 2px rgba(255, 215, 107, 0.85);
+  animation-name: spark-fall;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+@keyframes spark-fall {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(0, 105vh, 0);
+    opacity: 0;
+  }
 }

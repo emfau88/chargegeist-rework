@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
+import { ghost } from './data/catalog';
 import { lang, t } from './i18n';
 import { setFx } from './platform/audio';
 import { haptic } from './platform/device';
@@ -14,6 +15,8 @@ import { Settings } from './screens/Settings';
 import { useAppState } from './state/store';
 import type { SessionResult } from './state/store';
 import { BondUpHost } from './ui/bond';
+import { Sky, useReducedMotion } from './ui/sky';
+import type { SkyMood } from './ui/sky';
 import { Icon, Toasts } from './ui/kit';
 import { theme } from './ui/themes';
 
@@ -27,26 +30,12 @@ const TABS: { id: Tab; icon: string; label: 'tab_focus' | 'tab_ghosts' | 'tab_pr
   { id: 'settings', icon: 'sliders', label: 'tab_settings' },
 ];
 
-function Stars() {
-  const stars = useMemo(() => {
-    let seed = 7;
-    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-    return Array.from({ length: 70 }, () => ({ x: rnd() * 100, y: rnd() * 70, r: 0.6 + rnd() * 1.3, d: -rnd() * 4 }));
-  }, []);
-  return (
-    <svg class="stars" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-      {stars.map((s, i) => (
-        <circle key={i} cx={s.x} cy={s.y} r={s.r * 0.12} style={{ animationDelay: `${s.d}s` }} />
-      ))}
-    </svg>
-  );
-}
-
 export function App() {
   const s = useAppState();
   const [tab, setTab] = useState<Tab>('focus');
   const [ov, setOv] = useState<Overlay>(null);
   const [plusOpen, setPlusOpen] = useState(false);
+  const reduce = useReducedMotion();
 
   useEffect(() => setFx(s.settings.sound), [s.settings.sound]);
   useEffect(() => {
@@ -102,13 +91,14 @@ export function App() {
     window.scrollTo({ top: 0 });
   }, [key]);
 
+  const mood: SkyMood = s.active ? 'focus' : ov?.k === 'complete' ? 'done' : s.pending.length && s.onboarded ? 'drop' : 'idle';
   const unseen = [...Object.values(s.ghosts), ...Object.values(s.styles)].filter((r) => !r.seen).length;
   const bg = th.img ? `${th.veil}, url(${th.img}) center / cover no-repeat, ${th.css}` : th.css;
 
   return (
     <div class={`app ${s.active ? 'is-focus' : ''} ${tabs ? 'has-tabs' : ''}`}>
       <div class="bg" style={{ background: bg }}>
-        {th.stars && <Stars />}
+        <Sky timeOfDay={th.id === 'night'} stars={th.stars} moving={s.settings.sky && !reduce} mood={mood} glow={ghost(s.companion).glow} hour={s.dev.skyHour} />
       </div>
       <main class="shell">
         <div class="screen" key={key}>
