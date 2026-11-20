@@ -1,4 +1,4 @@
-import { COSTUME_GHOSTS, SETS, setOf } from '../data/catalog';
+import { COSTUME_GHOSTS } from '../data/catalog';
 import { addDays, dayKey, weekDays, weekKey } from './time';
 
 /** A day counts for the charge week, and opens the daily drop, from this many focus minutes. */
@@ -77,25 +77,19 @@ function hash(s: string): number {
   return h >>> 0;
 }
 
-/** The boss of a week: a costume ghost, preferring one you do not own yet. */
-export function pickBoss(week: string, ownedGhosts: ReadonlySet<string>): string {
+/**
+ * The boss of a week: a costume ghost, preferring one you do not own yet,
+ * and never the ghost you are charging with sparks (unless it is the only one left).
+ */
+export function pickBoss(week: string, ownedGhosts: ReadonlySet<string>, charging: string | null = null): string {
   const fresh = COSTUME_GHOSTS.filter((g) => !ownedGhosts.has(g.id));
-  const from = fresh.length ? fresh : COSTUME_GHOSTS;
+  const notCharging = fresh.filter((g) => g.id !== charging);
+  const from = notCharging.length ? notCharging : fresh.length ? fresh : COSTUME_GHOSTS;
   return from[hash(week) % from.length].id;
 }
 
-/* ---------- outfits ---------- */
-export function setProgress(setId: string, ownedItems: ReadonlySet<string>) {
-  const s = setOf(setId);
-  const have = s.items.filter((i) => ownedItems.has(i)).length;
-  return { have, total: s.items.length, done: have === s.items.length };
-}
-export function completeSets(ownedItems: ReadonlySet<string>): string[] {
-  return SETS.filter((s) => s.items.every((i) => ownedItems.has(i))).map((s) => s.id);
-}
-
 /* ---------- achievements ---------- */
-export type AchievementKind = 'sessions' | 'days' | 'goal' | 'drops' | 'hours' | 'weeks' | 'sets';
+export type AchievementKind = 'sessions' | 'days' | 'goal' | 'drops' | 'hours' | 'weeks' | 'costumes';
 export interface Achievement {
   id: string;
   kind: AchievementKind;
@@ -112,7 +106,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'drops10', kind: 'drops', target: 10, energy: 50, icon: 'gift' },
   { id: 'hours10', kind: 'hours', target: 10, energy: 60, icon: 'flame' },
   { id: 'week1', kind: 'weeks', target: 1, energy: 80, icon: 'star' },
-  { id: 'outfit1', kind: 'sets', target: 1, energy: 50, icon: 'hanger' },
+  { id: 'costume1', kind: 'costumes', target: 1, energy: 50, icon: 'ghost' },
   { id: 'hours25', kind: 'hours', target: 25, energy: 100, icon: 'flame' },
   { id: 'hours50', kind: 'hours', target: 50, energy: 150, icon: 'crown' },
 ];
@@ -124,7 +118,8 @@ export interface Counters {
   drops: number;
   minutes: number;
   weeks: number;
-  sets: number;
+  /** Costume ghosts you own. */
+  costumes: number;
 }
 
 export function achievementValue(a: Achievement, c: Counters): number {
@@ -141,8 +136,8 @@ export function achievementValue(a: Achievement, c: Counters): number {
       return c.minutes / 60;
     case 'weeks':
       return c.weeks;
-    case 'sets':
-      return c.sets;
+    case 'costumes':
+      return c.costumes;
   }
 }
 

@@ -1,71 +1,69 @@
 import type { CSSProperties } from 'preact';
 import { useState } from 'preact/hooks';
-import { COMPANIONS, COMPANION_UNLOCK_HOURS, COSTUME_GHOSTS, GHOSTS, ITEMS, RARITY_COLOR, SETS, WISH_COST, ghost, item, unlockOrder } from '../data/catalog';
+import { COMPANIONS, COMPANION_UNLOCK_HOURS, COSTUME_GHOSTS, DROP_STYLES, GHOSTS, RARITY_COLOR, STYLE_KINDS, WISH_COST, ghost, style, stylesOf, unlockOrder } from '../data/catalog';
+import type { Key } from '../i18n';
 import { nameOf, t } from '../i18n';
-import { setProgress } from '../logic/progress';
 import { haptic } from '../platform/device';
-import { companionName, markSeen, outfitOf, ownedItems, useAppState } from '../state/store';
-import { Bar, Icon, ItemImg } from '../ui/kit';
-import { GhostSheet, ItemSheet, WardrobeSheet, WishSheet, ghostUnlockText } from '../ui/sheets';
+import { canUseStyle, companionName, lookOf, markSeen, sparkInfo, sparkTarget, useAppState } from '../state/store';
+import { Bar, Icon } from '../ui/kit';
+import { GhostSheet, StyleItemSheet, StyleSheet, WishSheet, ghostUnlockText } from '../ui/sheets';
 import { Portrait } from '../ui/stage';
+import { SparkPips, SparkPortrait, StyleBadge, StylePreview } from '../ui/style';
 
-type Seg = 'ghosts' | 'wardrobe';
+type Seg = 'ghosts' | 'style';
 
-export function Collection() {
+export function Collection({ openPlus }: { openPlus: () => void }) {
   const s = useAppState();
-  const unseenItems = Object.values(s.items).some((r) => !r.seen);
+  const unseenStyles = Object.values(s.styles).some((r) => !r.seen);
   const unseenGhosts = Object.values(s.ghosts).some((r) => !r.seen);
-  const [seg, setSeg] = useState<Seg>(unseenItems && !unseenGhosts ? 'wardrobe' : 'ghosts');
+  const [seg, setSeg] = useState<Seg>(unseenStyles && !unseenGhosts ? 'style' : 'ghosts');
   const [selGhost, setSelGhost] = useState<string | null>(null);
-  const [selItem, setSelItem] = useState<string | null>(null);
+  const [selStyle, setSelStyle] = useState<string | null>(null);
   const [wishOpen, setWishOpen] = useState(false);
-  const [dress, setDress] = useState<string | null>(null);
-  const items = ownedItems(s);
+  const [styleFor, setStyleFor] = useState<string | null>(null);
   const ghostCount = Object.keys(s.ghosts).length;
-  const wish = s.wish.target ? item(s.wish.target) : null;
+  const styleCount = DROP_STYLES.filter((x) => s.styles[x.id]).length;
+  const wish = s.wish.target ? style(s.wish.target) : null;
   const cost = wish ? WISH_COST[wish.rarity] : 0;
+  const target = sparkTarget(s);
 
   const openGhost = (id: string) => {
     setSelGhost(id);
     markSeen('ghosts', [id]);
   };
-  const openItem = (id: string) => {
-    setSelItem(id);
-    markSeen('items', [id]);
+  const openStyle = (id: string) => {
+    setSelStyle(id);
+    markSeen('styles', [id]);
   };
-  const toDress = (id: string) => {
+  const toStyle = (id: string) => {
     setSelGhost(null);
-    setSelItem(null);
-    setDress(id);
+    setSelStyle(null);
+    setStyleFor(id);
   };
 
   const ghostTile = (id: string) => {
     const g = ghost(id);
     const rec = s.ghosts[id];
-    const set = g.kind === 'costume' ? setProgress(id, items) : null;
+    const costume = g.kind === 'costume';
+    const sp = costume ? sparkInfo(s, id) : null;
     const rc = g.rarity ? RARITY_COLOR[g.rarity] : g.glow;
     return (
       <button
         type="button"
         key={id}
-        class={`tile ghost-tile ${rec ? 'own' : 'missing'} ${rec && !rec.seen ? 'unseen' : ''} ${s.companion === id ? 'active' : ''}`}
+        class={`tile ghost-tile ${rec ? 'own' : 'missing'} ${rec && !rec.seen ? 'unseen' : ''} ${s.companion === id ? 'active' : ''} ${!rec && target === id ? 'charging' : ''}`}
         style={{ '--rc': rc, '--cg': g.glow } as CSSProperties}
         onClick={() => openGhost(id)}
-        aria-label={rec ? companionName(s, id) : `${nameOf(g)}: ${ghostUnlockText(s, id)}`}
+        aria-label={rec ? companionName(s, id) : `${nameOf(g)}: ${sp ? t('spark_count', sp) : ghostUnlockText(s, id)}`}
       >
-        <span class="tile-art">
-          <Portrait id={id} size={84} outfit={outfitOf(s, id)} silhouette={!rec} />
-        </span>
+        <span class="tile-art">{!rec && sp ? <SparkPortrait id={id} size={84} have={sp.have} need={sp.need} /> : <Portrait id={id} size={84} silhouette={!rec} />}</span>
         <b class="tile-name">{rec ? companionName(s, id) : nameOf(g)}</b>
-        {!rec && set && (
+        {!rec && sp && (
           <span class="tile-req">
-            <Bar value={set.have / set.total} thin color="var(--rc)" />
-            <small>
-              {set.have}/{set.total}
-            </small>
+            <SparkPips have={sp.have} need={sp.need} size={11} />
           </span>
         )}
-        {!rec && !set && (
+        {!rec && !sp && (
           <span class="tile-req">
             <small>
               <Icon name="lock" size={11} /> {t('col_tile_hours', { n: COMPANION_UNLOCK_HOURS[unlockOrder(s.firstCompanion).indexOf(id)] ?? 0 })}
@@ -78,6 +76,47 @@ export function Collection() {
             <Icon name="bolt" size={12} />
           </span>
         )}
+        {!rec && target === id && (
+          <span class="target-dot" aria-hidden="true">
+            <Icon name="bolt" size={12} />
+          </span>
+        )}
+      </button>
+    );
+  };
+
+  const styleTile = (id: string) => {
+    const x = style(id);
+    const rec = s.styles[id];
+    const usable = canUseStyle(s, id);
+    const worn = lookOf(s, s.companion)[x.kind] === id;
+    return (
+      <button
+        type="button"
+        key={id}
+        class={`tile style-tile ${usable ? 'own' : 'missing'} ${rec && !rec.seen ? 'unseen' : ''} ${s.wish.target === id ? 'wished' : ''} ${worn ? 'worn' : ''}`}
+        style={{ '--rc': RARITY_COLOR[x.rarity] } as CSSProperties}
+        onClick={() => openStyle(id)}
+        aria-label={usable ? nameOf(x) : `${nameOf(x)}: ${t('col_locked')}`}
+      >
+        <span class="tile-art">{x.kind === 'shimmer' ? <StyleBadge id={id} size={64} /> : <StylePreview id={id} ghostId={null} size={78} live={false} />}</span>
+        <b class="tile-name">{nameOf(x)}</b>
+        {x.plus && !usable && (
+          <span class="plus-dot">
+            <Icon name="crown" size={11} />
+          </span>
+        )}
+        {rec && !rec.seen && <span class="new-dot">{t('new_badge')}</span>}
+        {s.wish.target === id && (
+          <span class="wish-dot">
+            <Icon name="star" size={12} />
+          </span>
+        )}
+        {worn && (
+          <span class="active-dot" aria-hidden="true">
+            <Icon name="check" size={12} />
+          </span>
+        )}
       </button>
     );
   };
@@ -87,7 +126,7 @@ export function Collection() {
       <header class="page-head">
         <h1>{t('col_title')}</h1>
         <div class="segments" role="tablist">
-          {(['ghosts', 'wardrobe'] as Seg[]).map((x) => (
+          {(['ghosts', 'style'] as Seg[]).map((x) => (
             <button
               type="button"
               key={x}
@@ -99,9 +138,9 @@ export function Collection() {
                 setSeg(x);
               }}
             >
-              <Icon name={x === 'ghosts' ? 'ghost' : 'hanger'} size={17} />
-              {t(x === 'ghosts' ? 'col_seg_ghosts' : 'col_seg_wardrobe')}
-              {x === 'wardrobe' && unseenItems && <i class="seg-dot" />}
+              <Icon name={x === 'ghosts' ? 'ghost' : 'palette'} size={17} />
+              {t(x === 'ghosts' ? 'col_seg_ghosts' : 'col_seg_style')}
+              {x === 'style' && unseenStyles && <i class="seg-dot" />}
               {x === 'ghosts' && unseenGhosts && <i class="seg-dot" />}
             </button>
           ))}
@@ -135,11 +174,17 @@ export function Collection() {
         </>
       ) : (
         <>
-          <p class="muted count-line">{t('col_items', { n: items.size, total: ITEMS.length })}</p>
-          <Bar value={items.size / ITEMS.length} color="linear-gradient(90deg, var(--common), var(--rare), var(--epic), var(--mythic))" />
+          <p class="muted count-line">{t('col_styles', { n: styleCount, total: DROP_STYLES.length })}</p>
+          <Bar value={styleCount / DROP_STYLES.length} color="linear-gradient(90deg, var(--common), var(--rare), var(--epic), var(--mythic))" />
 
           <button type="button" class="card wish-banner" onClick={() => setWishOpen(true)} style={{ '--rc': wish ? RARITY_COLOR[wish.rarity] : 'var(--warm)' } as CSSProperties}>
-            {wish ? <ItemImg id={wish.id} size={52} /> : <span class="mini-empty"><Icon name="star" size={24} /></span>}
+            {wish ? (
+              <StyleBadge id={wish.id} size={52} />
+            ) : (
+              <span class="mini-empty">
+                <Icon name="star" size={24} />
+              </span>
+            )}
             <span class="card-text">
               <b>{wish ? nameOf(wish) : t('wish_title')}</b>
               {wish ? (
@@ -154,68 +199,39 @@ export function Collection() {
             <Icon name="chevron" size={18} />
           </button>
 
-          <button type="button" class="card dress-banner" onClick={() => setDress(s.companion)}>
-            <Portrait id={s.companion} size={52} outfit={outfitOf(s, s.companion)} />
+          <button type="button" class="card dress-banner" onClick={() => setStyleFor(s.companion)} style={{ '--cg': ghost(s.companion).glow } as CSSProperties}>
+            <Portrait id={s.companion} size={52} />
             <span class="card-text">
-              <b>{t('ward_title')}</b>
-              <small>{t('ward_body')}</small>
+              <b>{t('style_title')}</b>
+              <small>{t('style_banner', { name: companionName(s) })}</small>
             </span>
-            <Icon name="hanger" size={20} />
+            <Icon name="palette" size={20} />
           </button>
 
-          {SETS.map((set) => {
-            const p = setProgress(set.id, items);
-            const g = ghost(set.id);
-            const joined = !!s.ghosts[set.id];
+          {STYLE_KINDS.map((k) => {
+            const list = stylesOf(k);
+            if (!list.length) return null;
+            const own = list.filter((x) => canUseStyle(s, x.id)).length;
             return (
-              <section class={`set ${p.done ? 'done' : ''}`} key={set.id} style={{ '--sc': g.glow } as CSSProperties}>
+              <section class="set style-set" key={k}>
                 <header class="set-head">
-                  <button type="button" class="set-ghost" onClick={() => openGhost(set.id)} aria-label={nameOf(g)}>
-                    <Portrait id={set.id} size={40} silhouette={!joined} />
-                  </button>
-                  <h2>{t('col_outfit', { name: nameOf(g) })}</h2>
+                  <h2>{t(`col_${k}s` as Key)}</h2>
                   <span class="set-count">
-                    {p.done && <Icon name="check" size={14} />} {p.have}/{p.total}
+                    {own}/{list.length}
                   </span>
                 </header>
-                <Bar value={p.have / p.total} thin color="var(--sc)" />
-                <div class="tiles">
-                  {set.items.map((iid) => {
-                    const it = item(iid);
-                    const rec = s.items[iid];
-                    return (
-                      <button
-                        type="button"
-                        key={iid}
-                        class={`tile ${rec ? 'own' : 'missing'} ${rec && !rec.seen ? 'unseen' : ''} ${s.wish.target === iid ? 'wished' : ''}`}
-                        style={{ '--rc': RARITY_COLOR[it.rarity] } as CSSProperties}
-                        onClick={() => openItem(iid)}
-                        aria-label={rec ? nameOf(it) : t('col_locked')}
-                      >
-                        <span class="tile-art">
-                          <ItemImg id={iid} size={70} silhouette={!rec} />
-                        </span>
-                        {rec ? <b class="tile-name">{nameOf(it)}</b> : <b class="tile-name q">?</b>}
-                        {rec && !rec.seen && <span class="new-dot">{t('new_badge')}</span>}
-                        {s.wish.target === iid && (
-                          <span class="wish-dot">
-                            <Icon name="star" size={12} />
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+                <p class="muted small set-hint">{t(`col_${k}s_hint` as Key)}</p>
+                <div class="tiles">{list.map((x) => styleTile(x.id))}</div>
               </section>
             );
           })}
         </>
       )}
 
-      <GhostSheet id={selGhost} onClose={() => setSelGhost(null)} onDress={toDress} />
-      <ItemSheet id={selItem} onClose={() => setSelItem(null)} onWish={() => setWishOpen(true)} onDress={toDress} />
-      <WishSheet open={wishOpen} onClose={() => setWishOpen(false)} onClaimed={(r) => openItem(r.item)} />
-      <WardrobeSheet open={!!dress} onClose={() => setDress(null)} ghostId={dress} />
+      <GhostSheet id={selGhost} onClose={() => setSelGhost(null)} onStyle={toStyle} />
+      <StyleItemSheet id={selStyle} onClose={() => setSelStyle(null)} onWish={() => setWishOpen(true)} onStyle={toStyle} onPlus={openPlus} />
+      <WishSheet open={wishOpen} onClose={() => setWishOpen(false)} onClaimed={(r) => openStyle(r.style)} />
+      <StyleSheet open={!!styleFor} onClose={() => setStyleFor(null)} ghostId={styleFor} onPlus={openPlus} />
     </div>
   );
 }

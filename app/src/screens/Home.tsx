@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'preact';
 import { useState } from 'preact/hooks';
-import { RARITY_COLOR, WISH_COST, ghost, item } from '../data/catalog';
+import { RARITY_COLOR, WISH_COST, ghost, style } from '../data/catalog';
 import { fmtDate, nameOf, t } from '../i18n';
 import { CHARGE_DAY_MIN, WEEK_TARGET, chargeWeek, minutesByDay } from '../logic/progress';
 import { fmtMinutes } from '../logic/time';
@@ -11,14 +11,16 @@ import {
   currentBoss,
   dailyDropOpen,
   now,
+  sparkTarget,
   startSession,
   todayMinutes,
   useAppState,
 } from '../state/store';
 import type { TagId } from '../state/store';
-import { Bar, Btn, Chip, Icon, ItemImg } from '../ui/kit';
-import { CompanionSheet, DurationSheet, TagSheet, WardrobeSheet, WishSheet } from '../ui/sheets';
+import { Bar, Btn, Chip, Icon } from '../ui/kit';
+import { CompanionSheet, DurationSheet, GhostSheet, SparkMeter, StyleSheet, TagSheet, WishSheet } from '../ui/sheets';
 import { CompanionStage, Portrait } from '../ui/stage';
+import { StyleBadge } from '../ui/style';
 
 const PRESETS = [5, 15, 25, 50];
 
@@ -53,7 +55,8 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
   const [tagOpen, setTagOpen] = useState(false);
   const [compOpen, setCompOpen] = useState(false);
   const [wishOpen, setWishOpen] = useState(false);
-  const [dressOpen, setDressOpen] = useState(false);
+  const [styleFor, setStyleFor] = useState<string | null>(null);
+  const [ghostOpen, setGhostOpen] = useState<string | null>(null);
   const [dur, setDur] = useState(s.lastDuration);
   const [tag, setTag] = useState<TagId>(s.lastTag);
   const [cheer, setCheer] = useState(0);
@@ -66,7 +69,8 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
   const pending = s.pending[0];
   const boss = currentBoss(s);
   const bossG = ghost(boss.ghost);
-  const wish = s.wish.target ? item(s.wish.target) : null;
+  const wish = s.wish.target ? style(s.wish.target) : null;
+  const target = sparkTarget(s);
   const wishCost = wish ? WISH_COST[wish.rarity] : 0;
   const sleepy = new Date(now()).getHours() >= 23 || new Date(now()).getHours() < 5;
 
@@ -119,8 +123,8 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
           class={`hero-stage ${s.plus ? 'supporter' : ''}`}
           label={name}
         />
-        <button type="button" class="hero-dress" onClick={() => setDressOpen(true)} aria-label={t('home_dress')}>
-          <Icon name="hanger" size={20} />
+        <button type="button" class="hero-dress" onClick={() => setStyleFor(s.companion)} aria-label={t('style_title')}>
+          <Icon name="palette" size={20} />
         </button>
         <button type="button" class="hero-name" onClick={() => setCompOpen(true)} aria-label={t('home_companion_switch')}>
           <b>{full ? t('home_charged', { name }) : sleepy ? t('home_sleeping', { name }) : t('home_ready', { name })}</b>
@@ -200,7 +204,7 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
           </span>
           {wish ? (
             <>
-              <ItemImg id={wish.id} size={54} class="mini-ghost" />
+              <StyleBadge id={wish.id} size={54} />
               <b class="mini-title">{nameOf(wish)}</b>
               <Bar value={s.wish.energy / wishCost} thin color="var(--rc)" />
               <small>{s.wish.energy >= wishCost ? t('home_wish_ready') : `${s.wish.energy} / ${wishCost}`}</small>
@@ -225,6 +229,15 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
         </div>
       </div>
 
+      {target && (
+        <section class="spark-card">
+          <p class="spark-card-head">
+            <Icon name="bolt" size={14} /> {t('home_spark')}
+          </p>
+          <SparkMeter ghostId={target} onClick={() => setGhostOpen(target)} />
+        </section>
+      )}
+
       <DurationSheet open={durOpen} onClose={() => setDurOpen(false)} value={dur} onPick={setDur} />
       <TagSheet open={tagOpen} onClose={() => setTagOpen(false)} value={tag} onPick={setTag} />
       <CompanionSheet
@@ -235,11 +248,21 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
         }}
       />
       <WishSheet open={wishOpen} onClose={() => setWishOpen(false)} />
-      <WardrobeSheet
-        open={dressOpen}
+      <StyleSheet
+        open={!!styleFor}
+        ghostId={styleFor}
+        onPlus={openPlus}
         onClose={() => {
-          setDressOpen(false);
+          setStyleFor(null);
           setCheer((c) => c + 1);
+        }}
+      />
+      <GhostSheet
+        id={ghostOpen}
+        onClose={() => setGhostOpen(null)}
+        onStyle={(id) => {
+          setGhostOpen(null);
+          setStyleFor(id);
         }}
       />
     </div>

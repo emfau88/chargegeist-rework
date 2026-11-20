@@ -1,39 +1,33 @@
 import { describe, expect, it } from 'vitest';
-import { COMPANIONS, COSTUME_GHOSTS, GHOSTS, ITEMS, ODDS, POOL_BY_RARITY, SETS, canWear, ghost, item, rarityRank } from '../src/data/catalog';
-import { ITEM_RIGS, RIGS, SLOT_ORDER } from '../src/data/rigs.gen';
+import { COMPANIONS, COSTUME_GHOSTS, DROP_STYLES, GHOSTS, ODDS, POOL_BY_RARITY, STYLES, ghost, rarityRank, sparksNeeded, style, stylesOf } from '../src/data/catalog';
+import { RIGS } from '../src/data/rigs.gen';
 import { CARDS_PER_DROP, PITY_EPIC, PITY_RARE, mulberry32, rollDrop, rollRarity } from '../src/logic/drops';
 import type { Pity } from '../src/logic/drops';
-import { ACHIEVEMENTS, CHARGE_DAY_MIN, bossGoal, chargeWeek, completeSets, dayRun, dueAchievements, minutesByDay, pickBoss, setProgress } from '../src/logic/progress';
+import { ACHIEVEMENTS, CHARGE_DAY_MIN, bossGoal, chargeWeek, dayRun, dueAchievements, minutesByDay, pickBoss } from '../src/logic/progress';
 import type { SessionRec } from '../src/logic/progress';
 import { addDays, dayKey, fmtClock, fmtMinutes, weekDays, weekKey } from '../src/logic/time';
 
 describe('catalog', () => {
-  it('has 6 companions, 10 costume ghosts and 25 pieces', () => {
+  it('has 6 companions and 10 costume ghosts, each with a rig', () => {
     expect(COMPANIONS).toHaveLength(6);
     expect(COSTUME_GHOSTS).toHaveLength(10);
     expect(GHOSTS).toHaveLength(16);
-    expect(ITEMS).toHaveLength(25);
-    expect(new Set(ITEMS.map((i) => i.id)).size).toBe(25);
     expect(COMPANIONS.filter((c) => c.starter).map((c) => c.id)).toEqual(['volti', 'ember', 'luna']);
-  });
-  it('every ghost has a rig, every piece has a placement', () => {
     for (const g of GHOSTS) expect(RIGS[g.id]).toBeTruthy();
-    for (const i of ITEMS) {
-      expect(ITEM_RIGS[i.id]).toBeTruthy();
-      expect(SLOT_ORDER).toContain(i.slot);
-    }
   });
-  it('companions wear pieces, costume ghosts keep their own costume', () => {
-    for (const g of COMPANIONS) expect(canWear(g.id)).toBe(true);
-    for (const g of COSTUME_GHOSTS) expect(canWear(g.id)).toBe(false);
+  it('costume ghosts need 3 sparks when epic and 5 when mythic, companions none', () => {
+    for (const g of COSTUME_GHOSTS) expect(sparksNeeded(g.id)).toBe(g.rarity === 'mythic' ? 5 : 3);
+    for (const g of COMPANIONS) expect(sparksNeeded(g.id)).toBe(0);
   });
-  it('one outfit per costume ghost, and every piece in exactly one outfit', () => {
-    expect(SETS.map((x) => x.id)).toEqual(COSTUME_GHOSTS.map((g) => g.id));
-    const all = SETS.flatMap((x) => x.items);
-    expect(all.sort()).toEqual(ITEMS.map((i) => i.id).sort());
-    for (const x of SETS) for (const id of x.items) expect(item(id).set).toBe(x.id);
+  it('has 10 auras and 9 shimmers with unique ids; the Plus shimmer never drops', () => {
+    expect(stylesOf('aura')).toHaveLength(10);
+    expect(stylesOf('shimmer')).toHaveLength(9);
+    expect(new Set(STYLES.map((x) => x.id)).size).toBe(STYLES.length);
+    for (const x of STYLES) expect(x.id.startsWith(`${x.kind}_`)).toBe(true);
+    expect(STYLES.filter((x) => x.plus).map((x) => x.id)).toEqual(['shimmer_heart']);
+    expect(DROP_STYLES.some((x) => x.plus)).toBe(false);
   });
-  it('every rarity has enough pieces for a full drop', () => {
+  it('every rarity has enough styles for a full drop', () => {
     for (const list of Object.values(POOL_BY_RARITY)) expect(list.length).toBeGreaterThanOrEqual(CARDS_PER_DROP);
   });
 });
@@ -74,7 +68,7 @@ describe('drops', () => {
     for (let i = 0; i < 10_000; i++) {
       const r = rollDrop(new Set(), pity, rng);
       pity = r.pity;
-      const top = Math.max(...r.cards.map((c) => rarityRank(item(c).rarity)));
+      const top = Math.max(...r.cards.map((c) => rarityRank(style(c).rarity)));
       gapRare = top >= 1 ? 0 : gapRare + 1;
       gapEpic = top >= 2 ? 0 : gapEpic + 1;
       maxRare = Math.max(maxRare, gapRare);
@@ -88,28 +82,41 @@ describe('drops', () => {
     const rng = mulberry32(3);
     for (let i = 0; i < 2000; i++) {
       const r = rollDrop(new Set(), { sinceRare: 0, sinceEpic: 0 }, rng, { guarantee: 'rare' });
-      expect(Math.max(...r.cards.map((c) => rarityRank(item(c).rarity)))).toBeGreaterThanOrEqual(1);
+      expect(Math.max(...r.cards.map((c) => rarityRank(style(c).rarity)))).toBeGreaterThanOrEqual(1);
     }
   });
-  it('favours pieces you do not own yet', () => {
+  it('favours styles you do not own yet', () => {
     const rng = mulberry32(11);
-    const owned = new Set(POOL_BY_RARITY.common.slice(0, 5).map((g) => g.id));
+    const owned = new Set(POOL_BY_RARITY.common.slice(0, 2).map((g) => g.id));
     let fresh = 0,
       commons = 0;
     for (let i = 0; i < 5000; i++) {
       for (const c of rollDrop(owned, { sinceRare: 0, sinceEpic: 0 }, rng).cards) {
-        if (item(c).rarity !== 'common') continue;
+        if (style(c).rarity !== 'common') continue;
         commons++;
         if (!owned.has(c)) fresh++;
       }
     }
-    // 85 % preference plus the share of unowned pieces among the rest
+    // 85 % preference plus the share of unowned styles among the rest
     expect(fresh / commons).toBeGreaterThan(0.85);
   });
   it('still fills a drop when everything is owned', () => {
     const rng = mulberry32(5);
-    const all = new Set(ITEMS.map((g) => g.id));
+    const all = new Set(DROP_STYLES.map((g) => g.id));
     for (let i = 0; i < 500; i++) expect(rollDrop(all, { sinceRare: 0, sinceEpic: 0 }, rng).cards).toHaveLength(3);
+  });
+  it('the first drop shows three different auras with a rare or better', () => {
+    const rng = mulberry32(8);
+    for (let i = 0; i < 2000; i++) {
+      const r = rollDrop(new Set(), { sinceRare: 0, sinceEpic: 0 }, rng, { guarantee: 'rare', kinds: ['aura'] });
+      expect(new Set(r.cards).size).toBe(3);
+      for (const c of r.cards) expect(style(c).kind).toBe('aura');
+      expect(Math.max(...r.cards.map((c) => rarityRank(style(c).rarity)))).toBeGreaterThanOrEqual(1);
+    }
+  });
+  it('never offers a Plus style', () => {
+    const rng = mulberry32(13);
+    for (let i = 0; i < 3000; i++) for (const c of rollDrop(new Set(), { sinceRare: 0, sinceEpic: 0 }, rng).cards) expect(style(c).plus).toBe(false);
   });
 });
 
@@ -163,7 +170,7 @@ describe('charge week and runs', () => {
   });
 });
 
-describe('boss, outfits and achievements', () => {
+describe('boss and achievements', () => {
   it('picks a costume ghost as boss, the same all week, preferring unowned', () => {
     const b = pickBoss('2026-11-16', new Set());
     expect(ghost(b).kind).toBe('costume');
@@ -172,23 +179,27 @@ describe('boss, outfits and achievements', () => {
     const all = new Set(COSTUME_GHOSTS.map((g) => g.id));
     expect(ghost(pickBoss('2026-11-23', all)).kind).toBe('costume');
   });
+  it('the boss is never the ghost you charge, unless it is the last one', () => {
+    for (let w = 0; w < 60; w++) {
+      const wk = `2027-01-${String(1 + (w % 28)).padStart(2, '0')}-${w}`;
+      expect(pickBoss(wk, new Set(), 'kitsune')).not.toBe('kitsune');
+    }
+    const allButOwl = new Set(COSTUME_GHOSTS.map((g) => g.id).filter((id) => id !== 'owl'));
+    expect(pickBoss('2026-11-16', allButOwl, 'owl')).toBe('owl');
+  });
   it('scales the boss goal with the daily goal', () => {
     expect(bossGoal(30)).toBe(150);
     expect(bossGoal(15)).toBe(75);
     expect(bossGoal(5)).toBe(60);
   });
-  it('counts outfit progress', () => {
-    expect(setProgress('owl', new Set(['owl_ears']))).toEqual({ have: 1, total: 3, done: false });
-    expect(setProgress('pumpkin', new Set(['pumpkin_hat'])).done).toBe(true);
-    expect(completeSets(new Set(['pumpkin_hat', 'witch_hat', 'witch_collar', 'owl_ears']))).toEqual(['pumpkin', 'witch']);
-  });
   it('grants achievements exactly at their thresholds', () => {
-    const base = { sessions: 0, days: 0, goalDays: 0, drops: 0, minutes: 0, weeks: 0, sets: 0 };
+    const base = { sessions: 0, days: 0, goalDays: 0, drops: 0, minutes: 0, weeks: 0, costumes: 0 };
     expect(dueAchievements(base, {})).toEqual([]);
     expect(dueAchievements({ ...base, sessions: 1 }, {}).map((a) => a.id)).toEqual(['first']);
     expect(dueAchievements({ ...base, sessions: 5 }, { first: 1 }).map((a) => a.id)).toEqual(['sessions5']);
     expect(dueAchievements({ ...base, minutes: 600 }, {}).map((a) => a.id)).toContain('hours10');
     expect(dueAchievements({ ...base, minutes: 599 }, {}).map((a) => a.id)).not.toContain('hours10');
+    expect(dueAchievements({ ...base, costumes: 1 }, {}).map((a) => a.id)).toEqual(['costume1']);
     expect(new Set(ACHIEVEMENTS.map((a) => a.id)).size).toBe(ACHIEVEMENTS.length);
   });
   it('dates are local days', () => {

@@ -9,6 +9,7 @@ __pycache__/
 
 # local only: working notes with machine paths, early HTML experiments, screenshots
 PLAN_REWORK.md
+PLAN_STIL.md
 /*.html
 shots/
 

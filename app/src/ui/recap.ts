@@ -1,10 +1,11 @@
 /** The monthly share card, drawn offline on a canvas (1080 x 1350, a 4:5 post). */
-import { ghost, itemImg } from '../data/catalog';
+import { RARITY_COLOR, ghost, style } from '../data/catalog';
+import { rgbCss, shimmerRgb } from '../fx/shimmer';
 import { fmtDate, fmtNum, t } from '../i18n';
 import { CHARGE_DAY_MIN, minutesByDay } from '../logic/progress';
 import { monthDays, monthKey } from '../logic/time';
-import { loadImage, renderPortrait } from '../rig/rig';
-import { companionName, now, outfitOf } from '../state/store';
+import { renderPortrait } from '../rig/rig';
+import { companionName, now } from '../state/store';
 import type { State } from '../state/store';
 
 export interface MonthStats {
@@ -12,8 +13,8 @@ export interface MonthStats {
   minutes: number;
   sessions: number;
   days: number;
-  /** Pieces and ghosts that came this month, newest first. */
-  finds: { kind: 'item' | 'ghost'; id: string }[];
+  /** Styles and ghosts that came this month, newest first. */
+  finds: { kind: 'style' | 'ghost'; id: string }[];
 }
 
 export function monthStats(s: State, at = now()): MonthStats {
@@ -23,7 +24,7 @@ export function monthStats(s: State, at = now()): MonthStats {
   const byDay = minutesByDay(sess);
   const finds = [
     ...Object.entries(s.ghosts).map(([id, r]) => ({ kind: 'ghost' as const, id, at: r.at, via: r.via })),
-    ...Object.entries(s.items).map(([id, r]) => ({ kind: 'item' as const, id, at: r.at, via: r.via })),
+    ...Object.entries(s.styles).map(([id, r]) => ({ kind: 'style' as const, id, at: r.at, via: r.via })),
   ]
     .filter((f) => monthKey(f.at) === mk && f.via !== 'start')
     .sort((a, b) => b.at - a.at)
@@ -35,6 +36,40 @@ export function monthStats(s: State, at = now()): MonthStats {
     days: [...byDay.values()].filter((m) => m >= CHARGE_DAY_MIN).length,
     finds,
   };
+}
+
+/** A style as a round glowing badge for the share card. */
+function styleBadge(id: string, size: number): HTMLCanvasElement {
+  const x = style(id);
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = size;
+  const ctx = cv.getContext('2d')!;
+  const c = size / 2;
+  const col = x.kind === 'shimmer' ? rgbCss(shimmerRgb(id, RARITY_COLOR[x.rarity], 1.3)) : RARITY_COLOR[x.rarity];
+  const g = ctx.createRadialGradient(c, c, 4, c, c, c);
+  g.addColorStop(0, col);
+  g.addColorStop(0.45, col);
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.globalAlpha = x.kind === 'shimmer' ? 0.9 : 0.55;
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(c, c, c, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  // a few sparkles around an aura
+  if (x.kind !== 'shimmer') {
+    ctx.fillStyle = '#ffffff';
+    for (let i = 0; i < 7; i++) {
+      const a = (i / 7) * Math.PI * 2 + id.length;
+      const r = c * (0.45 + 0.35 * ((i * 37) % 10) / 10);
+      ctx.globalAlpha = 0.6 + 0.4 * ((i * 53) % 10) / 10;
+      ctx.beginPath();
+      ctx.arc(c + Math.cos(a) * r, c + Math.sin(a) * r, size * (0.02 + 0.015 * (i % 3)), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  return cv;
 }
 
 function rr(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -53,10 +88,10 @@ export async function renderRecap(s: State): Promise<HTMLCanvasElement> {
   const m = monthStats(s);
   const glowC = ghost(s.companion).glow;
   await Promise.all([document.fonts.load('600 80px Fredoka'), document.fonts.load('800 40px Nunito'), document.fonts.load('700 30px Nunito')]);
-  const portrait = await renderPortrait({ ghost: s.companion, outfit: outfitOf(s, s.companion) }, 520);
+  const portrait = await renderPortrait({ ghost: s.companion }, 520);
   const shown = m.finds.slice(0, 5);
   const imgs: CanvasImageSource[] = await Promise.all(
-    shown.map((f) => (f.kind === 'ghost' ? renderPortrait({ ghost: f.id, outfit: {} }, 300) : loadImage(itemImg(f.id)))),
+    shown.map((f) => (f.kind === 'ghost' ? renderPortrait({ ghost: f.id }, 300) : Promise.resolve(styleBadge(f.id, 300)))),
   );
 
   const cv = document.createElement('canvas');

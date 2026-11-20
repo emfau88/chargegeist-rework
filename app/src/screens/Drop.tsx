@@ -1,16 +1,17 @@
 import type { CSSProperties } from 'preact';
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { DUPE_ENERGY, RARITY_COLOR, canWear, ghost, item, rarityRank } from '../data/catalog';
+import { DUPE_ENERGY, RARITY_COLOR, SPARK_ENERGY, ghost, rarityRank, style } from '../data/catalog';
 import { nameOf, quoteOf, t } from '../i18n';
 import type { Key } from '../i18n';
 import { PITY_EPIC, epicWithin } from '../logic/drops';
 import { sfx } from '../platform/audio';
 import { haptic } from '../platform/device';
-import { companionName, dresser, keepFromDrop, outfitOf, revealDrop, useAppState, wearItem } from '../state/store';
+import { companionName, keepFromDrop, lookOf, revealDrop, sparkInfo, sparkTarget, useAppState, wearStyle } from '../state/store';
 import type { KeepResult } from '../state/store';
-import { Bar, Btn, Icon, IconBtn, ItemImg, RarityTag } from '../ui/kit';
-import { OddsSheet, SetStrip } from '../ui/sheets';
+import { Bar, Btn, Icon, IconBtn, RarityTag } from '../ui/kit';
+import { OddsSheet } from '../ui/sheets';
 import { CompanionStage } from '../ui/stage';
+import { KindTag, SparkPips, SparkPortrait, StylePreview } from '../ui/style';
 
 function Burst({ color, big }: { color: string; big: boolean }) {
   const n = big ? 16 : 9;
@@ -23,66 +24,94 @@ function Burst({ color, big }: { color: string; big: boolean }) {
   );
 }
 
-/** After keeping: the piece, how far its outfit is, and a try-on with your companion. */
+/** The ghost spark a drop brings, filling up from where it was. */
+function SparkGain({ kept }: { kept: KeepResult }) {
+  const sp = kept.spark;
+  const [have, setHave] = useState(Math.max(0, sp.have - 1));
+  useEffect(() => {
+    const tm = setTimeout(() => {
+      setHave(sp.have);
+      sfx.toggle();
+      haptic.tap();
+    }, 700);
+    return () => clearTimeout(tm);
+  }, []);
+  if (!sp.ghost) {
+    return (
+      <p class="ok-chip warm center-chip">
+        <Icon name="star" size={15} /> {t('spark_all_energy', { n: sp.energy })}
+      </p>
+    );
+  }
+  const g = ghost(sp.ghost);
+  if (sp.joined) {
+    return (
+      <div class="unlock-card joined" style={{ '--rc': g.glow } as CSSProperties}>
+        <CompanionStage ghostId={g.id} level={0.6} zoom={1.3} class="joined-stage" cheer={1} />
+        <span>
+          <b>{t('drop_ghost_joined', { name: nameOf(g) })}</b>
+          <small>“{quoteOf(g)}”</small>
+          <small>{t('drop_ghost_joined_body')}</small>
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div class="card spark-gain" style={{ '--cg': g.glow } as CSSProperties}>
+      <SparkPortrait id={g.id} size={64} have={have} need={sp.need} />
+      <span class="spark-meter-text">
+        <small class="spark-plus">
+          <Icon name="bolt" size={13} /> {t('spark_plus')}
+        </small>
+        <b>{nameOf(g)}</b>
+        <SparkPips have={have} need={sp.need} />
+        <small>{t('spark_count', { have, need: sp.need })}</small>
+      </span>
+    </div>
+  );
+}
+
+/** After keeping: the style on your companion, plus the ghost spark that came along. */
 function Kept({ kept, onClose }: { kept: KeepResult; onClose: () => void }) {
   const s = useAppState();
-  const it = item(kept.item);
-  const owner = ghost(it.set);
-  const who = dresser(s);
-  const [trying, setTrying] = useState(false);
+  const x = style(kept.style);
+  const who = s.companion;
+  const current = lookOf(s, who);
+  const wearing = current[x.kind] === x.id;
   const [cheer, setCheer] = useState(0);
-  const tryOn = () => {
-    wearItem(who, it.id);
-    setTrying(true);
+  useEffect(() => {
+    const tm = setTimeout(() => setCheer((c) => c + 1), 500);
+    return () => clearTimeout(tm);
+  }, []);
+  const wear = () => {
+    wearStyle(who, x.id);
     sfx.unlock();
     haptic.success();
-    setTimeout(() => setCheer((c) => c + 1), 450);
+    setCheer((c) => c + 1);
   };
-  const joined = kept.ghostJoined ? ghost(kept.ghostJoined) : null;
 
   return (
-    <div class="page drop kept" style={{ '--rc': RARITY_COLOR[it.rarity], '--tint': owner.glow } as CSSProperties}>
-      <div class={`kept-hero ${trying ? 'trying' : ''}`}>
+    <div class="page drop kept" style={{ '--rc': RARITY_COLOR[x.rarity], '--tint': ghost(who).glow } as CSSProperties}>
+      <div class="kept-hero trying">
         <span class="rays" />
         <span class="kept-glow" />
-        {trying ? (
-          <CompanionStage ghostId={who} outfit={outfitOf(s, who)} level={0.5} interactive zoom={1.15} overscan={{ top: 0.2, side: 0.1, bottom: 0.02 }} cheer={cheer} class="kept-stage" onPoke={() => sfx.poke()} />
-        ) : (
-          <>
-            <ItemImg id={it.id} size={210} float class="kept-ghost" />
-            <Burst color={RARITY_COLOR[it.rarity]} big />
-          </>
-        )}
+        <CompanionStage ghostId={who} look={{ ...current, [x.kind]: x.id }} level={0.5} interactive zoom={1.15} overscan={{ top: 0.2, side: 0.1, bottom: 0.02 }} cheer={cheer} class="kept-stage" onPoke={() => sfx.poke()} />
+        <Burst color={RARITY_COLOR[x.rarity]} big={rarityRank(x.rarity) >= 2} />
       </div>
       <div class="kept-info">
-        <RarityTag r={it.rarity} />
-        <h1>{nameOf(it)}</h1>
+        <span class="tag-row">
+          <RarityTag r={x.rarity} />
+          <KindTag id={x.id} />
+        </span>
+        <h1>{nameOf(x)}</h1>
         {kept.dupe ? (
           <p class="ok-chip warm">
             <Icon name="star" size={15} /> {t('drop_kept_dupe', { n: kept.energy })}
           </p>
         ) : (
-          <p class="muted">{t('drop_kept', { name: nameOf(it) })}</p>
+          <p class="muted">{wearing ? t('drop_worn', { name: companionName(s, who) }) : t('drop_kept', { name: nameOf(x) })}</p>
         )}
-        {joined ? (
-          <div class="unlock-card joined" style={{ '--rc': joined.glow } as CSSProperties}>
-            <CompanionStage ghostId={joined.id} level={0.6} zoom={1.3} class="joined-stage" cheer={1} />
-            <span>
-              <b>{t('drop_ghost_joined', { name: nameOf(joined) })}</b>
-              <small>“{quoteOf(joined)}”</small>
-              <small>{t('drop_ghost_joined_body')}</small>
-            </span>
-          </div>
-        ) : (
-          <div class="card set-progress" style={{ '--sc': owner.glow } as CSSProperties}>
-            <div class="res-row">
-              <b>{t('drop_set', { name: nameOf(owner), have: kept.set.have, total: kept.set.total })}</b>
-              {kept.set.done && <span class="ok-chip">{t('drop_set_done')}</span>}
-            </div>
-            <Bar value={kept.set.have / kept.set.total} color="var(--sc)" />
-            <SetStrip setId={it.set} size={36} />
-          </div>
-        )}
+        <SparkGain kept={kept} />
         {kept.achievements.map((a) => (
           <div class="unlock-card" key={a}>
             <span class="ach-icon">
@@ -96,10 +125,10 @@ function Kept({ kept, onClose }: { kept: KeepResult; onClose: () => void }) {
         ))}
       </div>
       <div class="stack bottom-actions">
-        {!trying && canWear(who) && !kept.dupe ? (
+        {!wearing ? (
           <>
-            <Btn kind="warm" big icon="hanger" onClick={tryOn}>
-              {t('drop_try', { name: companionName(s, who) })}
+            <Btn kind="warm" big icon="palette" onClick={wear}>
+              {t('drop_wear', { name: companionName(s, who) })}
             </Btn>
             <Btn kind="ghost" onClick={onClose}>
               {t('continue')}
@@ -124,7 +153,7 @@ export function Drop({ id, onClose }: { id: string; onClose: () => void }) {
   const [sel, setSel] = useState<number | null>(null);
   const [kept, setKept] = useState<KeepResult | null>(null);
   const [oddsOpen, setOddsOpen] = useState(false);
-  const owned = useMemo(() => new Set(Object.keys(s.items)), []);
+  const owned = useMemo(() => new Set(Object.keys(s.styles)), []);
   const all = flipped.every(Boolean);
 
   const flip = (i: number) => {
@@ -136,7 +165,7 @@ export function Drop({ id, onClose }: { id: string; onClose: () => void }) {
       }
       return;
     }
-    const r = item(cards[i]).rarity;
+    const r = style(cards[i]).rarity;
     sfx.flip(r);
     if (rarityRank(r) >= 2) haptic.big();
     else haptic.success();
@@ -151,7 +180,7 @@ export function Drop({ id, onClose }: { id: string; onClose: () => void }) {
   // once all are face up, suggest the best new card
   useEffect(() => {
     if (!all || sel !== null) return;
-    const score = (c: string) => (owned.has(c) ? 0 : 10) + rarityRank(item(c).rarity);
+    const score = (c: string) => (owned.has(c) ? 0 : 10) + rarityRank(style(c).rarity);
     let best = 0;
     cards.forEach((c, i) => {
       if (score(c) > score(cards[best])) best = i;
@@ -174,7 +203,9 @@ export function Drop({ id, onClose }: { id: string; onClose: () => void }) {
 
   const title = kind === 'first' ? t('drop_first') : kind === 'week' ? t('drop_week') : t('drop_daily');
   const within = epicWithin(s.pity);
-  const selI = sel !== null ? item(cards[sel]) : null;
+  const selX = sel !== null ? style(cards[sel]) : null;
+  const target = sparkTarget(s);
+  const sp = target ? sparkInfo(s, target) : null;
 
   return (
     <div class="page drop">
@@ -195,16 +226,16 @@ export function Drop({ id, onClose }: { id: string; onClose: () => void }) {
 
       <div class={`cards ${all ? 'all' : ''} ${sel !== null ? 'has-sel' : ''}`}>
         {cards.map((c, i) => {
-          const it = item(c);
+          const x = style(c);
           const isNew = !owned.has(c);
           return (
             <button
               type="button"
               key={c}
-              class={`dcard r-${it.rarity} ${flipped[i] ? 'flipped' : ''} ${sel === i ? 'sel' : ''}`}
-              style={{ '--rc': RARITY_COLOR[it.rarity], '--delay': `${i * 90}ms` } as CSSProperties}
+              class={`dcard r-${x.rarity} ${flipped[i] ? 'flipped' : ''} ${sel === i ? 'sel' : ''}`}
+              style={{ '--rc': RARITY_COLOR[x.rarity], '--delay': `${i * 90}ms` } as CSSProperties}
               onClick={() => flip(i)}
-              aria-label={flipped[i] ? `${nameOf(it)}, ${t(`r_${it.rarity}`)}` : `${t('drop_tap')} ${i + 1}`}
+              aria-label={flipped[i] ? `${nameOf(x)}, ${t(`kind_${x.kind}`)}, ${t(`r_${x.rarity}` as Key)}` : `${t('drop_tap')} ${i + 1}`}
             >
               <span class="dcard-inner">
                 <span class="dcard-back">
@@ -213,27 +244,41 @@ export function Drop({ id, onClose }: { id: string; onClose: () => void }) {
                 </span>
                 <span class="dcard-front">
                   <span class="dcard-shine" />
-                  <ItemImg id={c} size={84} />
-                  <b>{nameOf(it)}</b>
-                  <RarityTag r={it.rarity} />
-                  <small class={isNew ? 'is-new' : 'is-owned'}>{isNew ? t('drop_new') : `+${DUPE_ENERGY[it.rarity]}`}</small>
+                  {flipped[i] ? <StylePreview id={c} ghostId={null} size={92} /> : <span class="dcard-art-ph" />}
+                  <b>{nameOf(x)}</b>
+                  <KindTag id={c} />
+                  <RarityTag r={x.rarity} />
+                  <small class={isNew ? 'is-new' : 'is-owned'}>{isNew ? t('drop_new') : t('drop_owned_short', { n: DUPE_ENERGY[x.rarity] })}</small>
                 </span>
               </span>
-              {flipped[i] && rarityRank(it.rarity) >= 1 && <Burst color={RARITY_COLOR[it.rarity]} big={rarityRank(it.rarity) >= 2} />}
+              {flipped[i] && rarityRank(x.rarity) >= 1 && <Burst color={RARITY_COLOR[x.rarity]} big={rarityRank(x.rarity) >= 2} />}
             </button>
           );
         })}
       </div>
 
       <p class="drop-hint">
-        {all
-          ? selI && owned.has(selI.id)
-            ? t('drop_owned', { n: DUPE_ENERGY[selI.rarity] })
-            : selI
-              ? t('col_piece_of', { name: nameOf(ghost(selI.set)) })
-              : t('drop_choose')
-          : t('drop_tap')}
+        {all ? (selX && owned.has(selX.id) ? t('drop_owned', { n: DUPE_ENERGY[selX.rarity] }) : selX ? t(`col_${selX.kind}s_hint` as Key) : t('drop_choose')) : t('drop_tap')}
       </p>
+
+      {target && sp ? (
+        <div class="drop-spark" style={{ '--cg': ghost(target).glow } as CSSProperties}>
+          <SparkPortrait id={target} size={44} have={sp.have} need={sp.need} />
+          <span class="drop-spark-text">
+            <small>{t('drop_spark_also')}</small>
+            <b>{t('drop_spark_for', { name: nameOf(ghost(target)), have: sp.have, need: sp.need })}</b>
+          </span>
+          <SparkPips have={sp.have} need={sp.need} size={12} />
+        </div>
+      ) : (
+        <div class="drop-spark">
+          <Icon name="star" size={18} />
+          <span class="drop-spark-text">
+            <small>{t('drop_spark_also')}</small>
+            <b>{t('spark_all_energy', { n: SPARK_ENERGY })}</b>
+          </span>
+        </div>
+      )}
 
       <div class="stack bottom-actions">
         {all ? (
@@ -247,11 +292,11 @@ export function Drop({ id, onClose }: { id: string; onClose: () => void }) {
               const r = keepFromDrop(id, cards[sel]);
               sfx.keep();
               haptic.big();
-              if (r.ghostJoined) setTimeout(() => sfx.unlock(), 500);
+              if (r.spark.joined) setTimeout(() => sfx.unlock(), 900);
               setKept(r);
             }}
           >
-            {selI ? t('drop_keep', { name: nameOf(selI) }) : t('drop_choose')}
+            {selX ? t('drop_keep', { name: nameOf(selX) }) : t('drop_choose')}
           </Btn>
         ) : (
           <Btn kind="secondary" big icon="sparkle" onClick={revealAll}>

@@ -1,5 +1,5 @@
-import { ODDS, POOL_BY_RARITY, RARITIES, item, rarityRank } from '../data/catalog';
-import type { Rarity } from '../data/types';
+import { ODDS, POOL_BY_RARITY, RARITIES, rarityRank, style } from '../data/catalog';
+import type { Rarity, StyleKind } from '../data/types';
 
 export type Rng = () => number;
 
@@ -25,7 +25,7 @@ export interface Pity {
 /** A rare-or-better card is guaranteed at the latest in this many drops, epic-or-better in PITY_EPIC. */
 export const PITY_RARE = 3;
 export const PITY_EPIC = 10;
-/** Chance that a card prefers a piece you do not own yet (when one exists at that rarity). */
+/** Chance that a card prefers a style you do not own yet (when one exists at that rarity). */
 export const PREFER_NEW = 0.85;
 export const CARDS_PER_DROP = 3;
 
@@ -41,8 +41,10 @@ export function rollRarity(rng: Rng, min: Rarity = 'common'): Rarity {
 }
 
 export interface RollOptions {
-  /** At least one card has this rarity or better (used for the very first drop). */
+  /** At least one card has this rarity or better (used for the first and the weekly drop). */
   guarantee?: Rarity;
+  /** Only these kinds of style (the very first drop shows auras only). */
+  kinds?: StyleKind[];
 }
 
 export function rollDrop(owned: ReadonlySet<string>, pity: Pity, rng: Rng, opts: RollOptions = {}): { cards: string[]; pity: Pity } {
@@ -66,13 +68,13 @@ export function rollDrop(owned: ReadonlySet<string>, pity: Pity, rng: Rng, opts:
     let r: Rarity = r0;
     let pick: string | null = null;
     while (!pick) {
-      const cands = POOL_BY_RARITY[r].filter((g) => !cards.includes(g.id));
+      const cands = POOL_BY_RARITY[r].filter((g) => !cards.includes(g.id) && (!opts.kinds || opts.kinds.includes(g.kind)));
       if (cands.length) {
         const fresh = cands.filter((g) => !owned.has(g.id));
         const from = fresh.length && rng() < PREFER_NEW ? fresh : cands;
         pick = from[Math.floor(rng() * from.length)].id;
       } else {
-        // every piece of this rarity is already on the table: step down one rarity
+        // every style of this rarity is already on the table: step down one rarity
         const i = rarityRank(r);
         if (i === 0) throw new Error('drop pool exhausted');
         r = RARITIES[i - 1];
@@ -80,7 +82,7 @@ export function rollDrop(owned: ReadonlySet<string>, pity: Pity, rng: Rng, opts:
     }
     cards.push(pick);
   }
-  const top = Math.max(...cards.map((id) => rarityRank(item(id).rarity)));
+  const top = Math.max(...cards.map((id) => rarityRank(style(id).rarity)));
   return {
     cards,
     pity: {

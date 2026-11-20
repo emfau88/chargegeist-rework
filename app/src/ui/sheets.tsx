@@ -2,16 +2,17 @@ import type { CSSProperties } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
   COMPANION_UNLOCK_HOURS,
+  DROP_STYLES,
   GHOSTS,
-  ITEMS,
   ODDS,
   RARITIES,
   RARITY_COLOR,
+  STYLE_KINDS,
   WISH_COST,
-  canWear,
   ghost,
-  item,
-  setOf,
+  sparksNeeded,
+  style,
+  stylesOf,
   unlockOrder,
 } from '../data/catalog';
 import { fmtDate, nameOf, quoteOf, t } from '../i18n';
@@ -20,22 +21,25 @@ import { playAmbient, sfx, stopAmbient } from '../platform/audio';
 import { haptic } from '../platform/device';
 import {
   TAGS,
+  canUseStyle,
   claimWish,
-  clearOutfit,
+  clearLook,
   companionName,
-  dresser,
-  outfitOf,
+  lookOf,
   renameCompanion,
   setActiveCompanion,
   setSetting,
+  setSparkTarget,
   setWish,
-  toggleItem,
+  sparkInfo,
+  sparkTarget,
+  toggleStyle,
   useAppState,
-  wearItem,
 } from '../state/store';
 import type { AmbientId, ClaimResult, State, TagId, ThemeId } from '../state/store';
-import { Bar, Btn, Chip, Icon, ItemImg, RarityTag, Sheet, toast } from './kit';
+import { Bar, Btn, Chip, Icon, RarityTag, Sheet, toast } from './kit';
 import { CompanionStage, Portrait } from './stage';
+import { KindTag, SparkPips, SparkPortrait, StyleBadge, StylePreview } from './style';
 import { THEMES } from './themes';
 
 export const AMBIENTS: { id: AmbientId; plus: boolean; icon: string }[] = [
@@ -48,10 +52,9 @@ export const AMBIENTS: { id: AmbientId; plus: boolean; icon: string }[] = [
   { id: 'cafe', plus: true, icon: 'cup' },
 ];
 
-/** Toasts for everything a new piece brought along. */
-export function announce(r: { item: string; ghostJoined: string | null; achievements: string[] }) {
-  toast(t('drop_kept', { name: nameOf(item(r.item)) }), { item: r.item });
-  if (r.ghostJoined) toast(t('drop_ghost_joined', { name: nameOf(ghost(r.ghostJoined)) }), { ghost: r.ghostJoined });
+/** Toasts for a claimed wish. */
+export function announce(r: ClaimResult) {
+  toast(t('drop_kept', { name: nameOf(style(r.style)) }), { style: r.style });
   r.achievements.forEach((a) => toast(`${t(`ach_${a}` as Key)} · ${t('done_achievement')}`, { icon: 'trophy' }));
 }
 
@@ -62,20 +65,37 @@ export function ghostUnlockText(s: State, id: string): string {
     const i = unlockOrder(s.firstCompanion).indexOf(id);
     return t('set_companions_locked', { n: COMPANION_UNLOCK_HOURS[i] ?? 0 });
   }
-  const n = setOf(id).items.length;
-  return n === 1 ? t('col_unlock_outfit_1') : t('col_unlock_outfit', { n });
+  return t('col_unlock_sparks', { need: sparksNeeded(id) });
 }
 
-/** A row of an outfit's pieces: owned ones in colour, the rest as shadows. */
-export function SetStrip({ setId, size = 38 }: { setId: string; size?: number }) {
+/** A costume ghost's spark progress: filling silhouette, name, pips and count. */
+export function SparkMeter({ ghostId, size = 52, onClick }: { ghostId: string; size?: number; onClick?: () => void }) {
   const s = useAppState();
-  return (
-    <div class="set-strip">
-      {setOf(setId).items.map((id) => (
-        <span class={`strip-item ${s.items[id] ? 'own' : ''}`} key={id} title={s.items[id] ? nameOf(item(id)) : undefined}>
-          <ItemImg id={id} size={size} silhouette={!s.items[id]} />
-        </span>
-      ))}
+  const g = ghost(ghostId);
+  const sp = sparkInfo(s, ghostId);
+  const target = sparkTarget(s) === ghostId;
+  const body = (
+    <>
+      <SparkPortrait id={ghostId} size={size} have={sp.have} need={sp.need} />
+      <span class="spark-meter-text">
+        <b>{nameOf(g)}</b>
+        <SparkPips have={sp.have} need={sp.need} />
+        <small>
+          {t('spark_count', { have: sp.have, need: sp.need })}
+          {target && !s.ghosts[ghostId] ? ` · ${t('spark_charging')}` : ''}
+        </small>
+      </span>
+    </>
+  );
+  const st = { '--cg': g.glow } as CSSProperties;
+  return onClick ? (
+    <button type="button" class="spark-meter" style={st} onClick={onClick}>
+      {body}
+      <Icon name="chevron" size={18} />
+    </button>
+  ) : (
+    <div class="spark-meter" style={st}>
+      {body}
     </div>
   );
 }
@@ -97,6 +117,7 @@ export function OddsSheet({ open, onClose }: { open: boolean; onClose: () => voi
         ))}
       </div>
       <ul class="bullets">
+        <li>{t('drop_odds_spark')}</li>
         <li>{t('drop_odds_pity')}</li>
         <li>{t('drop_odds_new')}</li>
         <li>{t('drop_odds_money')}</li>
@@ -130,7 +151,7 @@ export function CompanionSheet({ open, onClose }: { open: boolean; onClose: () =
                 setActiveCompanion(g.id);
               }}
             >
-              <Portrait id={g.id} size={84} outfit={outfitOf(s, g.id)} silhouette={!have} />
+              <Portrait id={g.id} size={84} silhouette={!have} />
               <b>{have ? companionName(s, g.id) : nameOf(g)}</b>
               <small>{have ? (g.kind === 'costume' ? t('kind_costume') : ' ') : ghostUnlockText(s, g.id)}</small>
             </button>
@@ -173,74 +194,87 @@ export function CompanionSheet({ open, onClose }: { open: boolean; onClose: () =
   );
 }
 
-/* ---------------- wardrobe ---------------- */
-export function WardrobeSheet({ open, onClose, ghostId }: { open: boolean; onClose: () => void; ghostId?: string | null }) {
+/* ---------------- style ---------------- */
+/** Pick a ghost, see it live, and choose its aura, shimmer and charm. */
+export function StyleSheet({ open, onClose, ghostId, onPlus }: { open: boolean; onClose: () => void; ghostId?: string | null; onPlus?: () => void }) {
   const s = useAppState();
-  const wearers = GHOSTS.filter((g) => s.ghosts[g.id] && canWear(g.id));
-  const [who, setWho] = useState(ghostId ?? dresser(s));
+  const mine = GHOSTS.filter((g) => s.ghosts[g.id]);
+  const [who, setWho] = useState(ghostId ?? s.companion);
   const [cheer, setCheer] = useState(0);
   useEffect(() => {
-    if (open) setWho(ghostId && canWear(ghostId) ? ghostId : dresser(s));
+    if (open) setWho(ghostId && s.ghosts[ghostId] ? ghostId : s.companion);
   }, [open, ghostId]);
-  const outfit = outfitOf(s, who);
-  const worn = new Set(Object.values(outfit));
-  const mine = ITEMS.filter((i) => s.items[i.id]);
-  const notWearer = !canWear(s.companion) && !ghostId;
+  const look = lookOf(s, who);
+  const anyOn = Object.keys(look).length > 0;
+  const owned = DROP_STYLES.filter((x) => s.styles[x.id]);
   return (
-    <Sheet open={open} onClose={onClose} title={t('ward_title')} class="wardrobe-sheet">
-      {notWearer && <p class="muted small">{t('ward_cant', { name: companionName(s) })}</p>}
-      {wearers.length > 1 && (
-        <div class="chips ward-who" role="group" aria-label={t('ward_who')}>
-          {wearers.map((g) => (
+    <Sheet open={open} onClose={onClose} title={t('style_title')} class="style-sheet">
+      {mine.length > 1 && (
+        <div class="chips style-who" role="group" aria-label={t('style_who')}>
+          {mine.map((g) => (
             <Chip key={g.id} active={who === g.id} onClick={() => setWho(g.id)}>
               {companionName(s, g.id)}
             </Chip>
           ))}
         </div>
       )}
-      <div class="ward-stage" style={{ '--cg': ghost(who).glow } as CSSProperties}>
-        {open && <CompanionStage key={who} ghostId={who} level={0.25} interactive zoom={1.2} overscan={{ top: 0.18, side: 0.1, bottom: 0.02 }} cheer={cheer} cheerBig={false} onPoke={() => sfx.poke()} />}
+      <div class="style-stage" style={{ '--cg': ghost(who).glow } as CSSProperties}>
+        {open && <CompanionStage key={who} ghostId={who} level={0.35} interactive zoom={1.15} overscan={{ top: 0.18, side: 0.1, bottom: 0.02 }} cheer={cheer} cheerBig={false} onPoke={() => sfx.poke()} />}
       </div>
-      {mine.length === 0 ? (
-        <p class="muted center">{t('ward_empty')}</p>
-      ) : (
-        <>
-          <p class="muted small center">{t('ward_body')}</p>
-          <div class="ward-grid">
-            {mine.map((i) => {
-              const on = worn.has(i.id);
-              return (
-                <button
-                  type="button"
-                  key={i.id}
-                  class={`ward-item ${on ? 'on' : ''}`}
-                  style={{ '--rc': RARITY_COLOR[i.rarity] } as CSSProperties}
-                  aria-pressed={on}
-                  aria-label={nameOf(i)}
-                  onClick={() => {
-                    haptic.tap();
-                    sfx.toggle();
-                    toggleItem(who, i.id);
-                    if (!on) setCheer((c) => c + 1);
-                  }}
-                >
-                  <ItemImg id={i.id} size={58} />
-                  <small>{nameOf(i)}</small>
-                  {on && (
-                    <span class="ward-check">
-                      <Icon name="check" size={12} />
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          {worn.size > 0 && (
-            <Btn kind="ghost" icon="restore" onClick={() => clearOutfit(who)}>
-              {t('ward_clear')}
-            </Btn>
-          )}
-        </>
+      {owned.length === 0 && !s.plus && <p class="muted center">{t('style_empty')}</p>}
+      <p class="muted small center">{t('style_body')}</p>
+      {STYLE_KINDS.map((k) => {
+        const list = stylesOf(k).filter((x) => s.styles[x.id] || x.plus);
+        if (!list.length) return null;
+        return (
+          <section class="style-row" key={k}>
+            <h3 class="sheet-sub">{t(`col_${k}s` as Key)}</h3>
+            <div class="style-grid">
+              {list.map((x) => {
+                const on = look[k] === x.id;
+                const usable = canUseStyle(s, x.id);
+                return (
+                  <button
+                    type="button"
+                    key={x.id}
+                    class={`style-pick ${on ? 'on' : ''} ${usable ? '' : 'locked'}`}
+                    style={{ '--rc': RARITY_COLOR[x.rarity] } as CSSProperties}
+                    aria-pressed={on}
+                    aria-label={nameOf(x)}
+                    onClick={() => {
+                      haptic.tap();
+                      if (!usable) {
+                        onPlus?.();
+                        return;
+                      }
+                      sfx.toggle();
+                      toggleStyle(who, x.id);
+                      if (!on) setCheer((c) => c + 1);
+                    }}
+                  >
+                    <StyleBadge id={x.id} size={54} />
+                    <small>{nameOf(x)}</small>
+                    {on && (
+                      <span class="style-check">
+                        <Icon name="check" size={12} />
+                      </span>
+                    )}
+                    {!usable && (
+                      <span class="style-lock">
+                        <Icon name="crown" size={11} /> Plus
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })}
+      {anyOn && (
+        <Btn kind="ghost" icon="restore" onClick={() => clearLook(who)}>
+          {t('style_clear')}
+        </Btn>
       )}
     </Sheet>
   );
@@ -398,9 +432,9 @@ export function WishSheet({ open, onClose, onClaimed }: { open: boolean; onClose
   const s = useAppState();
   const [choosing, setChoosing] = useState(false);
   useEffect(() => setChoosing(!s.wish.target), [open]);
-  const target = s.wish.target ? item(s.wish.target) : null;
+  const target = s.wish.target ? style(s.wish.target) : null;
   const cost = target ? WISH_COST[target.rarity] : 0;
-  const missing = ITEMS.filter((i) => !s.items[i.id]).sort((a, b) => WISH_COST[a.rarity] - WISH_COST[b.rarity]);
+  const missing = DROP_STYLES.filter((i) => !s.styles[i.id]).sort((a, b) => WISH_COST[a.rarity] - WISH_COST[b.rarity]);
   return (
     <Sheet open={open} onClose={onClose} title={t('wish_title')}>
       <p class="muted">{t('wish_body')}</p>
@@ -410,11 +444,13 @@ export function WishSheet({ open, onClose, onClaimed }: { open: boolean; onClose
       </div>
       {target && !choosing && (
         <div class="wish-target">
-          <ItemImg id={target.id} size={120} float />
+          {open && <StylePreview id={target.id} ghostId={s.companion} size={120} />}
           <div class="wish-target-info">
             <b>{nameOf(target)}</b>
-            <RarityTag r={target.rarity} />
-            <small class="muted">{t('col_piece_of', { name: nameOf(ghost(target.set)) })}</small>
+            <span class="tag-row">
+              <RarityTag r={target.rarity} />
+              <KindTag id={target.id} />
+            </span>
             <Bar value={s.wish.energy / cost} color={RARITY_COLOR[target.rarity]} />
             <small>
               {Math.min(s.wish.energy, cost)} / {cost}
@@ -463,7 +499,7 @@ export function WishSheet({ open, onClose, onClaimed }: { open: boolean; onClose
                   setChoosing(false);
                 }}
               >
-                <ItemImg id={i.id} size={60} />
+                <StyleBadge id={i.id} size={56} />
                 <b>{nameOf(i)}</b>
                 <small>{t('wish_cost', { n: WISH_COST[i.rarity] })}</small>
               </button>
@@ -476,7 +512,7 @@ export function WishSheet({ open, onClose, onClaimed }: { open: boolean; onClose
 }
 
 /* ---------------- ghost detail ---------------- */
-export function GhostSheet({ id, onClose, onDress }: { id: string | null; onClose: () => void; onDress: (ghostId: string) => void }) {
+export function GhostSheet({ id, onClose, onStyle }: { id: string | null; onClose: () => void; onStyle: (ghostId: string) => void }) {
   const s = useAppState();
   const [last, setLast] = useState(id);
   useEffect(() => {
@@ -487,12 +523,16 @@ export function GhostSheet({ id, onClose, onDress }: { id: string | null; onClos
   const g = ghost(gid);
   const rec = s.ghosts[gid];
   const accent = g.rarity ? RARITY_COLOR[g.rarity] : g.glow;
+  const sp = sparkInfo(s, gid);
+  const isTarget = sparkTarget(s) === gid;
   return (
     <Sheet open={!!id} onClose={onClose} class="ghost-sheet">
       <div class="ghost-hero" style={{ '--rc': accent, '--tint': g.glow } as CSSProperties}>
         <span class="ghost-hero-glow" />
         {rec && id ? (
           <CompanionStage ghostId={gid} level={0.3} interactive zoom={1.12} shiftY={14} overscan={{ top: 0.2, side: 0.1, bottom: 0.02 }} class="ghost-hero-stage" onPoke={() => sfx.poke()} />
+        ) : g.kind === 'costume' ? (
+          <SparkPortrait id={gid} size={210} have={sp.have} need={sp.need} class="float" />
         ) : (
           <Portrait id={gid} size={210} silhouette float />
         )}
@@ -530,80 +570,103 @@ export function GhostSheet({ id, onClose, onDress }: { id: string | null; onClos
                   {t('col_make_companion', { name: companionName(s, gid) })}
                 </Btn>
               )}
-              {canWear(gid) ? (
-                <Btn kind="secondary" icon="hanger" onClick={() => onDress(gid)}>
-                  {t('ward_title')}
-                </Btn>
-              ) : (
-                <p class="muted small center">{t('col_own_costume')}</p>
-              )}
+              <Btn kind="secondary" icon="palette" onClick={() => onStyle(gid)}>
+                {t('style_title')}
+              </Btn>
             </div>
           </>
-        ) : (
+        ) : g.kind === 'costume' ? (
           <>
-            <p class="unlock-hint">
-              <Icon name="lock" size={16} /> {ghostUnlockText(s, gid)}
-            </p>
-            {g.kind === 'costume' && (
-              <>
-                <SetStrip setId={gid} size={46} />
-                <p class="muted small">{t('col_unlock_boss')}</p>
-              </>
+            <div class="spark-detail" style={{ '--cg': g.glow } as CSSProperties}>
+              <SparkPips have={sp.have} need={sp.need} size={20} />
+              <b>{t('spark_count', { have: sp.have, need: sp.need })}</b>
+              <small class="muted">{t('spark_hint')}</small>
+            </div>
+            {isTarget ? (
+              <p class="ok-chip center-chip">
+                <Icon name="bolt" size={15} /> {t('spark_is_target')}
+              </p>
+            ) : (
+              <Btn
+                kind="primary"
+                icon="bolt"
+                onClick={() => {
+                  setSparkTarget(gid);
+                  sfx.unlock();
+                  haptic.success();
+                }}
+              >
+                {t('spark_charge_this')}
+              </Btn>
             )}
+            <p class="muted small center">{t('col_unlock_boss')}</p>
           </>
+        ) : (
+          <p class="unlock-hint">
+            <Icon name="lock" size={16} /> {ghostUnlockText(s, gid)}
+          </p>
         )}
       </div>
     </Sheet>
   );
 }
 
-/* ---------------- piece detail ---------------- */
-export function ItemSheet({ id, onClose, onWish, onDress }: { id: string | null; onClose: () => void; onWish: () => void; onDress: (ghostId: string) => void }) {
+/* ---------------- style detail ---------------- */
+export function StyleItemSheet({ id, onClose, onWish, onStyle, onPlus }: { id: string | null; onClose: () => void; onWish: () => void; onStyle: (ghostId: string) => void; onPlus?: () => void }) {
   const s = useAppState();
   const [last, setLast] = useState(id);
   useEffect(() => {
     if (id) setLast(id);
   }, [id]);
-  const iid = id ?? last;
-  if (!iid) return null;
-  const it = item(iid);
-  const rec = s.items[iid];
-  const owner = ghost(it.set);
-  const who = dresser(s);
-  const wearing = outfitOf(s, who)[it.slot] === iid;
+  const sid = id ?? last;
+  if (!sid) return null;
+  const x = style(sid);
+  const rec = s.styles[sid];
+  const usable = canUseStyle(s, sid);
+  const who = s.companion;
+  const on = lookOf(s, who)[x.kind] === sid;
   return (
     <Sheet open={!!id} onClose={onClose} class="ghost-sheet item-sheet">
-      <div class="ghost-hero" style={{ '--rc': RARITY_COLOR[it.rarity], '--tint': owner.glow } as CSSProperties}>
+      <div class="ghost-hero" style={{ '--rc': RARITY_COLOR[x.rarity], '--tint': ghost(who).glow } as CSSProperties}>
         <span class="ghost-hero-glow" />
-        <ItemImg id={iid} size={180} silhouette={!rec} float />
+        {id && <CompanionStage ghostId={who} look={{ ...lookOf(s, who), [x.kind]: sid }} level={0.35} interactive zoom={1.12} shiftY={14} overscan={{ top: 0.2, side: 0.1, bottom: 0.02 }} class="ghost-hero-stage" onPoke={() => sfx.poke()} />}
       </div>
       <div class="ghost-meta">
-        <h2>{nameOf(it)}</h2>
+        <h2>{nameOf(x)}</h2>
         <div class="ghost-tags">
-          <RarityTag r={it.rarity} />
-          <span class="set-tag" style={{ '--sc': owner.glow } as CSSProperties}>
-            {t('col_piece_of', { name: nameOf(owner) })}
-          </span>
+          <RarityTag r={x.rarity} />
+          <KindTag id={sid} />
         </div>
-        <SetStrip setId={it.set} size={42} />
-        {rec ? (
+        <p class="muted small">{t(`col_${x.kind}s_hint` as Key)}</p>
+        {usable ? (
           <>
-            <p class="muted small">
-              {t('col_found', { date: fmtDate(rec.at) })} · {t(`col_via_${rec.via}`)}
-            </p>
-            <Btn
-              kind="primary"
-              icon="hanger"
-              onClick={() => {
-                if (!wearing) wearItem(who, iid);
-                sfx.toggle();
-                onDress(who);
-              }}
-            >
-              {wearing ? t('ward_title') : t('drop_try', { name: companionName(s, who) })}
-            </Btn>
+            {rec && (
+              <p class="muted small">
+                {t('col_found', { date: fmtDate(rec.at) })} · {t(`col_via_${rec.via}`)}
+              </p>
+            )}
+            <div class="stack">
+              <Btn
+                kind={on ? 'secondary' : 'primary'}
+                icon={on ? 'close' : 'palette'}
+                onClick={() => {
+                  toggleStyle(who, sid);
+                  sfx.toggle();
+                  haptic.tap();
+                }}
+              >
+                {on ? t('style_off', { name: companionName(s, who) }) : t('style_on', { name: companionName(s, who) })}
+              </Btn>
+              <Btn kind="ghost" icon="palette" onClick={() => onStyle(who)}>
+                {t('style_open')}
+              </Btn>
+            </div>
           </>
-        ) : s.wish.target === iid ? (
+        ) : x.plus ? (
+          <Btn kind="warm" icon="crown" onClick={() => onPlus?.()}>
+            {t('col_style_plus')}
+          </Btn>
+        ) : s.wish.target === sid ? (
           <p class="unlock-hint">
             <Icon name="star" size={16} /> {t('col_is_wish')}
           </p>
@@ -612,7 +675,7 @@ export function ItemSheet({ id, onClose, onWish, onDress }: { id: string | null;
             kind="secondary"
             icon="star"
             onClick={() => {
-              setWish(iid);
+              setWish(sid);
               onClose();
               onWish();
             }}
@@ -624,4 +687,3 @@ export function ItemSheet({ id, onClose, onWish, onDress }: { id: string | null;
     </Sheet>
   );
 }
-

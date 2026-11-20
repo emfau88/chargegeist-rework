@@ -29,7 +29,7 @@ async function fresh() {
   return page;
 }
 
-/** A lived-in state: 10 days of focus, some pieces and ghosts, a wish, a pending drop. */
+/** A lived-in state: 10 days of focus, some styles, ghosts and sparks, a wish, a pending drop. */
 async function seed(page, extra = {}) {
   await page.evaluate((extra) => {
     const day = 86400000;
@@ -61,14 +61,15 @@ async function seed(page, extra = {}) {
       x.ghosts = {
         volti: { at: now - 10 * day, via: 'start', seen: true },
         ember: { at: now - 4 * day, via: 'hours', seen: true },
-        pumpkin: { at: now - 2 * day, via: 'set', seen: false },
+        pumpkin: { at: now - 2 * day, via: 'spark', seen: false },
       };
-      const items = ['pumpkin_hat', 'witch_hat', 'owl_ears', 'owl_goggles', 'samurai_sash', 'aviator_scarf', 'pirate_bandana', 'kitsune_tail', 'star_halo'];
-      x.items = {};
-      items.forEach((id, i) => (x.items[id] = { at: now - (items.length - i) * day * 0.9, via: 'drop', seen: i < items.length - 2 }));
-      x.outfits = { volti: { head: 'witch_hat', neck: 'aviator_scarf' }, ember: { brow: 'owl_goggles' } };
-      x.achievements = { first: now - 9 * day, days3: now - 7 * day, goal1: now - 5 * day, sessions5: now - 4 * day, outfit1: now - 2 * day };
-      x.wish = { target: 'witch_collar', energy: 112 };
+      const styles = ['aura_fireflies', 'shimmer_moon', 'aura_bubbles', 'shimmer_mint', 'aura_snow', 'shimmer_rose', 'aura_stardust', 'aura_blossoms', 'shimmer_rainbow'];
+      x.styles = {};
+      styles.forEach((id, i) => (x.styles[id] = { at: now - (styles.length - i) * day * 0.9, via: 'drop', seen: i < styles.length - 2 }));
+      x.looks = { volti: { aura: 'aura_fireflies', shimmer: 'shimmer_mint' }, ember: { aura: 'aura_snow' } };
+      x.sparks = { target: null, have: { kitsune: 3, witch: 1 } };
+      x.achievements = { first: now - 9 * day, days3: now - 7 * day, goal1: now - 5 * day, sessions5: now - 4 * day, costume1: now - 2 * day };
+      x.wish = { target: 'aura_leaves', energy: 112 };
       x.pending = [{ id: 'd1', kind: 'daily', at: now, cards: null }];
       x.dailyDropDay = key(now);
       x.dropsOpened = 8;
@@ -117,9 +118,9 @@ async function shot(page, name, wait = 900) {
   await p.locator('.bottom-actions .btn-warm').click();
   await shot(p, 'ob10-kept', 1400);
   await p.locator('.bottom-actions .btn-warm').click();
-  await shot(p, 'ob10b-tryon', 1600);
+  await shot(p, 'ob10b-worn', 1600);
   await tap(p, T('Continue', 'Weiter'));
-  await shot(p, 'ob11-outfit', 1600);
+  await shot(p, 'ob11-style', 1600);
   await tap(p, T('Continue', 'Weiter'));
   await shot(p, 'ob12-remind');
   await tap(p, T('Not now', 'Jetzt nicht'));
@@ -138,10 +139,19 @@ async function shot(page, name, wait = 900) {
   await shot(p, 'home-scrolled', 600);
   await p.mouse.wheel(0, -1000);
   await sleep(300);
+  await p.locator('.spark-card .spark-meter').click();
+  await shot(p, 'spark-ghost', 1200);
+  await p.keyboard.press('Escape');
+  await sleep(500);
   await p.locator('.hero-dress').click();
-  await shot(p, 'wardrobe', 1400);
-  await p.locator('.ward-item').nth(2).click();
-  await shot(p, 'wardrobe-on', 1400);
+  await shot(p, 'style', 1400);
+  await p.locator('.style-pick').nth(2).click();
+  await shot(p, 'style-on', 1400);
+  await p.locator('.style-sheet').evaluate((e) => {
+    const b = e.querySelector('.sheet-body');
+    (b && b.scrollHeight > b.clientHeight ? b : e).scrollBy(0, 600);
+  });
+  await shot(p, 'style-2', 700);
   await p.keyboard.press('Escape');
   await sleep(500);
   await tap(p, T('Open', 'Öffnen'));
@@ -154,7 +164,7 @@ async function shot(page, name, wait = 900) {
   await shot(p, 'drop-kept', 1500);
   if (await p.locator('.bottom-actions .btn-warm').count()) {
     await p.locator('.bottom-actions .btn-warm').click();
-    await shot(p, 'drop-tryon', 1600);
+    await shot(p, 'drop-worn', 1600);
   }
   await tap(p, T('Continue', 'Weiter'));
   await sleep(400);
@@ -172,11 +182,11 @@ async function shot(page, name, wait = 900) {
   await p.keyboard.press('Escape');
   await sleep(400);
   await p.locator('.segment').nth(1).click();
-  await shot(p, 'collection-wardrobe', 1400);
+  await shot(p, 'collection-style', 1400);
   await p.mouse.wheel(0, 700);
-  await shot(p, 'collection-wardrobe-2', 700);
-  await p.locator('.set .tile.own').nth(1).click();
-  await shot(p, 'item-sheet', 1000);
+  await shot(p, 'collection-style-2', 700);
+  await p.locator('.style-tile.own').nth(1).click();
+  await shot(p, 'style-item-sheet', 1000);
   await p.keyboard.press('Escape');
   await sleep(400);
   await p.mouse.wheel(0, -2000);

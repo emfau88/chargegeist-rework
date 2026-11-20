@@ -1,15 +1,14 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { ghost } from '../data/catalog';
-import type { Outfit } from '../data/rigTypes';
 import { nameOf } from '../i18n';
 import { createRig, renderPortrait } from '../rig/rig';
-import type { RigApi, RigMode, RigOptions } from '../rig/rig';
-import { outfitOf, useAppState } from '../state/store';
+import type { RigApi, RigMode, RigOptions, RigStyle } from '../rig/rig';
+import { lookOf, useAppState } from '../state/store';
 
 interface StageProps {
   ghostId: string;
-  /** What it wears; defaults to its saved outfit. */
-  outfit?: Outfit;
+  /** The style it shows; defaults to its saved style. */
+  look?: RigStyle;
   mode?: RigMode;
   level?: number;
   ring?: number | null;
@@ -26,12 +25,7 @@ interface StageProps {
   apiRef?: { current: RigApi | null };
 }
 
-const outfitKey = (o: Outfit) =>
-  Object.entries(o)
-    .filter(([, v]) => v)
-    .map(([k, v]) => `${k}=${v}`)
-    .sort()
-    .join(',');
+const styleKey = (o: RigStyle) => `${o.aura ?? ''},${o.shimmer ?? ''},${o.charm ?? ''}`;
 
 /** Hosts a live companion rig. The rig itself is created once and steered through props. */
 export function CompanionStage(p: StageProps) {
@@ -40,12 +34,12 @@ export function CompanionStage(p: StageProps) {
   const rig = useRef<RigApi | null>(null);
   const poke = useRef(p.onPoke);
   poke.current = p.onPoke;
-  const outfit = p.outfit ?? outfitOf(s, p.ghostId);
-  const key = `${p.ghostId}|${outfitKey(outfit)}`;
+  const look = p.look ?? lookOf(s, p.ghostId);
+  const key = `${p.ghostId}|${styleKey(look)}`;
   const shown = useRef(key);
 
   useEffect(() => {
-    const r = createRig(host.current!, { ghost: p.ghostId, outfit }, {
+    const r = createRig(host.current!, { ghost: p.ghostId, style: look }, {
       interactive: p.interactive,
       zoom: p.zoom,
       overscan: p.overscan,
@@ -67,7 +61,7 @@ export function CompanionStage(p: StageProps) {
   useEffect(() => {
     if (shown.current === key) return;
     shown.current = key;
-    rig.current?.setLook({ ghost: p.ghostId, outfit });
+    rig.current?.setLook({ ghost: p.ghostId, style: look });
   }, [key]);
   useEffect(() => rig.current?.setMode(p.mode ?? 'idle'), [p.mode]);
   useEffect(() => rig.current?.setLevel(p.level ?? 0), [p.level]);
@@ -80,9 +74,9 @@ export function CompanionStage(p: StageProps) {
 }
 
 const portraitCache = new Map<string, string>();
-/** A still image of a ghost in an outfit, as a data URL (cached). */
-export function usePortrait(id: string, outfit: Outfit = {}, size = 256): string | null {
-  const key = `${id}|${outfitKey(outfit)}|${size}`;
+/** A still image of a ghost, as a data URL (cached). */
+export function usePortrait(id: string, size = 256): string | null {
+  const key = `${id}|${size}`;
   const [url, setUrl] = useState<string | null>(portraitCache.get(key) ?? null);
   useEffect(() => {
     if (portraitCache.has(key)) {
@@ -90,7 +84,7 @@ export function usePortrait(id: string, outfit: Outfit = {}, size = 256): string
       return;
     }
     let live = true;
-    renderPortrait({ ghost: id, outfit }, size).then((cv) => {
+    renderPortrait({ ghost: id }, size).then((cv) => {
       const u = cv.toDataURL('image/png');
       portraitCache.set(key, u);
       if (live) setUrl(u);
@@ -103,12 +97,12 @@ export function usePortrait(id: string, outfit: Outfit = {}, size = 256): string
 }
 
 /** A still ghost. Costume ghosts you have not met yet show as a silhouette. */
-export function Portrait({ id, size, outfit, silhouette, float, class: cls }: { id: string; size: number; outfit?: Outfit; silhouette?: boolean; float?: boolean; class?: string }) {
-  const url = usePortrait(id, outfit, Math.round(size * 2));
+export function Portrait({ id, size, silhouette, float, class: cls }: { id: string; size: number; silhouette?: boolean; float?: boolean; class?: string }) {
+  const url = usePortrait(id, Math.round(size * 2));
   const c = `portrait ${silhouette ? 'sil' : ''} ${float ? 'float' : ''} ${cls ?? ''}`;
   return url ? (
     <img class={c} src={url} width={size} height={size} alt={silhouette ? '' : nameOf(ghost(id))} draggable={false} />
   ) : (
-    <span class={c} style={{ width: size, height: size }} />
+    <span class={c} style={{ width: `${size}px`, height: `${size}px` }} />
   );
 }

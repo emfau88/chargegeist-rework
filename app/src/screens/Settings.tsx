@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { GHOSTS, ITEMS, ghost } from '../data/catalog';
+import { GHOSTS, STYLES, ghost } from '../data/catalog';
 import { nameOf, t } from '../i18n';
 import type { Key } from '../i18n';
 import { askNotifications } from '../platform/device';
@@ -8,7 +8,6 @@ import {
   TAGS,
   companionName,
   dev,
-  outfitOf,
   mutate,
   setGoal,
   setPlus,
@@ -37,7 +36,7 @@ export function Settings({ openPlus }: { openPlus: () => void }) {
       </header>
 
       <button type="button" class="card comp-row" onClick={() => setSheet('companion')}>
-        <Portrait id={s.companion} size={64} outfit={outfitOf(s, s.companion)} />
+        <Portrait id={s.companion} size={64} />
         <span class="card-text">
           <small class="eyebrow">{t('set_companion')}</small>
           <b>{companionName(s)}</b>
@@ -110,11 +109,11 @@ export function Settings({ openPlus }: { openPlus: () => void }) {
         />
         <Row icon="gift" label={t('set_dev_drop')} onClick={() => dev.grantDrop()} />
         <Row
-          icon="hanger"
+          icon="palette"
           label={t('set_dev_all')}
           onClick={() => {
             dev.unlockAll(
-              ITEMS.map((i) => i.id),
+              STYLES.map((i) => i.id),
               GHOSTS.map((g) => g.id),
             );
             toast(t('set_dev_all'), { icon: 'sparkle' });
@@ -126,8 +125,9 @@ export function Settings({ openPlus }: { openPlus: () => void }) {
           onClick={() =>
             mutate((x) => {
               x.onboarded = false;
-              x.items = {};
-              x.outfits = {};
+              x.styles = {};
+              x.looks = {};
+              x.sparks = { target: null, have: {} };
               x.pending = [];
               x.plusOfferSeen = false;
             })

@@ -1,12 +1,12 @@
 import type { ComponentChildren, CSSProperties, JSX } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { RARITY_COLOR, item, itemImg } from '../data/catalog';
-import { ITEM_RIGS } from '../data/rigs.gen';
+import { RARITY_COLOR } from '../data/catalog';
 import type { Rarity } from '../data/types';
-import { nameOf, t } from '../i18n';
+import { t } from '../i18n';
 import { sfx } from '../platform/audio';
 import { haptic } from '../platform/device';
 import { Portrait } from './stage';
+import { StyleBadge } from './style';
 
 /* ---------------- icons ---------------- */
 const P: Record<string, JSX.Element> = {
@@ -250,24 +250,6 @@ export function useCountUp(target: number, ms = 900, from = 0): number {
   return v;
 }
 
-/* ---------------- costume pieces ---------------- */
-export function ItemImg({ id, size, silhouette, float, class: cls }: { id: string; size: number; silhouette?: boolean; float?: boolean; class?: string }) {
-  const r = ITEM_RIGS[id];
-  const k = Math.min(size / r.w, size / r.h);
-  return (
-    <img
-      class={`item-img ${silhouette ? 'sil' : ''} ${float ? 'float' : ''} ${cls ?? ''}`}
-      src={itemImg(id)}
-      width={Math.round(r.w * k)}
-      height={Math.round(r.h * k)}
-      alt={silhouette ? t('col_locked') : nameOf(item(id))}
-      loading="lazy"
-      decoding="async"
-      draggable={false}
-    />
-  );
-}
-
 export function RarityTag({ r }: { r: Rarity }) {
   return (
     <span class="rarity" style={{ '--rc': RARITY_COLOR[r] } as CSSProperties}>
@@ -324,13 +306,13 @@ interface ToastItem {
   id: number;
   text: string;
   ghost?: string;
-  item?: string;
+  style?: string;
   icon?: string;
 }
 let toastSeq = 0;
 let toastList: ToastItem[] = [];
 const toastSubs = new Set<() => void>();
-export function toast(text: string, opts: { ghost?: string; item?: string; icon?: string } = {}) {
+export function toast(text: string, opts: { ghost?: string; style?: string; icon?: string } = {}) {
   const item = { id: ++toastSeq, text, ...opts };
   toastList = [...toastList, item];
   toastSubs.forEach((f) => f());
@@ -352,7 +334,7 @@ export function Toasts() {
     <div class="toasts" aria-live="polite">
       {toastList.map((x) => (
         <div class="toast" key={x.id}>
-          {x.ghost ? <Portrait id={x.ghost} size={36} /> : x.item ? <ItemImg id={x.item} size={34} /> : <Icon name={x.icon ?? 'sparkle'} size={20} />}
+          {x.ghost ? <Portrait id={x.ghost} size={36} /> : x.style ? <StyleBadge id={x.style} size={34} /> : <Icon name={x.icon ?? 'sparkle'} size={20} />}
           <span>{x.text}</span>
         </div>
       ))}

@@ -1,14 +1,12 @@
 import { useEffect, useState } from 'preact/hooks';
-import { COMPANIONS, ghost, item } from '../data/catalog';
+import { COMPANIONS, ghost } from '../data/catalog';
 import { nameOf, t } from '../i18n';
-import { setProgress } from '../logic/progress';
 import { sfx } from '../platform/audio';
 import { askNotifications, haptic } from '../platform/device';
 import {
   TAGS,
   chooseCompanion,
   companionName,
-  dresser,
   finishOnboarding,
   markPlusOfferSeen,
   mutate,
@@ -16,14 +14,14 @@ import {
   setSetting,
   setTags,
   skipTrial,
+  sparkTarget,
   startSession,
-  ownedItems,
   useAppState,
-  wearItem,
+  wearStyle,
 } from '../state/store';
 import type { TagId } from '../state/store';
-import { Bar, Btn, Chip, Icon } from '../ui/kit';
-import { SetStrip } from '../ui/sheets';
+import { Btn, Chip, Icon } from '../ui/kit';
+import { SparkMeter } from '../ui/sheets';
 import { CompanionStage, Portrait } from '../ui/stage';
 import { Plus } from './Plus';
 
@@ -50,7 +48,7 @@ function Dots({ step }: { step: number }) {
 
 export function Onboarding({ openDrop }: { openDrop: (id: string) => void }) {
   const s = useAppState();
-  const post = Object.keys(s.items).length > 0;
+  const post = Object.keys(s.styles).length > 0;
   return post ? <PostSteps /> : <PreSteps openDrop={openDrop} />;
 }
 
@@ -242,16 +240,17 @@ function PreSteps({ openDrop }: { openDrop: (id: string) => void }) {
 
 function PostSteps() {
   const s = useAppState();
-  const [step, setStep] = useState<'outfit' | 'remind' | 'plus'>('outfit');
+  const [step, setStep] = useState<'style' | 'remind' | 'plus'>('style');
   const [time, setTime] = useState(s.settings.reminderTime);
   const [cheer, setCheer] = useState(0);
-  const who = dresser(s);
-  // the piece from the first drop goes straight on
-  const first = Object.entries(s.items).sort((a, b) => a[1].at - b[1].at)[0]?.[0];
+  const who = s.companion;
+  // the style from the first drop goes straight on
+  const first = Object.entries(s.styles).sort((a, b) => a[1].at - b[1].at)[0]?.[0];
+  const target = sparkTarget(s);
 
   useEffect(() => {
-    if (step !== 'outfit' || !first) return;
-    wearItem(who, first);
+    if (step !== 'style' || !first) return;
+    wearStyle(who, first);
     const a = setTimeout(() => {
       setCheer(1);
       sfx.unlock();
@@ -267,24 +266,19 @@ function PostSteps() {
 
   if (step === 'plus') return <Plus onClose={finish} />;
 
-  const set = first ? item(first).set : null;
-  const prog = set ? setProgress(set, ownedItems(s)) : null;
-
   return (
     <div class={`page onboarding ob-${step}`}>
-      {step === 'outfit' && (
-        <div class="ob-body" key="outfit">
+      {step === 'style' && (
+        <div class="ob-body" key="style">
           <CompanionStage ghostId={who} level={0.4} interactive zoom={1.15} overscan={{ top: 0.25, side: 0.1, bottom: 0 }} class="ob-stage" cheer={cheer} onPoke={() => sfx.poke()} />
-          <h1 class="ob-title">{t('ob_outfit_title', { name: companionName(s, who) })}</h1>
-          <p class="ob-text">{t('ob_outfit_body')}</p>
-          {set && prog && (
-            <div class="card set-progress" style={{ '--sc': ghost(set).glow } as never}>
-              <div class="res-row set-row">
-                <Portrait id={set} size={40} silhouette={!s.ghosts[set]} />
-                <b>{t('drop_set', { name: nameOf(ghost(set)), have: prog.have, total: prog.total })}</b>
-              </div>
-              <Bar value={prog.have / prog.total} color="var(--sc)" />
-              <SetStrip setId={set} size={40} />
+          <h1 class="ob-title">{t('ob_style_title', { name: companionName(s, who) })}</h1>
+          <p class="ob-text">{t('ob_style_body')}</p>
+          {target && (
+            <div class="ob-spark">
+              <p class="spark-card-head">
+                <Icon name="bolt" size={14} /> {t('ob_spark_head')}
+              </p>
+              <SparkMeter ghostId={target} />
             </div>
           )}
           <div class="stack bottom-actions">
@@ -298,7 +292,7 @@ function PostSteps() {
       {step === 'remind' && (
         <div class="ob-body" key="remind">
           <div class="remind-art">
-            <Portrait id={s.companion} size={150} outfit={s.outfits[s.companion]} />
+            <Portrait id={s.companion} size={150} />
             <span class="remind-bell">
               <Icon name="bell" size={28} />
             </span>

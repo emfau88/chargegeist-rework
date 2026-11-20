@@ -1,7 +1,5 @@
-import type { Slot } from './rigTypes';
-
 export type Rarity = 'common' | 'rare' | 'epic' | 'mythic';
-/** Companions can wear costume pieces. Costume ghosts wear their own costume. */
+/** Companions join with focus hours. Costume ghosts join with ghost sparks or as a calmed boss. */
 export type GhostKind = 'companion' | 'costume';
 
 export interface GhostDef {
@@ -13,24 +11,32 @@ export interface GhostDef {
   quoteDe: string;
   /** Glow and energy colour. */
   glow: string;
-  /** Costume ghosts only: how rare the ghost is (it shows on the boss card and in the collection). */
+  /** Costume ghosts only: how rare the ghost is. It sets how many sparks it needs. */
   rarity: Rarity | null;
   /** Companions offered in onboarding. */
   starter: boolean;
 }
 
-export interface ItemDef {
+export type StyleKind = 'aura' | 'shimmer' | 'charm';
+
+/** A style: it shows around a ghost and never changes its shape. */
+export interface StyleDef {
+  id: string;
+  kind: StyleKind;
+  nameEn: string;
+  nameDe: string;
+  rarity: Rarity;
+  /** Only with Plus; never in drops or wishes. */
+  plus: boolean;
+}
+
+/** A charm image from the talisman sheet. */
+export interface CharmDef {
   id: string;
   nameEn: string;
   nameDe: string;
   rarity: Rarity;
-  /** The costume ghost whose outfit this piece belongs to. */
-  set: string;
-  slot: Slot;
-}
-
-/** An outfit: all its pieces together bring its costume ghost. The set id is the ghost id. */
-export interface SetDef {
-  id: string;
-  items: string[];
+  /** Image size in pixels. */
+  w: number;
+  h: number;
 }

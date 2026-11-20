@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
-import { RARITY_COLOR, WISH_COST, ghost, item } from '../data/catalog';
+import { RARITY_COLOR, WISH_COST, ghost, style } from '../data/catalog';
 import { nameOf, t } from '../i18n';
 import type { Key } from '../i18n';
 import { ACHIEVEMENTS } from '../logic/progress';
@@ -10,7 +10,8 @@ import { sfx } from '../platform/audio';
 import { cancelSessionEnd, haptic, scheduleSessionEnd } from '../platform/device';
 import { companionName, now, useAppState } from '../state/store';
 import type { SessionResult } from '../state/store';
-import { Bar, Btn, Icon, ItemImg, toast, useCountUp } from '../ui/kit';
+import { Bar, Btn, Icon, toast, useCountUp } from '../ui/kit';
+import { StyleBadge } from '../ui/style';
 import { CompanionStage, Portrait } from '../ui/stage';
 import { WeekDots } from './Home';
 
@@ -20,7 +21,7 @@ export function Complete({ res, onDrop, onBreak, onClose }: { res: SessionResult
   const name = companionName(s);
   const mins = useCountUp(res.minutes, 1200);
   const drop = s.pending.find((p) => p.kind === 'first') ?? s.pending.find((p) => p.kind === 'daily') ?? s.pending[0];
-  const wish = res.wish.target ? item(res.wish.target) : null;
+  const wish = res.wish.target ? style(res.wish.target) : null;
 
   useEffect(() => {
     const a = setTimeout(() => setCheer(1), 200);
@@ -56,7 +57,10 @@ export function Complete({ res, onDrop, onBreak, onClose }: { res: SessionResult
               <Portrait id={res.boss.ghost} size={56} />
               <span>
                 <b>{t('done_boss_calmed')}</b>
-                <small>{res.boss.wasOwned ? t('home_boss_calmed_dupe') : `${nameOf(ghost(res.boss.ghost))} ${t('done_unlocked')}`}</small>
+                <small>
+                  {res.boss.wasOwned ? t('home_boss_calmed_dupe') : `${nameOf(ghost(res.boss.ghost))} ${t('done_unlocked')}`}
+                  {res.boss.sparkRefund > 0 ? ` · ${t('spark_refund', { n: res.boss.sparkRefund })}` : ''}
+                </small>
               </span>
             </div>
           )}
@@ -104,7 +108,7 @@ export function Complete({ res, onDrop, onBreak, onClose }: { res: SessionResult
           </div>
           {wish && (
             <div class="wish-line">
-              <ItemImg id={wish.id} size={30} />
+              <StyleBadge id={wish.id} size={30} />
               <Bar value={res.wish.after / WISH_COST[wish.rarity]} color={RARITY_COLOR[wish.rarity]} />
             </div>
           )}

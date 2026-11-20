@@ -1,22 +1,24 @@
 /**
  * Everything you can collect.
- *  - 6 companions: they charge while you focus and can wear costume pieces.
- *  - 25 costume pieces: they come from drops and wishes.
- *  - 10 costume ghosts: a complete outfit (or a calmed weekly boss) brings one.
+ *  - 6 companions: they charge while you focus and join with focus hours.
+ *  - 10 costume ghosts: every drop brings a ghost spark; enough sparks (or a calmed weekly boss) bring one.
+ *    Ghosts always look exactly like their kit.
+ *  - Style (auras, shimmers, charms): it comes from drops and wishes and never changes a ghost's shape.
  */
-import { ITEM_RIGS, RIGS } from './rigs.gen';
+import { CHARMS } from './charms.gen';
+import { RIGS } from './rigs.gen';
 import type { RigConfig } from './rigTypes';
-import type { GhostDef, ItemDef, Rarity, SetDef } from './types';
+import type { GhostDef, Rarity, StyleDef, StyleKind } from './types';
 
 export const RARITIES: Rarity[] = ['common', 'rare', 'epic', 'mythic'];
 
 /** Chance per card, in percent. Shown to the user on the drop screen. */
 export const ODDS: Record<Rarity, number> = { common: 60, rare: 28, epic: 10, mythic: 2 };
 
-/** A duplicate pick turns into this much wish energy (1 energy = 1 focus minute). */
+/** A duplicate style turns into this much wish energy (1 energy = 1 focus minute). */
 export const DUPE_ENERGY: Record<Rarity, number> = { common: 10, rare: 20, epic: 40, mythic: 80 };
 
-/** What a wished piece costs in wish energy. */
+/** What a wished style costs in wish energy. */
 export const WISH_COST: Record<Rarity, number> = { common: 60, rare: 150, epic: 300, mythic: 600 };
 
 /** Wish energy for calming a boss you already own. */
@@ -71,48 +73,13 @@ export const GHOSTS: GhostDef[] = [
   K('forest', 'Moss', 'Moos', 'mythic', '#7dffa8', 'Grow slowly. Grow anyway.', 'Langsam wachsen. Aber wachsen.'),
 ];
 
-const I = (id: string, nameEn: string, nameDe: string, rarity: Rarity, set: string): ItemDef => ({
-  id,
-  nameEn,
-  nameDe,
-  rarity,
-  set,
-  slot: ITEM_RIGS[id].slot,
-});
-
-export const ITEMS: ItemDef[] = [
-  I('pumpkin_hat', 'Pumpkin Hat', 'Kürbishut', 'rare', 'pumpkin'),
-  I('samurai_helmet', 'Kabuto Helmet', 'Kabuto-Helm', 'epic', 'samurai'),
-  I('samurai_sash', 'Red Sash', 'Rote Schärpe', 'common', 'samurai'),
-  I('witch_hat', 'Witch Hat', 'Hexenhut', 'epic', 'witch'),
-  I('witch_collar', 'Feather Collar', 'Federkragen', 'rare', 'witch'),
-  I('owl_ears', 'Owl Tufts', 'Eulenohren', 'common', 'owl'),
-  I('owl_goggles', 'Brass Goggles', 'Messingbrille', 'rare', 'owl'),
-  I('owl_beak', 'Tiny Beak', 'Kleiner Schnabel', 'common', 'owl'),
-  I('pirate_hat', 'Captain’s Hat', 'Kapitänshut', 'epic', 'pirate'),
-  I('pirate_eyepatch', 'Eye Patch', 'Augenklappe', 'common', 'pirate'),
-  I('pirate_bandana', 'Bandana', 'Bandana', 'common', 'pirate'),
-  I('aviator_cap', 'Aviator Cap', 'Fliegermütze', 'epic', 'aviator'),
-  I('aviator_scarf', 'Gear Scarf', 'Zahnrad-Schal', 'common', 'aviator'),
-  I('aviator_lantern', 'Storm Lantern', 'Sturmlaterne', 'rare', 'aviator'),
-  I('kitsune_mask', 'Fox Mask', 'Fuchsmaske', 'mythic', 'kitsune'),
-  I('kitsune_collar', 'Bell Collar', 'Glöckchenkette', 'common', 'kitsune'),
-  I('kitsune_tail', 'Fox Tail', 'Fuchsschwanz', 'rare', 'kitsune'),
-  I('reaper_hood', 'Shadow Hood', 'Schattenkapuze', 'mythic', 'reaper'),
-  I('reaper_cloak', 'Tattered Cape', 'Zerfetzter Umhang', 'common', 'reaper'),
-  I('reaper_scythe', 'Tiny Scythe', 'Mini-Sense', 'mythic', 'reaper'),
-  I('star_halo', 'Sun Crown', 'Sonnenkrone', 'mythic', 'starmage'),
-  I('star_hood', 'Starry Cap', 'Sternenmütze', 'epic', 'starmage'),
-  I('star_collar', 'Star Collar', 'Sternenkragen', 'rare', 'starmage'),
-  I('forest_antlers', 'Leafy Antlers', 'Blättergeweih', 'epic', 'forest'),
-  I('forest_collar', 'Leaf Collar', 'Blätterkragen', 'rare', 'forest'),
-];
-
 export const COMPANIONS = GHOSTS.filter((g) => g.kind === 'companion');
 export const COSTUME_GHOSTS = GHOSTS.filter((g) => g.kind === 'costume');
 
-/** One outfit per costume ghost, in collection order. */
-export const SETS: SetDef[] = COSTUME_GHOSTS.map((g) => ({ id: g.id, items: ITEMS.filter((i) => i.set === g.id).map((i) => i.id) }));
+/** Ghost sparks a costume ghost needs before it joins, by its rarity. */
+export const SPARKS_NEEDED: Record<Rarity, number> = { common: 2, rare: 2, epic: 3, mythic: 5 };
+/** Wish energy for a spark that has no ghost left to charge, or for sparks refunded when a boss brings that ghost. */
+export const SPARK_ENERGY = 30;
 
 /** Total focus hours at which the next companion joins, in order. */
 export const COMPANION_UNLOCK_HOURS = [3, 8, 15, 25, 40];
@@ -122,9 +89,47 @@ export function unlockOrder(firstId: string): string[] {
   return COMPANIONS.filter((c) => c.id !== firstId).map((c) => c.id);
 }
 
+/* ---------- style: auras, shimmers and charms ---------- */
+export const STYLE_KINDS: StyleKind[] = ['aura', 'shimmer', 'charm'];
+
+const S = (id: string, kind: StyleKind, nameEn: string, nameDe: string, rarity: Rarity, plus = false): StyleDef => ({ id, kind, nameEn, nameDe, rarity, plus });
+
+export const STYLES: StyleDef[] = [
+  S('aura_fireflies', 'aura', 'Fireflies', 'Glühwürmchen', 'common'),
+  S('aura_sparks', 'aura', 'Spark Flurry', 'Funkenflug', 'common'),
+  S('aura_bubbles', 'aura', 'Bubbles', 'Seifenblasen', 'common'),
+  S('aura_leaves', 'aura', 'Autumn Leaves', 'Herbstlaub', 'rare'),
+  S('aura_snow', 'aura', 'Snowfall', 'Schneefall', 'rare'),
+  S('aura_blossoms', 'aura', 'Cherry Blossoms', 'Kirschblüten', 'rare'),
+  S('aura_stardust', 'aura', 'Stardust', 'Sternenstaub', 'epic'),
+  S('aura_notes', 'aura', 'Melody', 'Notenwirbel', 'epic'),
+  S('aura_storm', 'aura', 'Storm Ring', 'Blitzring', 'mythic'),
+  S('aura_comets', 'aura', 'Shooting Stars', 'Sternschnuppen', 'mythic'),
+  S('shimmer_moon', 'shimmer', 'Moonsilver', 'Mondsilber', 'common'),
+  S('shimmer_mint', 'shimmer', 'Mint', 'Minze', 'common'),
+  S('shimmer_gold', 'shimmer', 'Sungold', 'Sonnengold', 'rare'),
+  S('shimmer_rose', 'shimmer', 'Rose Quartz', 'Rosenquarz', 'rare'),
+  S('shimmer_ember', 'shimmer', 'Ember Glow', 'Glut', 'epic'),
+  S('shimmer_rainbow', 'shimmer', 'Rainbow', 'Regenbogen', 'epic'),
+  S('shimmer_aurora', 'shimmer', 'Northern Lights', 'Nordlicht', 'mythic'),
+  S('shimmer_holo', 'shimmer', 'Holo', 'Holo', 'mythic'),
+  S('shimmer_heart', 'shimmer', 'Heartlight', 'Herzlicht', 'mythic', true),
+  ...CHARMS.map((c) => S(c.id, 'charm', c.nameEn, c.nameDe, c.rarity)),
+];
+
+/** Styles that can come from drops and wishes (Plus styles never do). */
+export const DROP_STYLES = STYLES.filter((x) => !x.plus);
+
+/** Drop styles by rarity. */
+export const POOL_BY_RARITY: Record<Rarity, StyleDef[]> = {
+  common: DROP_STYLES.filter((i) => i.rarity === 'common'),
+  rare: DROP_STYLES.filter((i) => i.rarity === 'rare'),
+  epic: DROP_STYLES.filter((i) => i.rarity === 'epic'),
+  mythic: DROP_STYLES.filter((i) => i.rarity === 'mythic'),
+};
+
 const ghostById = new Map(GHOSTS.map((g) => [g.id, g]));
-const itemById = new Map(ITEMS.map((i) => [i.id, i]));
-const setById = new Map(SETS.map((s) => [s.id, s]));
+const styleById = new Map(STYLES.map((i) => [i.id, i]));
 
 export function ghost(id: string): GhostDef {
   const g = ghostById.get(id);
@@ -134,41 +139,32 @@ export function ghost(id: string): GhostDef {
 export function hasGhost(id: string): boolean {
   return ghostById.has(id);
 }
-export function item(id: string): ItemDef {
-  const i = itemById.get(id);
-  if (!i) throw new Error(`unknown item ${id}`);
+export function style(id: string): StyleDef {
+  const i = styleById.get(id);
+  if (!i) throw new Error(`unknown style ${id}`);
   return i;
 }
-export function hasItem(id: string): boolean {
-  return itemById.has(id);
+export function hasStyle(id: string): boolean {
+  return styleById.has(id);
 }
-export function setOf(id: string): SetDef {
-  const s = setById.get(id);
-  if (!s) throw new Error(`unknown set ${id}`);
-  return s;
+export function stylesOf(kind: StyleKind): StyleDef[] {
+  return STYLES.filter((x) => x.kind === kind);
 }
 export function rigOf(id: string): RigConfig {
   return RIGS[id];
 }
-/** Companions wear pieces; costume ghosts keep their own costume. */
-export function canWear(ghostId: string): boolean {
-  return RIGS[ghostId]?.wear != null;
+/** Sparks a costume ghost needs (0 for companions, they come with focus hours). */
+export function sparksNeeded(ghostId: string): number {
+  const g = ghost(ghostId);
+  return g.kind === 'costume' && g.rarity ? SPARKS_NEEDED[g.rarity] : 0;
 }
-
-/** Pieces by rarity, for drops. */
-export const POOL_BY_RARITY: Record<Rarity, ItemDef[]> = {
-  common: ITEMS.filter((i) => i.rarity === 'common'),
-  rare: ITEMS.filter((i) => i.rarity === 'rare'),
-  epic: ITEMS.filter((i) => i.rarity === 'epic'),
-  mythic: ITEMS.filter((i) => i.rarity === 'mythic'),
-};
 
 const BASE = import.meta.env.BASE_URL;
 export function partUrl(ghostId: string, part: string): string {
   return `${BASE}assets/ghosts/${ghostId}/${part}.webp`;
 }
-export function itemImg(id: string): string {
-  return `${BASE}assets/items/${id}.webp`;
+export function charmImg(id: string): string {
+  return `${BASE}assets/charms/${id}.webp`;
 }
 
 export function rarityRank(r: Rarity): number {

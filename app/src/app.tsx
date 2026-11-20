@@ -89,7 +89,7 @@ export function App() {
       tab === 'focus' ? (
         <Home openDrop={openDrop} openPlus={openPlus} />
       ) : tab === 'ghosts' ? (
-        <Collection />
+        <Collection openPlus={openPlus} />
       ) : tab === 'progress' ? (
         <Progress openPlus={openPlus} />
       ) : (
@@ -101,7 +101,7 @@ export function App() {
     window.scrollTo({ top: 0 });
   }, [key]);
 
-  const unseen = [...Object.values(s.ghosts), ...Object.values(s.items)].filter((r) => !r.seen).length;
+  const unseen = [...Object.values(s.ghosts), ...Object.values(s.styles)].filter((r) => !r.seen).length;
   const bg = th.img ? `${th.veil}, url(${th.img}) center / cover no-repeat, ${th.css}` : th.css;
 
   return (

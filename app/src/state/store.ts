@@ -2,14 +2,17 @@ import { useEffect, useState } from 'preact/hooks';
 import {
   BOSS_DUPE_ENERGY,
   COMPANION_UNLOCK_HOURS,
+  COSTUME_GHOSTS,
   DUPE_ENERGY,
+  SPARK_ENERGY,
+  STYLE_KINDS,
   WISH_COST,
-  canWear,
   ghost,
-  item,
+  hasStyle,
+  sparksNeeded,
+  style,
   unlockOrder,
 } from '../data/catalog';
-import type { Outfit } from '../data/rigTypes';
 import { nameOf } from '../i18n';
 import { rollDrop } from '../logic/drops';
 import type { Pity } from '../logic/drops';
@@ -17,11 +20,9 @@ import {
   CHARGE_DAY_MIN,
   bossGoal,
   chargeWeek,
-  completeSets,
   dueAchievements,
   minutesByDay,
   pickBoss,
-  setProgress,
   totalMinutes,
 } from '../logic/progress';
 import type { Counters, SessionRec } from '../logic/progress';
@@ -30,7 +31,7 @@ import { DAY, dayKey, weekKey } from '../logic/time';
 export type Lang = 'auto' | 'en' | 'de';
 export type AmbientId = 'off' | 'rain' | 'brown' | 'fire' | 'forest' | 'ocean' | 'cafe';
 export type ThemeId = 'night' | 'cozynight' | 'forestglow' | 'cottonsky' | 'mysticpurple' | 'aurora' | 'dusk';
-export type Via = 'start' | 'hours' | 'drop' | 'wish' | 'boss' | 'set';
+export type Via = 'start' | 'hours' | 'drop' | 'wish' | 'boss' | 'spark';
 export type TagId = 'study' | 'work' | 'create' | 'read' | 'home' | 'other';
 export const TAGS: TagId[] = ['study', 'work', 'create', 'read', 'home', 'other'];
 
@@ -39,7 +40,12 @@ export interface OwnedRec {
   via: Via;
   seen: boolean;
 }
-export type { Outfit };
+/** The style a ghost shows: one per kind. */
+export interface StyleLook {
+  aura?: string;
+  shimmer?: string;
+  charm?: string;
+}
 export interface PendingDrop {
   id: string;
   kind: 'first' | 'daily' | 'week';
@@ -71,15 +77,18 @@ export interface Settings {
   lang: Lang;
 }
 export interface State {
-  v: 2;
+  v: 3;
   onboarded: boolean;
   createdAt: number;
   /** The active ghost: any ghost you own can charge with you. */
   companion: string;
   firstCompanion: string;
   ghosts: Record<string, OwnedRec>;
-  items: Record<string, OwnedRec>;
-  outfits: Record<string, Outfit>;
+  styles: Record<string, OwnedRec>;
+  /** Ghost id -> the style it shows. */
+  looks: Record<string, StyleLook>;
+  /** Ghost sparks: the costume ghost you charge (null: the one furthest along), and the sparks each ghost has. */
+  sparks: { target: string | null; have: Record<string, number> };
   /** Achievement id -> when it was reached. */
   achievements: Record<string, number>;
   names: Record<string, string>;
@@ -103,18 +112,20 @@ export interface State {
   dev: { speed: boolean; dayOffset: number };
 }
 
-const KEY = 'chargegeist.v2';
+const KEY = 'chargegeist.v3';
+const OLD_KEY = 'chargegeist.v2';
 
 export function defaultState(): State {
   return {
-    v: 2,
+    v: 3,
     onboarded: false,
     createdAt: Date.now(),
     companion: 'volti',
     firstCompanion: 'volti',
     ghosts: { volti: { at: Date.now(), via: 'start', seen: true } },
-    items: {},
-    outfits: {},
+    styles: {},
+    looks: {},
+    sparks: { target: null, have: {} },
     achievements: {},
     names: {},
     goal: 30,
@@ -150,17 +161,72 @@ export function defaultState(): State {
   };
 }
 
+function fill(s: State): State {
+  const d = defaultState();
+  return { ...d, ...s, settings: { ...d.settings, ...s.settings }, dev: { ...d.dev, ...s.dev }, sparks: { ...d.sparks, ...s.sparks } };
+}
+
+/** v2 pieces by id prefix -> the costume ghost they belonged to. */
+const OLD_PIECE_GHOST: Record<string, string> = {
+  pumpkin: 'pumpkin',
+  samurai: 'samurai',
+  witch: 'witch',
+  owl: 'owl',
+  pirate: 'pirate',
+  aviator: 'aviator',
+  kitsune: 'kitsune',
+  reaper: 'reaper',
+  star: 'starmage',
+  forest: 'forest',
+};
+
+/**
+ * Turns a v2 save (costume pieces and outfits) into v3. Every piece you had becomes a spark for its
+ * ghost (one short of a full charge at most), outfits are dropped, open drops are rolled again.
+ */
+export function migrateV2(old: any): State {
+  const d = defaultState();
+  const { items, outfits: _outfits, ...rest } = old;
+  const s: State = fill({ ...d, ...rest, v: 3 });
+  s.styles = {};
+  s.looks = {};
+  s.sparks = { target: null, have: {} };
+  for (const id of Object.keys(items ?? {})) {
+    const g = OLD_PIECE_GHOST[id.split('_')[0]];
+    if (!g || s.ghosts[g]) continue;
+    s.sparks.have[g] = Math.min(sparksNeeded(g) - 1, (s.sparks.have[g] ?? 0) + 1);
+  }
+  for (const r of Object.values(s.ghosts)) if ((r.via as string) === 'set') r.via = 'spark';
+  if (s.achievements.outfit1) {
+    s.achievements.costume1 = s.achievements.outfit1;
+    delete s.achievements.outfit1;
+  }
+  s.wish = { target: null, energy: old.wish?.energy ?? 0 };
+  s.pending = (s.pending ?? []).map((p) => ({ ...p, cards: null }));
+  return s;
+}
+
 function load(): State {
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return defaultState();
-    const s = JSON.parse(raw) as State;
-    if (s.v !== 2) return defaultState();
-    const d = defaultState();
-    return { ...d, ...s, settings: { ...d.settings, ...s.settings }, dev: { ...d.dev, ...s.dev } };
+    if (raw) {
+      const s = JSON.parse(raw) as State;
+      return s.v === 3 ? fill(s) : defaultState();
+    }
+    const old = localStorage.getItem(OLD_KEY);
+    if (old) {
+      const o = JSON.parse(old);
+      if (o?.v === 2) {
+        const s = migrateV2(o);
+        localStorage.setItem(KEY, JSON.stringify(s));
+        localStorage.removeItem(OLD_KEY);
+        return s;
+      }
+    }
   } catch {
-    return defaultState();
+    /* no storage (tests, private mode) or a broken save: start fresh */
   }
+  return defaultState();
 }
 
 let state: State = load();
@@ -209,12 +275,44 @@ const rid = () => Math.random().toString(36).slice(2, 10);
 export function ownedGhosts(s: State = state): Set<string> {
   return new Set(Object.keys(s.ghosts));
 }
-export function ownedItems(s: State = state): Set<string> {
-  return new Set(Object.keys(s.items));
+export function ownedStyles(s: State = state): Set<string> {
+  return new Set(Object.keys(s.styles));
 }
-/** What a ghost wears right now (empty for costume ghosts). */
-export function outfitOf(s: State, id: string): Outfit {
-  return canWear(id) ? (s.outfits[id] ?? {}) : {};
+/** Whether this style can be used: owned, or a Plus style while Plus is active. */
+export function canUseStyle(s: State, id: string): boolean {
+  if (!hasStyle(id)) return false;
+  return style(id).plus ? s.plus : !!s.styles[id];
+}
+/** The style a ghost shows right now. */
+export function lookOf(s: State, id: string): StyleLook {
+  const l = s.looks[id] ?? {};
+  const out: StyleLook = {};
+  for (const k of STYLE_KINDS) {
+    const v = l[k];
+    if (v && canUseStyle(s, v)) out[k] = v;
+  }
+  return out;
+}
+/** The costume ghost the next spark goes to: your pick, else the one furthest along. Null once all are yours. */
+export function sparkTarget(s: State = state): string | null {
+  const t = s.sparks.target;
+  if (t && !s.ghosts[t] && sparksNeeded(t) > 0) return t;
+  let best: string | null = null,
+    bestF = -1;
+  for (const g of COSTUME_GHOSTS) {
+    if (s.ghosts[g.id]) continue;
+    const f = (s.sparks.have[g.id] ?? 0) / sparksNeeded(g.id);
+    if (f > bestF) {
+      best = g.id;
+      bestF = f;
+    }
+  }
+  return best;
+}
+/** Sparks of a costume ghost: a ghost you own counts as fully charged. */
+export function sparkInfo(s: State, id: string): { have: number; need: number } {
+  const need = sparksNeeded(id);
+  return { have: s.ghosts[id] ? need : Math.min(need, s.sparks.have[id] ?? 0), need };
 }
 export function todayMinutes(s: State = state): number {
   const d = dayKey(now());
@@ -232,20 +330,16 @@ export function counters(s: State): Counters {
     drops: s.dropsOpened,
     minutes: totalMinutes(s.sessions),
     weeks: s.weekDropWeeks.length,
-    sets: completeSets(ownedItems(s)).length,
+    costumes: COSTUME_GHOSTS.filter((g) => s.ghosts[g.id]).length,
   };
 }
 export function currentBoss(s: State = state) {
   const wk = weekKey(now());
   if (s.boss && s.boss.week === wk) return s.boss;
-  return { week: wk, ghost: pickBoss(wk, ownedGhosts(s)), goal: bossGoal(s.goal), done: false };
+  return { week: wk, ghost: pickBoss(wk, ownedGhosts(s), sparkTarget(s)), goal: bossGoal(s.goal), done: false };
 }
 export function dailyDropOpen(s: State = state): boolean {
   return s.dailyDropDay !== dayKey(now());
-}
-/** The companion that tries on new pieces: the active one if it can wear, else the first one you picked. */
-export function dresser(s: State = state): string {
-  return canWear(s.companion) ? s.companion : s.firstCompanion;
 }
 
 /* ---------- internal helpers (run inside mutate) ---------- */
@@ -278,15 +372,37 @@ function grantCompanions(s: State): string[] {
   });
   return got;
 }
-/** Adds a piece. A completed outfit brings its ghost. Returns the ghost that joined, if any. */
-function ownItem(s: State, id: string, via: Via): string | null {
-  if (!s.items[id]) s.items[id] = { at: now(), via, seen: false };
-  const set = item(id).set;
-  if (setProgress(set, ownedItems(s)).done && !s.ghosts[set]) {
-    ownGhost(s, set, 'set');
-    return set;
+function ownStyle(s: State, id: string, via: Via) {
+  if (!s.styles[id]) s.styles[id] = { at: now(), via, seen: false };
+}
+
+export interface SparkResult {
+  /** The ghost the spark went to; null when every costume ghost is already yours. */
+  ghost: string | null;
+  have: number;
+  need: number;
+  /** The ghost joined with this spark. */
+  joined: boolean;
+  /** Wish energy instead of a spark, once every costume ghost is yours. */
+  energy: number;
+}
+/** Every drop brings one ghost spark. Enough sparks bring the ghost. */
+function addSpark(s: State): SparkResult {
+  const g = sparkTarget(s);
+  if (!g) {
+    s.wish.energy += SPARK_ENERGY;
+    return { ghost: null, have: 0, need: 0, joined: false, energy: SPARK_ENERGY };
   }
-  return null;
+  const need = sparksNeeded(g);
+  const have = (s.sparks.have[g] ?? 0) + 1;
+  if (have >= need) {
+    delete s.sparks.have[g];
+    if (s.sparks.target === g) s.sparks.target = null;
+    ownGhost(s, g, 'spark');
+    return { ghost: g, have: need, need, joined: true, energy: 0 };
+  }
+  s.sparks.have[g] = have;
+  return { ghost: g, have, need, joined: false, energy: 0 };
 }
 
 /* ---------- onboarding ---------- */
@@ -360,7 +476,8 @@ export interface SessionResult {
   firstDrop: boolean;
   weekCount: number;
   weekDoneNow: boolean;
-  boss: { ghost: string; before: number; after: number; goal: number; calmedNow: boolean; wasOwned: boolean };
+  /** sparkRefund: wish energy for sparks the boss ghost already had. */
+  boss: { ghost: string; before: number; after: number; goal: number; calmedNow: boolean; wasOwned: boolean; sparkRefund: number };
   wish: { before: number; after: number; target: string | null };
   achievements: string[];
   companionsUnlocked: string[];
@@ -405,12 +522,18 @@ function credit(s: State, min: number, planned: number, tag: TagId, completed: b
   }
 
   const wasOwned = !!s.ghosts[boss.ghost];
-  let calmedNow = false;
+  let calmedNow = false,
+    sparkRefund = 0;
   if (!boss.done && week.minutes >= boss.goal) {
     boss.done = true;
     calmedNow = true;
     if (wasOwned) s.wish.energy += BOSS_DUPE_ENERGY;
-    else ownGhost(s, boss.ghost, 'boss');
+    else {
+      ownGhost(s, boss.ghost, 'boss');
+      sparkRefund = (s.sparks.have[boss.ghost] ?? 0) * SPARK_ENERGY;
+      s.wish.energy += sparkRefund;
+      delete s.sparks.have[boss.ghost];
+    }
   }
 
   const achievements = grantAchievements(s);
@@ -430,7 +553,7 @@ function credit(s: State, min: number, planned: number, tag: TagId, completed: b
     firstDrop,
     weekCount: week.count,
     weekDoneNow,
-    boss: { ghost: boss.ghost, before: bossBefore, after: week.minutes, goal: boss.goal, calmedNow, wasOwned },
+    boss: { ghost: boss.ghost, before: bossBefore, after: week.minutes, goal: boss.goal, calmedNow, wasOwned, sparkRefund },
     wish: { before: wishBefore, after: s.wish.energy, target: s.wish.target },
     achievements,
     companionsUnlocked,
@@ -474,7 +597,10 @@ export function revealDrop(id: string): string[] {
   const d = state.pending.find((p) => p.id === id);
   if (!d) return [];
   if (d.cards) return d.cards;
-  const r = rollDrop(ownedItems(), state.pity, Math.random, { guarantee: d.kind === 'daily' ? undefined : 'rare' });
+  const r = rollDrop(ownedStyles(), state.pity, Math.random, {
+    guarantee: d.kind === 'daily' ? undefined : 'rare',
+    kinds: d.kind === 'first' ? ['aura'] : undefined,
+  });
   mutate((s) => {
     const p = s.pending.find((x) => x.id === id)!;
     p.cards = r.cards;
@@ -484,27 +610,28 @@ export function revealDrop(id: string): string[] {
 }
 
 export interface KeepResult {
-  item: string;
+  style: string;
+  /** You had this style already: it turned into wish energy. */
   dupe: boolean;
   energy: number;
-  set: { have: number; total: number; done: boolean };
-  /** The costume ghost that joined because its outfit is now complete. */
-  ghostJoined: string | null;
+  /** The ghost spark this drop brought. */
+  spark: SparkResult;
   achievements: string[];
 }
-export function keepFromDrop(dropId: string, itemId: string): KeepResult {
+/** Keeps one card of a drop and adds the drop's ghost spark. */
+export function keepFromDrop(dropId: string, styleId: string): KeepResult {
   let res!: KeepResult;
   mutate((s) => {
     s.pending = s.pending.filter((p) => p.id !== dropId);
     s.dropsOpened += 1;
-    const dupe = !!s.items[itemId];
-    const energy = dupe ? DUPE_ENERGY[item(itemId).rarity] : 0;
-    let ghostJoined: string | null = null;
+    const dupe = !!s.styles[styleId];
+    const energy = dupe ? DUPE_ENERGY[style(styleId).rarity] : 0;
     if (dupe) s.wish.energy += energy;
-    else ghostJoined = ownItem(s, itemId, 'drop');
-    if (s.wish.target && s.items[s.wish.target]) s.wish.target = null;
+    else ownStyle(s, styleId, 'drop');
+    if (s.wish.target && s.styles[s.wish.target]) s.wish.target = null;
+    const spark = addSpark(s);
     const achievements = grantAchievements(s);
-    res = { item: itemId, dupe, energy, set: setProgress(item(itemId).set, ownedItems(s)), ghostJoined, achievements };
+    res = { style: styleId, dupe, energy, spark, achievements };
   });
   return res;
 }
@@ -516,50 +643,55 @@ export function setWish(id: string | null) {
   });
 }
 export interface ClaimResult {
-  item: string;
-  ghostJoined: string | null;
+  style: string;
   achievements: string[];
 }
 export function claimWish(): ClaimResult | null {
   const tgt = state.wish.target;
-  if (!tgt || state.items[tgt]) return null;
-  const cost = WISH_COST[item(tgt).rarity];
+  if (!tgt || !hasStyle(tgt) || style(tgt).plus || state.styles[tgt]) return null;
+  const cost = WISH_COST[style(tgt).rarity];
   if (state.wish.energy < cost) return null;
   let res: ClaimResult | null = null;
   mutate((s) => {
     s.wish.energy -= cost;
-    const ghostJoined = ownItem(s, tgt, 'wish');
+    ownStyle(s, tgt, 'wish');
     s.wish.target = null;
-    res = { item: tgt, ghostJoined, achievements: grantAchievements(s) };
+    res = { style: tgt, achievements: grantAchievements(s) };
   });
   return res;
 }
 
-/* ---------- wardrobe ---------- */
-/** Puts a piece on a companion (one per spot), or takes it off when it is already worn. */
-export function toggleItem(ghostId: string, itemId: string) {
-  if (!canWear(ghostId) || !state.items[itemId]) return;
+/* ---------- style and sparks ---------- */
+/** Puts a style on a ghost (one per kind), or takes it off when it is already on. */
+export function toggleStyle(ghostId: string, styleId: string) {
+  if (!state.ghosts[ghostId] || !canUseStyle(state, styleId)) return;
   mutate((s) => {
-    const o = (s.outfits[ghostId] ??= {});
-    const slot = item(itemId).slot;
-    if (o[slot] === itemId) delete o[slot];
-    else o[slot] = itemId;
+    const l = (s.looks[ghostId] ??= {});
+    const k = style(styleId).kind;
+    if (l[k] === styleId) delete l[k];
+    else l[k] = styleId;
   });
 }
-export function wearItem(ghostId: string, itemId: string) {
-  if (!canWear(ghostId) || !state.items[itemId]) return;
+export function wearStyle(ghostId: string, styleId: string) {
+  if (!state.ghosts[ghostId] || !canUseStyle(state, styleId)) return;
   mutate((s) => {
-    (s.outfits[ghostId] ??= {})[item(itemId).slot] = itemId;
+    (s.looks[ghostId] ??= {})[style(styleId).kind] = styleId;
   });
 }
-export function clearOutfit(ghostId: string) {
+export function clearLook(ghostId: string) {
   mutate((s) => {
-    s.outfits[ghostId] = {};
+    s.looks[ghostId] = {};
+  });
+}
+/** Picks the costume ghost the next sparks go to (null: the one furthest along). */
+export function setSparkTarget(id: string | null) {
+  mutate((s) => {
+    s.sparks.target = id;
   });
 }
 
 /* ---------- misc ---------- */
-export function markSeen(kind: 'ghosts' | 'items', ids: string[]) {
+export function markSeen(kind: 'ghosts' | 'styles', ids: string[]) {
   if (!ids.some((id) => state[kind][id] && !state[kind][id].seen)) return;
   mutate((s) => {
     for (const id of ids) if (s[kind][id]) s[kind][id].seen = true;
@@ -627,15 +759,17 @@ export const dev = {
       s.pending.push({ id: rid(), kind: 'daily', at: now(), cards: null });
     });
   },
-  /** Every piece and every ghost, to try the wardrobe. */
-  unlockAll(itemIds: string[], ghostIds: string[]) {
+  /** Every style and every ghost, to try them all. */
+  unlockAll(styleIds: string[], ghostIds: string[]) {
     mutate((s) => {
-      for (const id of itemIds) if (!s.items[id]) s.items[id] = { at: now(), via: 'drop', seen: true };
-      for (const id of ghostIds) if (!s.ghosts[id]) s.ghosts[id] = { at: now(), via: 'set', seen: true };
+      for (const id of styleIds) if (!s.styles[id] && !style(id).plus) s.styles[id] = { at: now(), via: 'drop', seen: true };
+      for (const id of ghostIds) if (!s.ghosts[id]) s.ghosts[id] = { at: now(), via: 'spark', seen: true };
+      s.sparks.have = {};
     });
   },
   reset() {
     localStorage.removeItem(KEY);
+    localStorage.removeItem(OLD_KEY);
     state = defaultState();
     save();
     subs.forEach((f) => f());

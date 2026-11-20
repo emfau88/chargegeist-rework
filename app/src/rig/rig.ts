@@ -1,22 +1,32 @@
 /**
- * The companion rig: a ghost assembled from its parts, plus the costume pieces it wears.
- * The body lies on a deformable mesh (WebGL2), face parts and most pieces are painted onto that
- * mesh, arms and tuft hang on hinges, held pieces follow the hands. Every soft motion runs through
- * a spring. Falls back to a flat 2D canvas when WebGL2 is unavailable.
+ * The ghost rig: a ghost assembled from the parts of its kit, always exactly as the kit shows it.
+ * The body lies on a deformable mesh (WebGL2), face parts are painted onto that mesh, arms and tuft
+ * hang on hinges. Every soft motion runs through a spring. Falls back to a flat 2D canvas when WebGL2
+ * is unavailable. Style shows around the ghost and never changes its shape: an aura (particles
+ * behind and in front) and a shimmer (the colour of glow, charge fill, charge ring and sparks).
  *
  * Each ghost has its own body space (pixels of its body texture). RigConfig maps it to the stage
  * (600 x 620 units): k scales it, (cx, cy) lands on (300, 280). Motion constants were tuned on
  * Volti and are scaled by m (body motion) and u (face motion) for the others.
  */
-import { ghost, itemImg, partUrl } from '../data/catalog';
-import { ITEM_RIGS, RIGS, SLOT_ORDER } from '../data/rigs.gen';
-import type { ItemRig, Outfit, RigConfig, Slot, Vec } from '../data/rigTypes';
+import { ghost, partUrl } from '../data/catalog';
+import { RIGS } from '../data/rigs.gen';
+import type { RigConfig, Vec } from '../data/rigTypes';
+import { AuraSim, SvgAura } from '../fx/aura';
+import type { AuraBox } from '../fx/aura';
+import { rgbCss, shimmerMoves, shimmerRgb } from '../fx/shimmer';
 
 export type RigMode = 'idle' | 'focus' | 'sleep';
 
+/** The style a ghost shows. */
+export interface RigStyle {
+  aura?: string;
+  shimmer?: string;
+  charm?: string;
+}
 export interface Look {
   ghost: string;
-  outfit: Outfit;
+  style?: RigStyle;
 }
 
 export interface RigOptions {
@@ -113,50 +123,12 @@ export function loadImage(url: string): Promise<HTMLImageElement> {
   }
   return p;
 }
-/** The pieces of an outfit, back to front. */
-export function wornItems(outfit: Outfit): { id: string; rig: ItemRig }[] {
-  const ids = Object.values(outfit).filter((id): id is string => !!id && !!ITEM_RIGS[id]);
-  return ids.map((id) => ({ id, rig: ITEM_RIGS[id] })).sort((a, b) => SLOT_ORDER.indexOf(a.rig.slot) - SLOT_ORDER.indexOf(b.rig.slot));
-}
-/** Parts an outfit covers: an eye under a patch, the tuft under a hat. */
-export function hiddenParts(outfit: Outfit): Set<string> {
-  const hide = new Set<string>();
-  for (const w of wornItems(outfit)) {
-    w.rig.hide.forEach((h) => hide.add(h));
-    if (w.rig.slot === 'head') hide.add('tuft');
-  }
-  return hide;
-}
-export async function preloadLook(l: Look) {
+export async function preloadLook(l: Pick<Look, 'ghost'>) {
   const parts = partNames(l.ghost);
-  const worn = wornItems(l.outfit);
-  const [p, i] = await Promise.all([
-    Promise.all(parts.map((n) => loadImage(partUrl(l.ghost, n)))),
-    Promise.all(worn.map((w) => loadImage(itemImg(w.id)))),
-  ]);
+  const p = await Promise.all(parts.map((n) => loadImage(partUrl(l.ghost, n))));
   const map: Record<string, HTMLImageElement> = {};
   parts.forEach((n, k) => (map[n] = p[k]));
-  worn.forEach((w, k) => (map[`item:${w.id}`] = i[k]));
   return map;
-}
-
-function hexRgb(hex: string): [number, number, number] {
-  const n = parseInt(hex.slice(1), 16);
-  return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
-}
-
-/** Where a piece sits on a wearer, in the wearer's body space. */
-export function itemPlace(R: RigConfig, it: ItemRig) {
-  const wear = R.wear ?? 1;
-  return {
-    at: [R.cx + it.at[0] * wear, R.eyeY + it.at[1] * wear] as Vec,
-    anchor: [it.anchor[0] * it.w, it.anchor[1] * it.h] as Vec,
-    s: it.s * wear,
-  };
-}
-/** The hand in body space, relative to the shoulder, for an arm turned by deg. */
-function handOffset(arm: RigConfig['armL'], deg: number): Vec {
-  return rot(deg, (arm.hand[0] - arm.anchor[0]) * arm.s, (arm.hand[1] - arm.anchor[1]) * arm.s);
 }
 
 const HEART = 'M0,7 C-13,-3 -11,-14 -4.5,-14 C-1.5,-14 0,-11.5 0,-9.5 C0,-11.5 1.5,-14 4.5,-14 C11,-14 13,-3 0,7 Z';
@@ -192,10 +164,9 @@ export function createRig(host: HTMLElement, look: Look, opts: RigOptions = {}):
   const shiftY = opts.shiftY ?? 0;
   let R: RigConfig = RIGS[look.ghost];
   let cur: Look = look;
-  let worn = wornItems(look.outfit);
-  let hidden = hiddenParts(look.outfit);
-  const glow0 = ghost(look.ghost).glow;
-  let glowRgb = hexRgb(glow0);
+  let shimmer = look.style?.shimmer;
+  let glowRgb = shimmerRgb(shimmer, ghost(look.ghost).glow, 0);
+  const glow0 = rgbCss(glowRgb);
   let alive = true;
 
   /* ---------- DOM ---------- */
@@ -374,7 +345,7 @@ void main(){
     ibos.set(key, buf);
     return buf;
   }
-  /** GPU textures by image url, kept while the rig lives so outfit changes are instant. */
+  /** GPU textures by image url, kept while the rig lives so switching ghosts back and forth is instant. */
   const gpu = new Map<HTMLImageElement, WebGLTexture>();
   function makeTex(img: HTMLImageElement): Tex {
     const t: Tex = { w: img.naturalWidth, h: img.naturalHeight, img };
@@ -399,7 +370,7 @@ void main(){
 
   function drawGrid(name: string, nx: number, ny: number, map: (s: number, t: number) => Vec, alpha: number, fx?: { level?: number; glow?: number }) {
     const tx = TEX[name];
-    if (!tx || alpha <= 0.003 || hidden.has(name)) return;
+    if (!tx || alpha <= 0.003) return;
     if (gl) {
       let o = 0;
       for (let j = 0; j <= ny; j++)
@@ -483,7 +454,6 @@ void main(){
     armL: new Spring(0, 110, 8), armR: new Spring(0, 110, 8),
     tuft: new Spring(0, 55, 4.5), glow: new Spring(0, 30, 11), ring: new Spring(0, 26, 10), low: new Spring(0, 14, 8),
     pop: new Spring(0, 520, 16), level: new Spring(0, 30, 11),
-    lamp: new Spring(0, 40, 2.6), tail: new Spring(0, 60, 5),
   };
   const M = { smile: new Spring(1, 900, 60), laugh: new Spring(0, 900, 60), o: new Spring(0, 900, 60), line: new Spring(0, 900, 60) };
   let mouthNow = 'smile';
@@ -542,6 +512,12 @@ void main(){
     }
   }
 
+  /* ---------- aura ---------- */
+  const aura = new AuraSim(look.style?.aura, Math.random, reduce);
+  const auraSvg = new SvgAura(el.pBack, el.pFront);
+  let shimmerFrame = 0;
+  const auraBox = (): AuraBox => ({ cx: 300, cy: ghostY + 30, rx: 150, ry: 190, glow: glowRgb });
+
   /* ---------- behaviour ---------- */
   let ghostY = 280, T = 0, waveT = 0, phase = 0, mode: RigMode = 'idle';
   let level = 0, ringP: number | null = null;
@@ -558,6 +534,7 @@ void main(){
   }
   function celebrate(big = true) {
     if (mode === 'sleep') mode = 'idle';
+    aura.burst(auraBox(), big ? 10 : 6);
     jump(big ? 760 : 520);
     happyUntil = T + (big ? 1.9 : 1.3);
     flashUntil = T + 0.5;
@@ -691,49 +668,18 @@ void main(){
       acc -= h;
     }
     S.tuft.t = -S.lean.x * 0.8 + clamp(hopV * 0.02, -16, 16) + sleepy * 24 + Math.sin(T * 2.2) * 4 * (1 - sleepy);
-    // a hanging lantern lags behind the arm and the hop; a tail wags, faster when happy
-    S.lamp.t = clamp(-S.armR.v * 0.05 - hopV * 0.012, -30, 30);
-    S.tail.t = reduce ? 0 : Math.sin(T * (happy ? 9 : 2.4)) * (happy ? 16 : 7) - sleepy * 6;
     updateParts(dt);
+    aura.step(dt, auraBox(), mode);
+    if (shimmerMoves(shimmer)) {
+      glowRgb = shimmerRgb(shimmer, ghost(cur.ghost).glow, T);
+      // the SVG gradients follow at half the frame rate, which is plenty for a colour drift
+      if ((shimmerFrame = (shimmerFrame + 1) % 2) === 0) setGradientColor(rgbCss(glowRgb));
+    }
   }
 
   /* ---------- draw ---------- */
   const RING_C = 2 * Math.PI * 205;
   let loaded = false;
-  function drawItems(slot: Slot) {
-    for (const w of worn) {
-      if (w.rig.slot !== slot) continue;
-      const name = `item:${w.id}`;
-      const t = TEX[name];
-      if (!t) continue;
-      const p = itemPlace(R, w.rig);
-      const local = (deg: number) => (a: number, b: number) => rot(deg, (a * t.w - p.anchor[0]) * p.s, (b * t.h - p.anchor[1]) * p.s);
-      if (slot === 'tail') {
-        rigidAt(name, p.at, local(w.rig.rot + S.tail.x));
-      } else if (slot === 'back') {
-        // held in the left hand: follows the arm
-        const arm = S.armL.x * 0.75;
-        const h = handOffset(R.armL, S.armL.x);
-        rigidAt(name, R.armL.at, (a, b) => {
-          const o = local(w.rig.rot + arm)(a, b);
-          return [h[0] + o[0], h[1] + o[1]];
-        });
-      } else if (slot === 'hand') {
-        // hangs from the right hand and stays upright
-        const h = handOffset(R.armR, S.armR.x);
-        const deg = w.rig.rot + S.lamp.x - S.lean.x + Math.sin(T * 1.9) * 3;
-        rigidAt(name, R.armR.at, (a, b) => {
-          const o = local(deg)(a, b);
-          return [h[0] + o[0], h[1] + o[1]];
-        });
-      } else {
-        drawGrid(name, 6, 6, (a, b) => {
-          const o = local(w.rig.rot)(a, b);
-          return D(p.at[0] + o[0], p.at[1] + o[1]);
-        }, 1);
-      }
-    }
-  }
   function render() {
     if (!loaded || !alive) return;
     const sleepy = clamp(S.sleepy.x, 0, 1),
@@ -767,7 +713,7 @@ void main(){
     el.ring.setAttribute('transform', `rotate(-90 300 ${300 + shiftY})`);
     el.ring.querySelectorAll('circle').forEach((c) => c.setAttribute('cy', String(300 + shiftY)));
     el.ringFill.setAttribute('stroke-dashoffset', (RING_C * (1 - clamp(ringP ?? 0, 0, 1))).toFixed(1));
-    const tg = R.tuft && !hidden.has('tuft') ? D(R.tuft.at[0], R.tuft.at[1] - 80 * R.m) : D(R.cx, R.top + 30 * R.m);
+    const tg = R.tuft ? D(R.tuft.at[0], R.tuft.at[1] - 80 * R.m) : D(R.cx, R.top + 30 * R.m);
     el.tuftGlow.setAttribute('cx', tg[0].toFixed(1));
     el.tuftGlow.setAttribute('cy', tg[1].toFixed(1));
     el.tuftGlow.setAttribute('opacity', clamp(lv * 1.1 + (T < flashUntil ? 0.8 : 0), 0, 1).toFixed(3));
@@ -786,13 +732,9 @@ void main(){
       ctx2d.clearRect(0, 0, canvas.width, canvas.height);
     }
     const flash = T < flashUntil ? 0.9 : 0;
-    drawItems('halo');
-    drawItems('back');
-    drawItems('tail');
     if (R.tuft) hinged('tuft', R.tuft.at, R.tuft.anchor, R.tuft.rest + S.tuft.x, 1, 1, { glow: clamp(lv * 0.9 + flash, 0, 1.2) });
     const body = TEX.body;
     drawGrid('body', 30, 34, (s, qq) => D(s * body.w, qq * body.h), 1, { level: lv, glow: clamp((S.glow.x - lv * 0.6) * 0.6, 0, 1) });
-    drawItems('neck');
 
     const u = R.u,
       fs = R.fs;
@@ -816,7 +758,7 @@ void main(){
       ey = R.eyeY + fy + ly * 9 * u;
     for (const side of [-1, 1]) {
       const tag = side < 0 ? 'L' : 'R';
-      if (!R.eyes.includes(tag) || hidden.has(`eye_${tag}`)) continue;
+      if (!R.eyes.includes(tag)) continue;
       const cx = fx + side * R.eyeDX + ex;
       skin(`eye_open_${tag}`, cx, ey + 20 * u * (1 - eyeSy / w), w * fs, Math.max(0.05, eyeSy) * fs, openA);
       if (happyArc) skin(`eye_happy_${tag}`, cx, ey - 4 * u, fs, fs, arcA);
@@ -837,13 +779,10 @@ void main(){
     const chatter = 1 + (reduce ? 0 : Math.sin(T * 17) * 0.07 * happy);
     skin('mouth_laugh', mx, my + 16 * u, ms * pop, ms * pop * chatter, M.laugh.x);
 
-    drawItems('brow');
-    drawItems('eyes');
-    drawItems('mouth');
-    drawItems('head');
-    drawItems('hand');
     hinged('arm_L', R.armL.at, R.armL.anchor, S.armL.x, R.armL.s);
     hinged('arm_R', R.armR.at, R.armR.anchor, S.armR.x, R.armR.s);
+    auraSvg.setGlow(glowRgb);
+    auraSvg.sync(aura);
   }
 
   /* ---------- input ---------- */
@@ -890,24 +829,23 @@ void main(){
     layer.querySelectorAll('[data-k="ring"] circle').forEach((c) => c.setAttribute('stroke', color));
   }
 
-  /** Loads a look, then swaps everything at once so the ghost never shows half-dressed. */
+  /** Loads a look, then swaps everything at once so the ghost never shows half-loaded. */
   let req = 0;
   async function apply(l: Look) {
     const my = ++req;
-    const imgs = await preloadLook(l);
-    if (!alive || my !== req) return;
-    const next: Record<string, Tex> = {};
-    for (const [k, im] of Object.entries(imgs)) next[k] = makeTex(im);
-    const ghostChanged = cur.ghost !== l.ghost;
-    TEX = next;
-    R = RIGS[l.ghost];
-    worn = wornItems(l.outfit);
-    hidden = hiddenParts(l.outfit);
-    if (ghostChanged || !loaded) {
-      const c = ghost(l.ghost).glow;
-      glowRgb = hexRgb(c);
-      setGradientColor(c);
+    const ghostChanged = cur.ghost !== l.ghost || !loaded;
+    if (ghostChanged) {
+      const imgs = await preloadLook(l);
+      if (!alive || my !== req) return;
+      const next: Record<string, Tex> = {};
+      for (const [k, im] of Object.entries(imgs)) next[k] = makeTex(im);
+      TEX = next;
+      R = RIGS[l.ghost];
     }
+    shimmer = l.style?.shimmer;
+    glowRgb = shimmerRgb(shimmer, ghost(l.ghost).glow, T);
+    setGradientColor(rgbCss(glowRgb));
+    if (l.style?.aura !== cur.style?.aura || !loaded) aura.setId(l.style?.aura);
     cur = l;
     loaded = true;
     render();
@@ -936,14 +874,18 @@ void main(){
     },
     setLook(l) {
       const ghostChanged = l.ghost !== cur.ghost;
+      const styleChanged = l.style?.aura !== cur.style?.aura || l.style?.shimmer !== cur.style?.shimmer || l.style?.charm !== cur.style?.charm;
+      if (!ghostChanged && !styleChanged) return;
       void apply(l).then(() => {
         if (ghostChanged) {
           S.squash.v -= 3;
           happyUntil = T + 0.8;
         } else {
-          // a little shimmy when a piece goes on or off
+          // a little shimmy and a puff of the new aura when the style changes
           S.squash.v -= 2.2;
           S.lean.v += 40;
+          happyUntil = T + 0.6;
+          aura.burst(auraBox(), 6);
         }
       });
     },
@@ -958,58 +900,36 @@ void main(){
       ro.disconnect();
       window.removeEventListener('pointermove', onMove);
       if (gl) gl.getExtension('WEBGL_lose_context')?.loseContext();
+      aura.clear();
       layer.remove();
     },
   };
 }
 
 /**
- * A still portrait of a ghost in its outfit (for pickers, tiles and the share card). Returns a canvas.
- * Every ghost is framed the same way, so they read at the same size side by side; tall hats widen the frame.
+ * A still portrait of a ghost (for pickers, tiles and the share card). Returns a canvas.
+ * Every ghost is framed the same way, so they read at the same size side by side; tall kits widen the frame.
  */
-export async function renderPortrait(l: Look, size: number): Promise<HTMLCanvasElement> {
+export async function renderPortrait(l: Pick<Look, 'ghost'>, size: number): Promise<HTMLCanvasElement> {
   const T = await preloadLook(l);
   const R = RIGS[l.ghost];
-  const worn = wornItems(l.outfit);
-  const hidden = hiddenParts(l.outfit);
   const toStage = (u: number, v: number): Vec => [(u - R.cx) * R.k + 300, (v - R.cy) * R.k + 280];
 
   // every draw as: image, stage point, stage scale, rotation, anchor (image px, null = centre)
   type Op = { im: HTMLImageElement; p: Vec; s: number; deg: number; anchor: Vec | null };
   const ops: Op[] = [];
   const put = (name: string, u: number, v: number, s = 1, deg = 0, anchor: Vec | null = null) => {
-    if (hidden.has(name) || !T[name]) return;
+    if (!T[name]) return;
     ops.push({ im: T[name], p: toStage(u, v), s: s * R.k, deg, anchor });
   };
-  const items = (slot: Slot) => {
-    for (const w of worn) {
-      if (w.rig.slot !== slot) continue;
-      const p = itemPlace(R, w.rig);
-      const name = `item:${w.id}`;
-      if (slot === 'back' || slot === 'hand') {
-        const arm = slot === 'back' ? R.armL : R.armR;
-        const h = handOffset(arm, 0);
-        put(name, arm.at[0] + h[0], arm.at[1] + h[1], p.s, w.rig.rot, p.anchor);
-      } else put(name, p.at[0], p.at[1], p.s, w.rig.rot, p.anchor);
-    }
-  };
-  items('halo');
-  items('back');
-  items('tail');
   if (R.tuft) put('tuft', R.tuft.at[0], R.tuft.at[1], 1, R.tuft.rest, R.tuft.anchor);
   const b = T.body;
   put('body', b.naturalWidth / 2, b.naturalHeight / 2);
-  items('neck');
   put('blush_L', R.cx - R.blush[0], R.blush[1], R.blush[2]);
   put('blush_R', R.cx + R.blush[0], R.blush[1], R.blush[2]);
-  if (R.eyes.includes('L') && !hidden.has('eye_L')) put('eye_open_L', R.cx - R.eyeDX, R.eyeY, R.fs);
-  if (R.eyes.includes('R') && !hidden.has('eye_R')) put('eye_open_R', R.cx + R.eyeDX, R.eyeY, R.fs);
+  if (R.eyes.includes('L')) put('eye_open_L', R.cx - R.eyeDX, R.eyeY, R.fs);
+  if (R.eyes.includes('R')) put('eye_open_R', R.cx + R.eyeDX, R.eyeY, R.fs);
   put('mouth_smile', R.mouth[0], R.mouth[1], R.ms);
-  items('brow');
-  items('eyes');
-  items('mouth');
-  items('head');
-  items('hand');
   put('arm_L', R.armL.at[0], R.armL.at[1], R.armL.s, 0, R.armL.anchor);
   put('arm_R', R.armR.at[0], R.armR.at[1], R.armR.s, 0, R.armR.anchor);
 

@@ -7,7 +7,7 @@ export interface ArmRig {
   anchor: Vec;
   /** Arm scale. */
   s: number;
-  /** Hand point in the arm image, for held items. */
+  /** Hand point in the arm image. */
   hand: Vec;
 }
 
@@ -45,25 +45,4 @@ export interface RigConfig {
   /** u0, u1, v0, v1 of the curl that wiggles. */
   tail: [number, number, number, number];
   top: number;
-  /** Item scale on this body; null when the ghost wears its own costume. */
-  wear: number | null;
-}
-
-export type Slot = 'halo' | 'back' | 'tail' | 'neck' | 'brow' | 'eyes' | 'mouth' | 'head' | 'hand';
-
-/** Which piece a companion wears in each spot. */
-export type Outfit = Partial<Record<Slot, string>>;
-
-export interface ItemRig {
-  slot: Slot;
-  w: number;
-  h: number;
-  /** Fraction of the image that sits on `at`. */
-  anchor: Vec;
-  /** Offset from the face centre (cx, eyeY) of a plain kit ghost. */
-  at: Vec;
-  s: number;
-  rot: number;
-  /** Parts this item covers. */
-  hide: string[];
 }
