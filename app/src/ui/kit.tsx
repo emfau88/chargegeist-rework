@@ -229,10 +229,12 @@ export function Bar({ value, color, thin }: { value: number; color?: string; thi
   );
 }
 
-export function useCountUp(target: number, ms = 900, from = 0): number {
+/** Counts from `from` up to `target`. It waits until `run` is set; `jump` puts it at the end at once. */
+export function useCountUp(target: number, ms = 900, from = 0, run = true, jump = false): number {
   const [v, setV] = useState(from);
   useEffect(() => {
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (!run) return;
+    if (jump || matchMedia('(prefers-reduced-motion: reduce)').matches) {
       setV(target);
       return;
     }
@@ -246,7 +248,7 @@ export function useCountUp(target: number, ms = 900, from = 0): number {
     };
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
-  }, [target]);
+  }, [target, run, jump]);
   return v;
 }
 

@@ -20,7 +20,7 @@ Der Spielstand liegt nur im Browser (localStorage).
 
 ## Was drin ist
 
-- **Fokus-Timer:** 5 bis 180 Minuten, Pause, Tags, ruhige Hintergrundgeräusche, Pausenvorschlag danach.
+- **Fokus-Timer:** 5 bis 180 Minuten, Pause, Tags, ruhige Hintergrundgeräusche, Pausenvorschlag danach. Das Ergebnis baut sich nach der Sitzung Zeile für Zeile auf, ein erreichtes Tagesziel bekommt eine eigene Zeile, und ein Tipp überspringt den Ablauf.
 - **6 Begleiter:** Volti, Ember oder Luna begleiten dich von Anfang an. Die anderen fünf kommen nach 3, 8, 15, 25 und 40 Fokusstunden dazu.
 - **10 Kostümgeister**, zum Beispiel Kürbis-Pip, Ronin, Hazel und Kitsu. Sie kommen komplett mit Kostüm, sobald sie genug Geisterfunken haben (2 bis 5, je nach Seltenheit). Du wählst selbst, welchen Geist du gerade auflädst.
 - **Stil statt Verkleidung:** 10 Auren (Partikel um den Geist), 9 Schimmer (die Farbe von Leuchten, Ladung und Funken) und 10 Talismane (ein kleiner Glücksbringer, der neben dem Geist schwebt). Jeder Geist trägt pro Art einen Stil, und die Form der Geister bleibt immer unverändert.

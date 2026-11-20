@@ -1,6 +1,6 @@
 /**
  * All sound is synthesised with WebAudio: no audio files, works offline.
- * Effects: tap, start, complete, flip (per rarity), keep, unlock, poke, and the gesture sounds
+ * Effects: tap, start, complete, tick and goal (the session result), flip (per rarity), keep, unlock, poke, and the gesture sounds
  * (a purring hum while stroked, a squeak when held, a pop on release, a giggle when tickled).
  * Ambient soundscapes: rain, brown noise, fireplace, night forest, ocean, café.
  */
@@ -106,6 +106,16 @@ export const sfx = {
   complete() {
     if (!fxOn) return;
     [0, 4, 7, 12, 16].forEach((s, i) => bell(N(s), i * 0.09, 1.3 - i * 0.1, 0.09, 'triangle'));
+  },
+  /** One soft step up the scale for each line of the session result. */
+  tick(i: number) {
+    if (!fxOn) return;
+    bell(N([7, 9, 12, 14, 16, 19][Math.min(Math.max(i, 0), 5)] ?? 7), 0, 0.2, 0.03);
+  },
+  /** The daily goal is reached: three bright notes. */
+  goal() {
+    if (!fxOn) return;
+    [12, 19, 24].forEach((s, i) => bell(N(s), i * 0.07, 0.6 + i * 0.15, 0.05, 'triangle'));
   },
   poke() {
     if (!fxOn) return;

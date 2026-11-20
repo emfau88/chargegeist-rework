@@ -1352,6 +1352,98 @@ button.row:active {
   gap: 10px;
   font-size: 14px;
   font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+/* the result builds up line by line; a tap puts the rest there at once (.skip) */
+.res-step {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.3s var(--ease-out), transform 0.45s var(--ease-out);
+}
+.res-step.in {
+  opacity: 1;
+  transform: none;
+}
+.res-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.res-step .bar i {
+  transition: width 0.5s var(--ease-out) 0.1s;
+}
+.complete.skip .res-step,
+.complete.skip .res-step .bar i {
+  transition-duration: 0.15s;
+  transition-delay: 0s;
+}
+/* the daily goal, reached with this session, gets a line of its own */
+.goal-row {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 -4px 4px;
+  padding: 7px 12px 7px 8px;
+  border-radius: 14px;
+  color: #dcffea;
+  background: linear-gradient(100deg, color-mix(in srgb, var(--common) 26%, transparent), color-mix(in srgb, var(--common) 8%, transparent));
+  border: 1px solid color-mix(in srgb, var(--common) 50%, transparent);
+  box-shadow: 0 0 22px -8px var(--common);
+  transition: none;
+}
+.goal-row b {
+  flex: 1;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 15.5px;
+}
+.goal-row > .icon {
+  color: var(--common);
+}
+.goal-check {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #0b2a1a;
+  background: var(--common);
+}
+.goal-check .icon {
+  stroke-width: 3;
+}
+.goal-row::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.4) 50%, transparent 65%);
+  transform: translateX(-100%);
+  pointer-events: none;
+}
+.goal-row.in {
+  animation: goal-in 0.5s var(--ease-spring) both;
+}
+.goal-row.in::after {
+  animation: goal-shine 0.8s var(--ease-out) 0.12s both;
+}
+.complete.skip .goal-row.in,
+.complete.skip .goal-row.in::after {
+  animation-duration: 0.15s;
+  animation-delay: 0s;
+}
+@keyframes goal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+@keyframes goal-shine {
+  to {
+    transform: translateX(100%);
+  }
 }
 .res-row + .bar {
   margin-bottom: 4px;
@@ -1405,6 +1497,18 @@ button.row:active {
 }
 .unlock-card.boss {
   --rc: var(--season);
+}
+/* on the session result the news wait for their step, then pop in */
+.complete .unlock-card {
+  animation-duration: 0.5s;
+  animation-delay: 0s;
+}
+.complete .unlock-card.wait {
+  opacity: 0;
+  animation: none;
+}
+.complete.skip .unlock-card {
+  animation-duration: 0.15s;
 }
 @keyframes pop-in {
   from {
