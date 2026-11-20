@@ -27,10 +27,13 @@ Der Spielstand liegt nur im Browser (localStorage).
 - **Tagesdrop:** 3 Stilkarten aufdecken, 1 behalten, dazu ein Geisterfunke. Die Chancen stehen offen in der App, und nach spätestens 10 Drops kommt etwas Episches oder Besseres. Doppelte Stile und Funken für schon volle Geister werden zu Wunschenergie.
 - **Wunsch:** Jede Fokusminute bringt Wunschenergie. Damit holst du dir gezielt einen Stil.
 - **Ladewoche und Wochenboss:** 5 aktive Tage pro Woche bringen einen Bonus-Drop. Wer das Wochenziel schafft, beruhigt den Boss, und der kommt zu dir. Ein verpasster Tag setzt nichts zurück.
+- **Anfassen:** Tippen, Streicheln, Halten und Kitzeln. Gestreichelt schließt der Geist genießerisch die Augen und summt, gehalten wird er zusammengedrückt, gekitzelt kichert er und schlägt einen Salto. Senkrechtes Wischen scrollt weiter die Seite.
+- **Bindung pro Geist:** Gemeinsame Fokusminuten (1 Herz pro 5 Minuten) und die Gesten (je 1 Herz am Tag) füllen die Bindung. Bei 10, 40, 100 und 250 Herzen steigt sie: Vertraut (er begrüßt dich mit seinem Spruch), Freund (er umarmt dich nach langem Streicheln), Bester Freund (Halten wird zum High-Five) und Seelenverwandt (goldener Rahmen). Herzen und Stufen sinken nie.
+- **Lebendiger Himmel:** Der Standard-Himmel folgt der Tageszeit, Nebelschleier ziehen langsam, ab und zu fällt eine Sternschnuppe. Im Fokus atmet ein Schein in der Farbe des Geists, ein wartender Drop schimmert golden, und nach einer Sitzung regnet es Funken. Abschaltbar, bei „Bewegung reduzieren“ aus.
 - **Erfolge** mit Wunschenergie als Belohnung, dazu Statistiken und eine Monatskarte zum Teilen.
 - **Plus (einmalig):** Hintergründe, Klangwelten, ausführliche Statistiken und der Unterstützer-Schimmer Herzlicht. Plus verkauft keine Drops, Geister oder Tempo.
 
-Die Geister sind animierte Rigs aus Einzelteilen und werden mit WebGL gerendert. Sie atmen, blinzeln, jubeln und reagieren auf Antippen. Auren laufen als leichte SVG-Partikel, der Talisman folgt dem Geist mit etwas Verzögerung und weicht im Fokus dem Ladering aus.
+Die Geister sind animierte Rigs aus Einzelteilen und werden mit WebGL gerendert. Sie atmen, blinzeln, jubeln und reagieren auf Gesten. Töne entstehen im Browser, ohne Audiodateien. Auren laufen als leichte SVG-Partikel, der Talisman folgt dem Geist mit etwas Verzögerung und weicht im Fokus dem Ladering aus.
 
 ## Lokal starten
 
@@ -49,10 +52,10 @@ Jeder Push auf `main` baut die App und veröffentlicht sie über GitHub Actions 
 | Ordner | Inhalt |
 | --- | --- |
 | `app/` | Die Web-App (Vite, Preact, TypeScript) |
-| `app/src/rig/` | Geister-Rig: WebGL-Renderer, Animation, Talisman |
+| `app/src/rig/` | Geister-Rig: WebGL-Renderer, Animation, Talisman, Gesten-Erkennung |
 | `app/src/fx/` | Auren (Partikel) und Schimmer (Farben) |
 | `app/src/state/` | Spielstand und alle Aktionen |
-| `app/src/logic/` | Drops, Fortschritt, Boss, Erfolge |
+| `app/src/logic/` | Drops, Fortschritt, Boss, Erfolge, Bindung, Tageszeit des Himmels |
 | `app/tools/` | Import der Bausätze und Talismane, App-Icon, Screenshot-Skripte |
 | `rig_input/` | Die Bausatz-Bögen als Vorlage |
 | `rig_parts/` | Die daraus geschnittenen Einzelteile |
