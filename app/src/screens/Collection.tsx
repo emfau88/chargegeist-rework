@@ -48,13 +48,14 @@ export function Collection({ openPlus }: { openPlus: () => void }) {
     const costume = g.kind === 'costume';
     const sp = costume ? sparkInfo(s, id) : null;
     const rc = g.rarity ? RARITY_COLOR[g.rarity] : g.glow;
-    const kindred = !!rec && bondLevel(bondOf(s, id)) >= BOND_MAX;
+    const bond = rec ? bondLevel(bondOf(s, id)) : 0;
+    const kindred = !!rec && bond >= BOND_MAX;
     return (
       <button
         type="button"
         key={id}
         class={`tile ghost-tile ${kindred ? 'kindred' : ''} ${rec ? 'own' : 'missing'} ${rec && !rec.seen ? 'unseen' : ''} ${s.companion === id ? 'active' : ''} ${!rec && target === id ? 'charging' : ''}`}
-        style={{ '--rc': rc, '--cg': g.glow } as CSSProperties}
+        style={{ '--rc': rc, '--cg': g.glow, '--rar': g.rarity ? RARITY_COLOR[g.rarity] : undefined } as CSSProperties}
         onClick={() => openGhost(id)}
         aria-label={rec ? companionName(s, id) : `${nameOf(g)}: ${sp ? t('spark_count', sp) : ghostUnlockText(s, id)}`}
       >
@@ -72,6 +73,12 @@ export function Collection({ openPlus }: { openPlus: () => void }) {
             </small>
           </span>
         )}
+        {rec && (
+          <span class="tile-bond">
+            <Icon name="heart" size={11} /> {t(`bond_${bond}` as Key)}
+          </span>
+        )}
+        {g.rarity && <span class="tile-rar">{t(`r_${g.rarity}` as Key)}</span>}
         {rec && !rec.seen && <span class="new-dot">{t('new_badge')}</span>}
         {kindred && (
           <span class="kindred-dot" aria-hidden="true">

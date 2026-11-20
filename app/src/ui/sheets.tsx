@@ -15,6 +15,7 @@ import {
   stylesOf,
   unlockOrder,
 } from '../data/catalog';
+import type { StyleKind } from '../data/types';
 import { fmtDate, nameOf, quoteOf, t } from '../i18n';
 import type { Key } from '../i18n';
 import { playAmbient, sfx, stopAmbient } from '../platform/audio';
@@ -202,12 +203,16 @@ export function StyleSheet({ open, onClose, ghostId, onPlus }: { open: boolean; 
   const mine = GHOSTS.filter((g) => s.ghosts[g.id]);
   const [who, setWho] = useState(ghostId ?? s.companion);
   const [cheer, setCheer] = useState(0);
+  const [kind, setKind] = useState<StyleKind>('aura');
   useEffect(() => {
     if (open) setWho(ghostId && s.ghosts[ghostId] ? ghostId : s.companion);
   }, [open, ghostId]);
   const look = lookOf(s, who);
   const anyOn = Object.keys(look).length > 0;
   const owned = DROP_STYLES.filter((x) => s.styles[x.id]);
+  // one tab per kind that has something to show; the tab picked last stays open
+  const lists = STYLE_KINDS.map((k) => ({ k, list: stylesOf(k).filter((x) => s.styles[x.id] || x.plus) })).filter((e) => e.list.length > 0);
+  const cur = lists.find((e) => e.k === kind) ?? lists[0];
   return (
     <Sheet open={open} onClose={onClose} title={t('style_title')} class="style-sheet">
       {mine.length > 1 && (
@@ -219,17 +224,38 @@ export function StyleSheet({ open, onClose, ghostId, onPlus }: { open: boolean; 
           ))}
         </div>
       )}
-      <div class="style-stage" style={{ '--cg': ghost(who).glow } as CSSProperties}>
-        {open && <CompanionStage key={who} ghostId={who} level={0.35} interactive zoom={1.15} overscan={{ top: 0.18, side: 0.1, bottom: 0.02 }} cheer={cheer} cheerBig={false} onPoke={() => sfx.poke()} />}
+      <div class="style-top">
+        <div class="style-stage" style={{ '--cg': ghost(who).glow } as CSSProperties}>
+          {open && <CompanionStage key={who} ghostId={who} level={0.35} interactive zoom={1.15} overscan={{ top: 0.18, side: 0.1, bottom: 0.02 }} cheer={cheer} cheerBig={false} onPoke={() => sfx.poke()} />}
+        </div>
+        {lists.length > 1 && (
+          <div class="segments style-tabs" role="tablist" style={{ gridTemplateColumns: `repeat(${lists.length}, 1fr)` }}>
+            {lists.map(({ k }) => (
+              <button
+                type="button"
+                key={k}
+                role="tab"
+                aria-selected={cur?.k === k}
+                class={`segment ${cur?.k === k ? 'active' : ''}`}
+                onClick={() => {
+                  haptic.tap();
+                  setKind(k);
+                }}
+              >
+                {t(`col_${k}s` as Key)}
+                {look[k] && <i class="seg-on" aria-hidden="true" />}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       {owned.length === 0 && !s.plus && <p class="muted center">{t('style_empty')}</p>}
-      <p class="muted small center">{t('style_body')}</p>
-      {STYLE_KINDS.map((k) => {
-        const list = stylesOf(k).filter((x) => s.styles[x.id] || x.plus);
-        if (!list.length) return null;
+      {[cur].map((e) => {
+        if (!e) return null;
+        const { k, list } = e;
         return (
-          <section class="style-row" key={k}>
-            <h3 class="sheet-sub">{t(`col_${k}s` as Key)}</h3>
+          <section class="style-row" key={k} role="tabpanel">
+            {lists.length === 1 && <h3 class="sheet-sub">{t(`col_${k}s` as Key)}</h3>}
             <div class="style-grid">
               {list.map((x) => {
                 const on = look[k] === x.id;
@@ -253,7 +279,7 @@ export function StyleSheet({ open, onClose, ghostId, onPlus }: { open: boolean; 
                       if (!on) setCheer((c) => c + 1);
                     }}
                   >
-                    <StyleBadge id={x.id} size={54} />
+                    <StyleBadge id={x.id} size={62} />
                     <small>{nameOf(x)}</small>
                     {on && (
                       <span class="style-check">
@@ -272,6 +298,7 @@ export function StyleSheet({ open, onClose, ghostId, onPlus }: { open: boolean; 
           </section>
         );
       })}
+      <p class="muted small center">{t('style_body')}</p>
       {anyOn && (
         <Btn kind="ghost" icon="restore" onClick={() => clearLook(who)}>
           {t('style_clear')}

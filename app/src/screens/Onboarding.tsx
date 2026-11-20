@@ -90,6 +90,17 @@ function PreSteps({ openDrop }: { openDrop: (id: string) => void }) {
           <CompanionStage ghostId="volti" level={0.55} interactive zoom={1.15} overscan={{ top: 0.25, side: 0.1, bottom: 0 }} class="ob-stage" cheer={cheer} onPoke={() => sfx.poke()} />
           <h1 class="ob-title">{t('ob_welcome_title')}</h1>
           <p class="ob-text">{t('ob_welcome_body')}</p>
+          <ul class="ob-points">
+            <li class="p-style">
+              <Icon name="sparkle" size={17} /> {t('ob_welcome_p1')}
+            </li>
+            <li class="p-ghost">
+              <Icon name="ghost" size={17} /> {t('ob_welcome_p2')}
+            </li>
+            <li class="p-fair">
+              <Icon name="heart" size={17} /> {t('ob_welcome_p3')}
+            </li>
+          </ul>
           <div class="stack bottom-actions">
             <Btn kind="primary" big onClick={() => go('tags')}>
               {t('ob_welcome_cta')}
