@@ -15,6 +15,16 @@ export const haptic = {
   big() {
     if (getState().settings.haptics) navigator.vibrate?.([20, 50, 20, 50, 60]);
   },
+  /** One soft beat of the purr while the ghost is stroked. */
+  purr() {
+    if (getState().settings.haptics) navigator.vibrate?.(5);
+  },
+  press() {
+    if (getState().settings.haptics) navigator.vibrate?.(24);
+  },
+  tickle() {
+    if (getState().settings.haptics) navigator.vibrate?.([8, 40, 8, 40, 8]);
+  },
 };
 
 /* ---------- notifications ---------- */

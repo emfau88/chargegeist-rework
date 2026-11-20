@@ -12,6 +12,8 @@
  */
 import { charmImg, ghost, partUrl } from '../data/catalog';
 import { CHARMS } from '../data/charms.gen';
+import { GestureTracker } from './gestures';
+import type { Gesture } from './gestures';
 import { RIGS } from '../data/rigs.gen';
 import type { RigConfig, Vec } from '../data/rigTypes';
 import { AuraSim, SvgAura } from '../fx/aura';
@@ -42,6 +44,10 @@ export interface RigOptions {
   shiftY?: number;
   showShadow?: boolean;
   onPoke?: () => void;
+  /** Every gesture on the ghost (tap, tickle, hold, stroke), for sound, vibration and hearts. */
+  onGesture?: (g: Gesture) => void;
+  /** A touch woke him up (tap, tickle, hold or a celebration); stroking keeps him asleep. */
+  onWake?: () => void;
 }
 
 export interface RigApi {
@@ -175,6 +181,8 @@ export function createRig(host: HTMLElement, look: Look, opts: RigOptions = {}):
   const layer = document.createElement('div');
   layer.className = 'rig-layer';
   layer.style.cssText = 'position:absolute;pointer-events:none;';
+  // touch-action sits on the front svg itself: Chrome ignores it on SVG shapes like the hit ellipse.
+  // pan-y lets a vertical swipe scroll the page while a sideways one strokes the ghost.
   layer.innerHTML = `
   <svg class="rig-back" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible" aria-hidden="true">
     <defs>
@@ -193,7 +201,7 @@ export function createRig(host: HTMLElement, look: Look, opts: RigOptions = {}):
     <ellipse data-k="shadow" cx="300" cy="524" rx="112" ry="15" fill="#03020a" opacity="0.55" filter="url(#${id}blur)"/>
   </svg>
   <canvas class="rig-gl" style="position:absolute;inset:0;width:100%;height:100%;display:block" aria-hidden="true"></canvas>
-  <svg class="rig-front" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible" aria-hidden="true">
+  <svg class="rig-front" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;touch-action:pan-y pinch-zoom" aria-hidden="true">
     <ellipse data-k="hit" cx="300" cy="300" rx="150" ry="172" fill="transparent" style="pointer-events:${opts.interactive ? 'auto' : 'none'};cursor:pointer"/>
     <g data-k="pFront" pointer-events="none"></g>
   </svg>`;
@@ -586,6 +594,11 @@ void main(){
   let nextBlink = 1.4, blinkEnd = -1, nextLook = 0.8, nextFidget = 4 + Math.random() * 3, waveUntil = 0;
   let happyUntil = 0, wideUntil = 0, flashUntil = 0, zNext = 0, sparkNext = 0;
   const pointer = { x: 300, y: 300, last: -10 };
+  // gestures: stroking, holding and tickling (a tap stays a poke)
+  const gest = new GestureTracker();
+  let gestId = -1;
+  let stroking = false, strokeT0 = 0, strokeRun = 0, strokeHeartAt = -9, sighed = false;
+  let holding = false, saltoAt = -9, sleepSmileUntil = 0;
 
   function jump(v: number) {
     if (reduce) return;
@@ -593,8 +606,15 @@ void main(){
     jumpAt = T + 0.09;
     jumpV = v;
   }
+  /** Wakes him if he sleeps; true when he did. */
+  function wakeUp() {
+    if (mode !== 'sleep') return false;
+    mode = 'idle';
+    opts.onWake?.();
+    return true;
+  }
   function celebrate(big = true) {
-    if (mode === 'sleep') mode = 'idle';
+    wakeUp();
     aura.burst(auraBox(), big ? 10 : 6);
     spinAt = T + 0.1;
     jump(big ? 760 : 520);
@@ -609,8 +629,7 @@ void main(){
     if (big) for (let i = 0; i < 3; i++) spawn('heart', 250 + i * 50, ghostY - 190, (i - 1) * 50, -230 - Math.random() * 60, 1.6, 1.1, { g: 90 });
   }
   function poke() {
-    if (mode === 'sleep') {
-      mode = 'idle';
+    if (wakeUp()) {
       wideUntil = T + 0.9;
       jump(430);
       opts.onPoke?.();
@@ -622,9 +641,78 @@ void main(){
     for (let i = 0; i < 3; i++) spawn('heart', 300 + (i - 1) * 38 + (Math.random() - 0.5) * 16, ghostY - 150, (i - 1) * 30, -120 - Math.random() * 50, 1.5, 0.9 + Math.random() * 0.4, { g: 40 });
     opts.onPoke?.();
   }
+  /** Quick taps in a row: he giggles and flips. */
+  function tickle() {
+    wakeUp();
+    happyUntil = T + 1.4;
+    S.squash.v -= 3;
+    S.lean.v += (Math.random() < 0.5 ? -1 : 1) * 120;
+    if (!reduce && T - saltoAt > 0.85) {
+      saltoAt = T;
+      jump(600);
+    }
+    for (let i = 0; i < 4; i++) {
+      const a = Math.random() * Math.PI * 2;
+      spawn('star', 300 + Math.cos(a) * 120, ghostY + Math.sin(a) * 110, Math.cos(a) * 120, Math.sin(a) * 120 - 80, 0.8, 0.6 + Math.random() * 0.4, { g: 200, rot: Math.random() * 90, vr: 300 });
+    }
+  }
+  /** Pressed and held: squashed, wide eyes, trembling; on release he pops back with a hop. */
+  function holdStart() {
+    wakeUp();
+    holding = true;
+    S.squash.t = 0.84;
+    wideUntil = T + 60;
+  }
+  function holdEnd() {
+    if (!holding) return;
+    holding = false;
+    S.squash.t = 1;
+    S.squash.v += 2;
+    wideUntil = T;
+    happyUntil = T + 1.1;
+    jump(420);
+  }
+  /** Stroked: eyes closed, leaning into the finger, a heart now and then; asleep he only smiles. */
+  function strokeMove(dx: number, dy: number) {
+    const u = view.w / Math.max(1, layerBox.w);
+    const sx = dx * u,
+      sy = dy * u;
+    S.lean.v += clamp(sx * 1.6, -26, 26);
+    if (mode === 'sleep') sleepSmileUntil = T + 0.7;
+    else happyUntil = Math.max(happyUntil, T + 0.4);
+    strokeRun += Math.hypot(sx, sy);
+    if (strokeRun >= 150 && T - strokeHeartAt > 0.22) {
+      strokeRun = 0;
+      strokeHeartAt = T;
+      spawn('heart', pointer.x + (Math.random() - 0.5) * 30, pointer.y - 30, (Math.random() - 0.5) * 40, -110 - Math.random() * 40, 1.3, 0.7 + Math.random() * 0.35, { g: 30 });
+    }
+  }
+  function onGesture(g: Gesture) {
+    if (g.kind === 'tap') poke();
+    else if (g.kind === 'tickle') tickle();
+    else if (g.kind === 'holdStart') holdStart();
+    else if (g.kind === 'holdEnd') holdEnd();
+    else if (g.kind === 'strokeStart') {
+      stroking = true;
+      strokeT0 = T;
+      strokeRun = 0;
+      sighed = false;
+    } else if (g.kind === 'stroke') strokeMove(g.dx, g.dy);
+    else if (g.kind === 'strokeEnd') stroking = false;
+    opts.onGesture?.(g);
+  }
+  const emit = (gs: Gesture[]) => gs.forEach(onGesture);
 
   function tick(dt: number) {
     T += dt;
+    emit(gest.update(performance.now()));
+    if (holding && !reduce) S.lean.v += Math.sin(T * 41) * 1100 * dt;
+    // after a few seconds of stroking: a content sigh and a big heart
+    if (stroking && !sighed && T - strokeT0 > 4) {
+      sighed = true;
+      S.squash.v -= 2.6;
+      spawn('heart', 300, ghostY - 170, 0, -90, 1.8, 1.5, { g: 20 });
+    }
     const sleepy = S.sleepy.x;
     waveT += reduce ? 0 : dt * (1 - 0.55 * sleepy);
     phase += reduce ? 0 : dt * 1.5 * (1 - 0.45 * sleepy);
@@ -669,7 +757,7 @@ void main(){
     S.sleepy.t = mode === 'sleep' ? 1 : 0;
     S.low.t = mode === 'sleep' ? 1 : 0;
     S.lean.t = mode === 'idle' ? S.lookX.x * 5 : 0;
-    const want = happy ? 'laugh' : T < wideUntil ? 'o' : mode === 'focus' ? 'line' : mode === 'sleep' ? 'o' : 'smile';
+    const want = happy ? 'laugh' : T < wideUntil ? 'o' : mode === 'focus' ? 'line' : mode === 'sleep' ? (T < sleepSmileUntil ? 'smile' : 'o') : 'smile';
     if (want !== mouthNow) {
       mouthNow = want;
       S.pop.v += 5;
@@ -759,8 +847,10 @@ void main(){
     F.breath = reduce ? 0 : Math.sin(T * 2.3) * 0.014 * (1 + sleepy);
     F.sy = sy;
     F.sx = 1 + (1 - sy) * 0.85;
-    F.c = Math.cos(S.lean.x * RAD);
-    F.s = Math.sin(S.lean.x * RAD);
+    const sp = (T - saltoAt) / 0.7;
+    const salto = sp >= 0 && sp < 1 ? 360 * (sp < 0.5 ? 2 * sp * sp : 1 - (-2 * sp + 2) ** 2 / 2) : 0;
+    F.c = Math.cos((S.lean.x + salto) * RAD);
+    F.s = Math.sin((S.lean.x + salto) * RAD);
     F.gx = 300;
     F.gy = 280 + shiftY + floatY + hopY + S.low.x * 20;
     ghostY = F.gy;
@@ -858,14 +948,29 @@ void main(){
     pointer.x = p.x;
     pointer.y = p.y;
     pointer.last = T;
+    if (e.pointerId === gestId) emit(gest.move(e.clientX, e.clientY, performance.now()));
   };
   const onDown = (e: PointerEvent) => {
+    if (!e.isPrimary) return;
     e.preventDefault();
     onMove(e);
-    poke();
+    gestId = e.pointerId;
+    emit(gest.down(e.clientX, e.clientY, performance.now(), e.pointerType === 'touch'));
+  };
+  const onUp = (e: PointerEvent) => {
+    if (e.pointerId !== gestId) return;
+    gestId = -1;
+    emit(gest.up(performance.now()));
+  };
+  const onCancel = (e: PointerEvent) => {
+    if (e.pointerId !== gestId) return;
+    gestId = -1;
+    emit(gest.cancel(performance.now()));
   };
   if (opts.interactive) {
     window.addEventListener('pointermove', onMove, { passive: true });
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onCancel);
     el.hit.addEventListener('pointerdown', onDown);
   }
 
@@ -963,10 +1068,14 @@ void main(){
       waveUntil = T + 1.3;
     },
     destroy() {
+      // a stroke or hold in progress ends with the stage (stops the purr)
+      emit(gest.cancel(performance.now()));
       alive = false;
       cancelAnimationFrame(raf);
       ro.disconnect();
       window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onCancel);
       if (gl) gl.getExtension('WEBGL_lose_context')?.loseContext();
       aura.clear();
       layer.remove();

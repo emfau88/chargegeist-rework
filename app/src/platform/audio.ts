@@ -1,6 +1,7 @@
 /**
  * All sound is synthesised with WebAudio: no audio files, works offline.
- * Effects: tap, start, complete, flip (per rarity), keep, unlock, poke.
+ * Effects: tap, start, complete, flip (per rarity), keep, unlock, poke, and the gesture sounds
+ * (a purring hum while stroked, a squeak when held, a pop on release, a giggle when tickled).
  * Ambient soundscapes: rain, brown noise, fireplace, night forest, ocean, café.
  */
 import type { AmbientId } from '../state/store';
@@ -26,6 +27,7 @@ function ac(): AudioContext {
 
 export function setFx(on: boolean) {
   fxOn = on;
+  if (!on) purrOff();
 }
 
 function bell(freq: number, at: number, dur: number, gain: number, type: OscillatorType = 'sine', partial = 2.76) {
@@ -115,7 +117,79 @@ export const sfx = {
     bell(N(-5), 0, 0.8, 0.06);
     bell(N(0), 0.15, 0.9, 0.05);
   },
+  /** A soft hum with a purring flutter, while the ghost is stroked. */
+  purr(on: boolean) {
+    if (on && fxOn) purrOn();
+    else purrOff();
+  },
+  squeak() {
+    if (!fxOn) return;
+    sweep(820, 1350, 0, 0.09, 0.035);
+    sweep(1350, 1050, 0.09, 0.1, 0.03);
+  },
+  pop() {
+    if (!fxOn) return;
+    sweep(320, 760, 0, 0.1, 0.05);
+    bell(N(12), 0.07, 0.3, 0.035);
+  },
+  giggle() {
+    if (!fxOn) return;
+    [0, 1, 2, 3].forEach((i) => sweep(760 + i * 70, 1050 + i * 60, i * 0.085, 0.07, 0.03));
+  },
 };
+
+/* the purr: two soft tones whose loudness flutters about 24 times a second */
+let purrNodes: { out: GainNode; stop: () => void } | null = null;
+function purrOn() {
+  if (purrNodes) return;
+  const c = ac();
+  const out = c.createGain();
+  out.gain.setValueAtTime(0, c.currentTime);
+  out.gain.linearRampToValueAtTime(1, c.currentTime + 0.18);
+  const flutter = c.createGain();
+  flutter.gain.value = 0.5;
+  const rate = c.createOscillator();
+  rate.frequency.value = 24;
+  const depth = c.createGain();
+  depth.gain.value = 0.45;
+  rate.connect(depth).connect(flutter.gain);
+  const oscs = [
+    [118, 'sine', 0.06],
+    [236, 'triangle', 0.018],
+  ].map(([f, type, g]) => {
+    const o = c.createOscillator();
+    o.type = type as OscillatorType;
+    o.frequency.value = f as number;
+    const v = c.createGain();
+    v.gain.value = g as number;
+    o.connect(v).connect(flutter);
+    o.start();
+    return o;
+  });
+  // a slow rise and fall of the pitch, like breathing
+  const wob = c.createOscillator();
+  wob.frequency.value = 0.9;
+  const wobD = c.createGain();
+  wobD.gain.value = 6;
+  wob.connect(wobD);
+  oscs.forEach((o) => wobD.connect(o.frequency));
+  rate.start();
+  wob.start();
+  flutter.connect(out).connect(master!);
+  purrNodes = {
+    out,
+    stop: () => [...oscs, rate, wob].forEach((o) => o.stop()),
+  };
+}
+function purrOff() {
+  if (!purrNodes || !ctx) return;
+  const n = purrNodes;
+  purrNodes = null;
+  n.out.gain.cancelScheduledValues(ctx.currentTime);
+  n.out.gain.setValueAtTime(n.out.gain.value, ctx.currentTime);
+  n.out.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.25);
+  setTimeout(n.stop, 300);
+}
 
 /* ---------------- ambient ---------------- */
 type NoiseColor = 'white' | 'pink' | 'brown';

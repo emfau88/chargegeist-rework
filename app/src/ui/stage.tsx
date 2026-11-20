@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { ghost } from '../data/catalog';
 import { nameOf } from '../i18n';
 import { createRig, renderPortrait } from '../rig/rig';
+import { gestureFx } from './gestureFx';
 import type { RigApi, RigMode, RigOptions, RigStyle } from '../rig/rig';
 import { lookOf, useAppState } from '../state/store';
 
@@ -17,6 +18,8 @@ interface StageProps {
   overscan?: RigOptions['overscan'];
   shiftY?: number;
   onPoke?: () => void;
+  /** A touch woke the sleeping companion. */
+  onWake?: () => void;
   /** Change this value to make the companion cheer. */
   cheer?: number;
   cheerBig?: boolean;
@@ -34,6 +37,8 @@ export function CompanionStage(p: StageProps) {
   const rig = useRef<RigApi | null>(null);
   const poke = useRef(p.onPoke);
   poke.current = p.onPoke;
+  const wake = useRef(p.onWake);
+  wake.current = p.onWake;
   const look = p.look ?? lookOf(s, p.ghostId);
   const key = `${p.ghostId}|${styleKey(look)}`;
   const shown = useRef(key);
@@ -45,6 +50,8 @@ export function CompanionStage(p: StageProps) {
       overscan: p.overscan,
       shiftY: p.shiftY,
       onPoke: () => poke.current?.(),
+      onWake: () => wake.current?.(),
+      onGesture: p.interactive ? gestureFx : undefined,
     });
     rig.current = r;
     if (p.apiRef) p.apiRef.current = r;

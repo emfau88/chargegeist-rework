@@ -60,6 +60,8 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
   const [dur, setDur] = useState(s.lastDuration);
   const [tag, setTag] = useState<TagId>(s.lastTag);
   const [cheer, setCheer] = useState(0);
+  // woken by a touch at night: he stays up while Home is open
+  const [woke, setWoke] = useState(false);
 
   const today = todayMinutes(s);
   const level = Math.min(1, today / s.goal);
@@ -72,7 +74,7 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
   const wish = s.wish.target ? style(s.wish.target) : null;
   const target = sparkTarget(s);
   const wishCost = wish ? WISH_COST[wish.rarity] : 0;
-  const sleepy = new Date(now()).getHours() >= 23 || new Date(now()).getHours() < 5;
+  const sleepy = !woke && (new Date(now()).getHours() >= 23 || new Date(now()).getHours() < 5);
 
   const start = () => {
     sfx.start();
@@ -120,6 +122,7 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
             sfx.poke();
             haptic.tap();
           }}
+          onWake={() => setWoke(true)}
           class={`hero-stage ${s.plus ? 'supporter' : ''}`}
           label={name}
         />
