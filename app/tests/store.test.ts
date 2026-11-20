@@ -155,12 +155,21 @@ describe('daily loop', () => {
   it('every ghost shows one style per kind; Plus styles only with Plus', () => {
     dev.replace({
       ...getState(),
-      styles: { aura_snow: { at: 0, via: 'drop', seen: true }, aura_notes: { at: 0, via: 'drop', seen: true }, shimmer_mint: { at: 0, via: 'drop', seen: true } },
+      styles: {
+        aura_snow: { at: 0, via: 'drop', seen: true },
+        aura_notes: { at: 0, via: 'drop', seen: true },
+        shimmer_mint: { at: 0, via: 'drop', seen: true },
+        charm_teacup: { at: 0, via: 'drop', seen: true },
+      },
       ghosts: { ...getState().ghosts, kitsune: { at: 0, via: 'boss', seen: true } },
     });
     toggleStyle('volti', 'aura_snow');
     toggleStyle('volti', 'shimmer_mint');
     expect(lookOf(getState(), 'volti')).toEqual({ aura: 'aura_snow', shimmer: 'shimmer_mint' });
+    toggleStyle('volti', 'charm_teacup');
+    expect(lookOf(getState(), 'volti')).toEqual({ aura: 'aura_snow', shimmer: 'shimmer_mint', charm: 'charm_teacup' });
+    toggleStyle('volti', 'charm_moon'); // not owned
+    expect(lookOf(getState(), 'volti').charm).toBe('charm_teacup');
     toggleStyle('volti', 'aura_notes');
     expect(lookOf(getState(), 'volti').aura).toBe('aura_notes');
     toggleStyle('volti', 'aura_notes');

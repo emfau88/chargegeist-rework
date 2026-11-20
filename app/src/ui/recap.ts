@@ -1,10 +1,10 @@
 /** The monthly share card, drawn offline on a canvas (1080 x 1350, a 4:5 post). */
-import { RARITY_COLOR, ghost, style } from '../data/catalog';
+import { RARITY_COLOR, charmImg, ghost, style } from '../data/catalog';
 import { rgbCss, shimmerRgb } from '../fx/shimmer';
 import { fmtDate, fmtNum, t } from '../i18n';
 import { CHARGE_DAY_MIN, minutesByDay } from '../logic/progress';
 import { monthDays, monthKey } from '../logic/time';
-import { renderPortrait } from '../rig/rig';
+import { loadImage, renderPortrait } from '../rig/rig';
 import { companionName, now } from '../state/store';
 import type { State } from '../state/store';
 
@@ -38,8 +38,8 @@ export function monthStats(s: State, at = now()): MonthStats {
   };
 }
 
-/** A style as a round glowing badge for the share card. */
-function styleBadge(id: string, size: number): HTMLCanvasElement {
+/** A style as a round glowing badge for the share card; a charm shows its picture on the glow. */
+function styleBadge(id: string, size: number, img?: HTMLImageElement): HTMLCanvasElement {
   const x = style(id);
   const cv = document.createElement('canvas');
   cv.width = cv.height = size;
@@ -56,8 +56,14 @@ function styleBadge(id: string, size: number): HTMLCanvasElement {
   ctx.arc(c, c, c, 0, Math.PI * 2);
   ctx.fill();
   ctx.globalAlpha = 1;
+  if (img) {
+    const k = (size * 0.66) / Math.max(img.naturalWidth, img.naturalHeight);
+    const w = img.naturalWidth * k,
+      h = img.naturalHeight * k;
+    ctx.drawImage(img, c - w / 2, c - h / 2, w, h);
+  }
   // a few sparkles around an aura
-  if (x.kind !== 'shimmer') {
+  if (x.kind === 'aura') {
     ctx.fillStyle = '#ffffff';
     for (let i = 0; i < 7; i++) {
       const a = (i / 7) * Math.PI * 2 + id.length;
@@ -91,7 +97,13 @@ export async function renderRecap(s: State): Promise<HTMLCanvasElement> {
   const portrait = await renderPortrait({ ghost: s.companion }, 520);
   const shown = m.finds.slice(0, 5);
   const imgs: CanvasImageSource[] = await Promise.all(
-    shown.map((f) => (f.kind === 'ghost' ? renderPortrait({ ghost: f.id }, 300) : Promise.resolve(styleBadge(f.id, 300)))),
+    shown.map((f) =>
+      f.kind === 'ghost'
+        ? renderPortrait({ ghost: f.id }, 300)
+        : style(f.id).kind === 'charm'
+          ? loadImage(charmImg(f.id)).then((img) => styleBadge(f.id, 300, img))
+          : Promise.resolve(styleBadge(f.id, 300)),
+    ),
   );
 
   const cv = document.createElement('canvas');

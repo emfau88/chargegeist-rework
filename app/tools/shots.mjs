@@ -63,10 +63,10 @@ async function seed(page, extra = {}) {
         ember: { at: now - 4 * day, via: 'hours', seen: true },
         pumpkin: { at: now - 2 * day, via: 'spark', seen: false },
       };
-      const styles = ['aura_fireflies', 'shimmer_moon', 'aura_bubbles', 'shimmer_mint', 'aura_snow', 'shimmer_rose', 'aura_stardust', 'aura_blossoms', 'shimmer_rainbow'];
+      const styles = ['aura_fireflies', 'shimmer_moon', 'aura_bubbles', 'shimmer_mint', 'aura_snow', 'shimmer_rose', 'aura_stardust', 'aura_blossoms', 'shimmer_rainbow', 'charm_teacup', 'charm_compass'];
       x.styles = {};
       styles.forEach((id, i) => (x.styles[id] = { at: now - (styles.length - i) * day * 0.9, via: 'drop', seen: i < styles.length - 2 }));
-      x.looks = { volti: { aura: 'aura_fireflies', shimmer: 'shimmer_mint' }, ember: { aura: 'aura_snow' } };
+      x.looks = { volti: { aura: 'aura_fireflies', shimmer: 'shimmer_mint', charm: 'charm_teacup' }, ember: { aura: 'aura_snow' } };
       x.sparks = { target: null, have: { kitsune: 3, witch: 1 } };
       x.achievements = { first: now - 9 * day, days3: now - 7 * day, goal1: now - 5 * day, sessions5: now - 4 * day, costume1: now - 2 * day };
       x.wish = { target: 'aura_leaves', energy: 112 };

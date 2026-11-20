@@ -3248,3 +3248,22 @@ button.spark-meter:active {
   background: var(--mythic);
   color: #2d1a00;
 }
+
+/* a charm in a preview bobs gently (the rig moves its own) */
+.style-preview .charm-bob {
+  animation: charm-bob 3.4s ease-in-out infinite;
+}
+@keyframes charm-bob {
+  0%,
+  100% {
+    transform: translateY(-7px) rotate(-5deg);
+  }
+  50% {
+    transform: translateY(7px) rotate(5deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .style-preview .charm-bob {
+    animation: none;
+  }
+}

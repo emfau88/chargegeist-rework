@@ -3,13 +3,15 @@
  * The body lies on a deformable mesh (WebGL2), face parts are painted onto that mesh, arms and tuft
  * hang on hinges. Every soft motion runs through a spring. Falls back to a flat 2D canvas when WebGL2
  * is unavailable. Style shows around the ghost and never changes its shape: an aura (particles
- * behind and in front) and a shimmer (the colour of glow, charge fill, charge ring and sparks).
+ * behind and in front), a shimmer (the colour of glow, charge fill, charge ring and sparks) and a
+ * charm (a small keepsake floating beside the ghost, on the side away from the waving arm).
  *
  * Each ghost has its own body space (pixels of its body texture). RigConfig maps it to the stage
  * (600 x 620 units): k scales it, (cx, cy) lands on (300, 280). Motion constants were tuned on
  * Volti and are scaled by m (body motion) and u (face motion) for the others.
  */
-import { ghost, partUrl } from '../data/catalog';
+import { charmImg, ghost, partUrl } from '../data/catalog';
+import { CHARMS } from '../data/charms.gen';
 import { RIGS } from '../data/rigs.gen';
 import type { RigConfig, Vec } from '../data/rigTypes';
 import { AuraSim, SvgAura } from '../fx/aura';
@@ -454,6 +456,8 @@ void main(){
     armL: new Spring(0, 110, 8), armR: new Spring(0, 110, 8),
     tuft: new Spring(0, 55, 4.5), glow: new Spring(0, 30, 11), ring: new Spring(0, 26, 10), low: new Spring(0, 14, 8),
     pop: new Spring(0, 520, 16), level: new Spring(0, 30, 11),
+    // the charm trails behind the ghost on a soft spring
+    charmX: new Spring(0, 30, 6), charmY: new Spring(0, 30, 6),
   };
   const M = { smile: new Spring(1, 900, 60), laugh: new Spring(0, 900, 60), o: new Spring(0, 900, 60), line: new Spring(0, 900, 60) };
   let mouthNow = 'smile';
@@ -518,6 +522,63 @@ void main(){
   let shimmerFrame = 0;
   const auraBox = (): AuraBox => ({ cx: 300, cy: ghostY + 30, rx: 150, ry: 190, glow: glowRgb });
 
+  /* ---------- charm ---------- */
+  const CHARM_SIZE = 96;
+  const charmG = document.createElementNS(NS, 'g');
+  charmG.innerHTML = `<circle r="50" fill="url(#${id}glow)" opacity="0.75"/><image preserveAspectRatio="xMidYMid meet"/>`;
+  const charmImage = charmG.querySelector('image') as SVGImageElement;
+  el.pFront.appendChild(charmG);
+  let charmOn = false,
+    charmFresh = true,
+    spinAt = -9;
+  function setCharm(cid: string | undefined) {
+    const def = cid ? CHARMS.find((c) => c.id === cid) : undefined;
+    charmOn = !!def;
+    charmG.style.display = def ? '' : 'none';
+    if (!def) return;
+    const k = CHARM_SIZE / Math.max(def.w, def.h);
+    const w = def.w * k,
+      h = def.h * k;
+    charmImage.setAttribute('href', charmImg(def.id));
+    charmImage.setAttribute('x', (-w / 2).toFixed(1));
+    charmImage.setAttribute('y', (-h / 2).toFixed(1));
+    charmImage.setAttribute('width', w.toFixed(1));
+    charmImage.setAttribute('height', h.toFixed(1));
+  }
+  setCharm(look.style?.charm);
+  /** Places the charm beside the left shoulder, clear of body and arm; above left, outside the charge ring, while focusing. */
+  function drawCharm(sleepy: number) {
+    if (!charmOn) return;
+    const a = R.armL;
+    const sh = D(a.at[0], a.at[1]);
+    // the hand as the arm swings right now: the charm keeps clear of it
+    const off = rot(S.armL.x, (a.hand[0] - a.anchor[0]) * a.s, (a.hand[1] - a.anchor[1]) * a.s);
+    const hand = D(a.at[0] + off[0], a.at[1] + off[1]);
+    const half = CHARM_SIZE / 2;
+    const left = view.x + half + 4,
+      top = view.y + half + 4;
+    const sideX = Math.max(left, Math.min(hand[0], sh[0]) - half - 6),
+      sideY = Math.max(top, Math.min(sh[1], hand[1]) - 44);
+    // with the charge ring showing it waits above left, outside the ring
+    const ring = clamp(S.ring.x, 0, 1);
+    const ringX = Math.max(left, 300 - 192),
+      ringY = Math.max(top, 300 - 192);
+    S.charmX.t = sideX + (ringX - sideX) * ring;
+    S.charmY.t = sideY + (ringY - sideY) * ring;
+    if (charmFresh) {
+      S.charmX.x = S.charmX.t;
+      S.charmY.x = S.charmY.t;
+      S.charmX.v = S.charmY.v = 0;
+      charmFresh = false;
+    }
+    const bob = reduce ? 0 : Math.sin(T * 1.9 + 1) * 7 * (1 - 0.6 * sleepy);
+    const tilt = (reduce ? 0 : Math.sin(T * 1.3) * 7 * (1 - 0.5 * sleepy)) + clamp(S.charmX.v * 0.06, -16, 16);
+    const sp = (T - spinAt) / 0.9;
+    const spin = sp >= 0 && sp < 1 ? 360 * (1 - (1 - sp) ** 3) : 0;
+    charmG.setAttribute('transform', `translate(${S.charmX.x.toFixed(1)},${(S.charmY.x + bob).toFixed(1)}) rotate(${(tilt + spin).toFixed(1)})`);
+    charmG.setAttribute('opacity', (1 - 0.45 * sleepy).toFixed(3));
+  }
+
   /* ---------- behaviour ---------- */
   let ghostY = 280, T = 0, waveT = 0, phase = 0, mode: RigMode = 'idle';
   let level = 0, ringP: number | null = null;
@@ -535,6 +596,7 @@ void main(){
   function celebrate(big = true) {
     if (mode === 'sleep') mode = 'idle';
     aura.burst(auraBox(), big ? 10 : 6);
+    spinAt = T + 0.1;
     jump(big ? 760 : 520);
     happyUntil = T + (big ? 1.9 : 1.3);
     flashUntil = T + 0.5;
@@ -783,6 +845,7 @@ void main(){
     hinged('arm_R', R.armR.at, R.armR.anchor, S.armR.x, R.armR.s);
     auraSvg.setGlow(glowRgb);
     auraSvg.sync(aura);
+    drawCharm(sleepy);
   }
 
   /* ---------- input ---------- */
@@ -846,6 +909,11 @@ void main(){
     glowRgb = shimmerRgb(shimmer, ghost(l.ghost).glow, T);
     setGradientColor(rgbCss(glowRgb));
     if (l.style?.aura !== cur.style?.aura || !loaded) aura.setId(l.style?.aura);
+    if (l.style?.charm !== cur.style?.charm || !loaded) {
+      setCharm(l.style?.charm);
+      if (loaded && l.style?.charm) spinAt = T;
+    }
+    if (ghostChanged) charmFresh = true;
     cur = l;
     loaded = true;
     render();

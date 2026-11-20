@@ -4,7 +4,7 @@
 
 Am besten auf dem Handy öffnen oder im Desktop-Browser die Handy-Ansicht nutzen. Die App ist auf Englisch und Deutsch und richtet sich nach der Sprache des Browsers. Umstellen kannst du das unter *Einstellungen*.
 
-ChargeGeist ist ein Fokus-Timer mit Geist. Jede Fokusminute lädt deinen Begleiter auf. Jeden Tag gibt es einen Drop mit drei Kostümteilen, von denen du eins behältst. Ein komplettes Outfit bringt einen neuen Geist. Keine Werbung, kein Konto, nichts verfällt.
+ChargeGeist ist ein Fokus-Timer mit Geist. Jede Fokusminute lädt deinen Begleiter auf. Jeden Tag gibt es einen Drop mit drei Stilkarten, von denen du eine behältst. Jeder Drop bringt außerdem einen Geisterfunken. Sind alle Funken da, kommt ein Kostümgeist zu dir, komplett so, wie sein Bausatz ihn zeigt. Keine Werbung, kein Konto, nichts verfällt.
 
 ## Schnell testen
 
@@ -13,7 +13,7 @@ Unter **Einstellungen → Prototyp-Werkzeuge** gibt es Abkürzungen für den Tes
 - **Demo-Tempo:** 1 Sekunde zählt als 1 Minute, damit du nicht 25 Minuten warten musst.
 - **25 Fokusminuten hinzufügen**, **Zum nächsten Tag springen**, **Einen Drop bekommen**
 - **Plus aktiv** schaltet die Plus-Inhalte frei. Der Kauf ist im Prototyp nur simuliert.
-- **Alle Teile und Geister freischalten**, um die ganze Garderobe zu sehen.
+- **Alle Stile und Geister freischalten**, um die ganze Sammlung zu sehen.
 - **Einstieg neu starten** zeigt das Onboarding noch einmal.
 
 Der Spielstand liegt nur im Browser (localStorage).
@@ -22,15 +22,15 @@ Der Spielstand liegt nur im Browser (localStorage).
 
 - **Fokus-Timer:** 5 bis 180 Minuten, Pause, Tags, ruhige Hintergrundgeräusche, Pausenvorschlag danach.
 - **6 Begleiter:** Volti, Ember oder Luna begleiten dich von Anfang an. Die anderen fünf kommen nach 3, 8, 15, 25 und 40 Fokusstunden dazu.
-- **10 Kostümgeister** mit eigenem Outfit, zum Beispiel Kürbis-Pip, Ronin, Hazel und Kitsu.
-- **25 Kostümteile:** Hüte, Kragen, Brillen, Schwänze, Laterne und Sense. Begleiter können sie anziehen, eins pro Stelle.
-- **Tagesdrop:** 3 Karten aufdecken, 1 behalten. Die Chancen stehen offen in der App, und nach spätestens 10 Drops kommt etwas Episches oder Besseres.
-- **Wunsch:** Jede Fokusminute bringt Wunschenergie. Damit holst du dir gezielt ein Teil.
+- **10 Kostümgeister**, zum Beispiel Kürbis-Pip, Ronin, Hazel und Kitsu. Sie kommen komplett mit Kostüm, sobald sie genug Geisterfunken haben (2 bis 5, je nach Seltenheit). Du wählst selbst, welchen Geist du gerade auflädst.
+- **Stil statt Verkleidung:** 10 Auren (Partikel um den Geist), 9 Schimmer (die Farbe von Leuchten, Ladung und Funken) und 10 Talismane (ein kleiner Glücksbringer, der neben dem Geist schwebt). Jeder Geist trägt pro Art einen Stil, und die Form der Geister bleibt immer unverändert.
+- **Tagesdrop:** 3 Stilkarten aufdecken, 1 behalten, dazu ein Geisterfunke. Die Chancen stehen offen in der App, und nach spätestens 10 Drops kommt etwas Episches oder Besseres. Doppelte Stile und Funken für schon volle Geister werden zu Wunschenergie.
+- **Wunsch:** Jede Fokusminute bringt Wunschenergie. Damit holst du dir gezielt einen Stil.
 - **Ladewoche und Wochenboss:** 5 aktive Tage pro Woche bringen einen Bonus-Drop. Wer das Wochenziel schafft, beruhigt den Boss, und der kommt zu dir. Ein verpasster Tag setzt nichts zurück.
 - **Erfolge** mit Wunschenergie als Belohnung, dazu Statistiken und eine Monatskarte zum Teilen.
-- **Plus (einmalig):** Hintergründe, Klangwelten, ausführliche Statistiken und ein Unterstützer-Abzeichen. Plus verkauft keine Teile, Geister oder Tempo.
+- **Plus (einmalig):** Hintergründe, Klangwelten, ausführliche Statistiken und der Unterstützer-Schimmer Herzlicht. Plus verkauft keine Drops, Geister oder Tempo.
 
-Die Geister sind animierte Rigs aus Einzelteilen und werden mit WebGL gerendert. Sie atmen, blinzeln, jubeln und reagieren auf Antippen. Kostümteile werden mit dem Körper verformt oder hängen an den Händen.
+Die Geister sind animierte Rigs aus Einzelteilen und werden mit WebGL gerendert. Sie atmen, blinzeln, jubeln und reagieren auf Antippen. Auren laufen als leichte SVG-Partikel, der Talisman folgt dem Geist mit etwas Verzögerung und weicht im Fokus dem Ladering aus.
 
 ## Lokal starten
 
@@ -49,10 +49,11 @@ Jeder Push auf `main` baut die App und veröffentlicht sie über GitHub Actions 
 | Ordner | Inhalt |
 | --- | --- |
 | `app/` | Die Web-App (Vite, Preact, TypeScript) |
-| `app/src/rig/` | Geister-Rig: WebGL-Renderer, Animation, Kostümteile |
+| `app/src/rig/` | Geister-Rig: WebGL-Renderer, Animation, Talisman |
+| `app/src/fx/` | Auren (Partikel) und Schimmer (Farben) |
 | `app/src/state/` | Spielstand und alle Aktionen |
 | `app/src/logic/` | Drops, Fortschritt, Boss, Erfolge |
-| `app/tools/` | Import der Bausätze, App-Icon, Screenshot-Skript |
+| `app/tools/` | Import der Bausätze und Talismane, App-Icon, Screenshot-Skripte |
 | `rig_input/` | Die Bausatz-Bögen als Vorlage |
 | `rig_parts/` | Die daraus geschnittenen Einzelteile |
 | `rig_tools/` | Python-Werkzeuge zum Schneiden und Prüfen der Teile |
@@ -61,4 +62,10 @@ Neue Bausätze übernehmen (aus dem Ordner `chargegeist_rework`):
 
 ```bash
 python -I app/tools/import_kits.py rig_parts/kits rig_tools rig_parts app
+```
+
+Talismane neu schneiden (aus demselben Ordner):
+
+```bash
+python -I app/tools/import_charms.py rig_input/talismane_v1.png app
 ```

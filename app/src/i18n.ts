@@ -44,7 +44,7 @@ const en = {
 
   // onboarding
   ob_welcome_title: 'Focus charges your ghost',
-  ob_welcome_body: 'Every focus minute charges your companion. Each day you find a costume piece, and a complete outfit brings a new ghost. No ads, no account, nothing expires.',
+  ob_welcome_body: 'Every focus minute charges your companion. Each day you find a new style, and every drop sparks a costume ghost that comes to you once it is charged. No ads, no account, nothing expires.',
   ob_welcome_cta: 'Let’s begin',
   ob_have_data: 'I’ve used ChargeGeist before',
   ob_tags_title: 'What do you want to focus on?',
@@ -415,7 +415,7 @@ const de: Record<Key, string> = {
   r_mythic: 'Mythisch',
 
   ob_welcome_title: 'Fokus lädt deinen Geist auf',
-  ob_welcome_body: 'Jede Fokusminute lädt deinen Begleiter auf. Jeden Tag findest du ein Kostümteil, und ein komplettes Outfit bringt einen neuen Geist. Keine Werbung, kein Konto, nichts verfällt.',
+  ob_welcome_body: 'Jede Fokusminute lädt deinen Begleiter auf. Jeden Tag findest du einen neuen Stil, und jeder Drop lädt einen Kostümgeist auf, bis er zu dir kommt. Keine Werbung, kein Konto, nichts verfällt.',
   ob_welcome_cta: 'Los geht’s',
   ob_have_data: 'Ich kenne ChargeGeist schon',
   ob_tags_title: 'Wofür willst du dich konzentrieren?',

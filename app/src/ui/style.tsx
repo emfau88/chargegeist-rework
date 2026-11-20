@@ -1,10 +1,10 @@
 /**
- * Small views of style and sparks: a live or frozen preview of an aura or shimmer, a badge for lists,
+ * Small views of style and sparks: a live or frozen preview of an aura, shimmer or charm, a badge for lists,
  * and the charge view of a costume ghost (its silhouette fills up with every spark).
  */
 import type { CSSProperties } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
-import { RARITY_COLOR, ghost, style } from '../data/catalog';
+import { RARITY_COLOR, charmImg, ghost, style } from '../data/catalog';
 import { AuraSim, SvgAura } from '../fx/aura';
 import type { AuraBox } from '../fx/aura';
 import { rgbCss, shimmerMoves, shimmerRgb, shimmerSwatch } from '../fx/shimmer';
@@ -79,7 +79,11 @@ export function StylePreview({ id, ghostId, size, live = true, class: cls }: { i
   const base = ghostId ? ghost(ghostId).glow : RARITY_COLOR[st.rarity];
   const uid = useRef(`sp${Math.random().toString(36).slice(2, 8)}`).current;
   const orb = !ghostId;
+  const charm = st.kind === 'charm';
   const scale = orb ? 1 : 0.9;
+  // a charm floats beside the left shoulder on a ghost, or fills the orb on its own
+  const charmBox = orb ? 220 : 128;
+  const charmAt = orb ? [300, 300] : [126, 186];
   const ringR = orb ? 128 : 235;
 
   // auras
@@ -142,9 +146,15 @@ export function StylePreview({ id, ghostId, size, live = true, class: cls }: { i
           <stop data-k="sh" offset="0.45" stop-color={base} stop-opacity={st.kind === 'shimmer' ? 0.32 : 0.12} />
           <stop data-k="sh" offset="1" stop-color={base} stop-opacity="0" />
         </radialGradient>
+        {charm && (
+          <radialGradient id={`${uid}c`}>
+            <stop offset="0" stop-color={RARITY_COLOR[st.rarity]} stop-opacity="0.55" />
+            <stop offset="1" stop-color={RARITY_COLOR[st.rarity]} stop-opacity="0" />
+          </radialGradient>
+        )}
       </defs>
       <g transform={`translate(300 300) scale(${scale}) translate(-300 -300)`}>
-        <circle cx="300" cy="300" r={orb ? 175 : 290} fill={`url(#${uid}g)`} />
+        <circle cx="300" cy="300" r={orb ? 175 : 290} fill={`url(#${uid}g)`} opacity={charm && !orb ? 0.6 : 1} />
         {st.kind === 'shimmer' && (
           <g transform="rotate(-90 300 300)">
             <circle cx="300" cy="300" r={ringR} fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width={orb ? 10 : 12} />
@@ -153,11 +163,19 @@ export function StylePreview({ id, ghostId, size, live = true, class: cls }: { i
         )}
         <g data-k="back" />
         {orb ? (
-          <circle cx="300" cy="300" r="58" fill={`url(#${uid}g)`} opacity={st.kind === 'shimmer' ? 1 : 0.9} />
+          !charm && <circle cx="300" cy="300" r="58" fill={`url(#${uid}g)`} opacity={st.kind === 'shimmer' ? 1 : 0.9} />
         ) : (
           url && <image href={url} x="74" y="54" width="453" height="453" />
         )}
         <g data-k="front" />
+        {charm && (
+          <g transform={`translate(${charmAt[0]} ${charmAt[1]})`}>
+            <g class={live && !reduce() ? 'charm-bob' : undefined}>
+              {!orb && <circle r={charmBox * 0.62} fill={`url(#${uid}c)`} />}
+              <image href={charmImg(id)} x={-charmBox / 2} y={-charmBox / 2} width={charmBox} height={charmBox} preserveAspectRatio="xMidYMid meet" />
+            </g>
+          </g>
+        )}
       </g>
     </svg>
   );
