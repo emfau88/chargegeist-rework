@@ -1,4 +1,4 @@
-/** The bond with a ghost on screen: the heart chip, the bond card and the level-up celebration. */
+/** The bond with a ghost on screen: the bond card and the level-up celebration. */
 import type { CSSProperties } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import { ghost } from '../data/catalog';
@@ -13,19 +13,6 @@ import { CompanionStage } from './stage';
 
 const stage = (l: number) => t(`bond_${l}` as Key);
 const perk = (l: number) => t(`bond_perk_${l}` as Key);
-
-/** A small heart with the bond stage, beside the ghost's name. */
-export function BondChip({ ghostId }: { ghostId: string }) {
-  const s = useAppState();
-  const b = bondOf(s, ghostId);
-  const l = bondLevel(b);
-  return (
-    <span class={`bond-chip ${l >= BOND_MAX ? 'gold' : ''}`} key={b.hearts} title={t('bond_badge', { name: companionName(s, ghostId), stage: stage(l) })}>
-      <Icon name="heart" size={13} />
-      <i>{l}</i>
-    </span>
-  );
-}
 
 /** Stage, hearts and the way to the next stage, for the ghost sheet. */
 export function BondCard({ ghostId }: { ghostId: string }) {

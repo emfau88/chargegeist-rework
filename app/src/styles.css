@@ -1048,6 +1048,121 @@ button.row:active {
     transform: rotate(8deg) scale(1.05);
   }
 }
+/* a waiting drop sits right under the greeting; the ghost makes a little room for it */
+.drop-card.top {
+  padding: 10px 12px;
+  gap: 12px;
+  text-align: left;
+}
+.drop-card.top .drop-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+}
+.drop-card.top .card-text {
+  min-width: 0;
+}
+.drop-card.top .card-text small {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.home.has-drop .hero-stage {
+  height: clamp(220px, 30dvh, 280px);
+}
+/* short screens: the ghost gives up some height, so the start button stays above the tab bar */
+@media (max-height: 780px) {
+  .home.has-drop .hero-stage {
+    height: clamp(180px, 27dvh, 240px);
+  }
+}
+@media (max-height: 700px) {
+  .hero-stage {
+    height: clamp(180px, 30dvh, 250px);
+  }
+  .home.has-drop .hero-stage {
+    height: clamp(160px, 25dvh, 220px);
+  }
+}
+/* the ghost's stage reaches past the page edge; it must not make the page scroll sideways */
+.home {
+  overflow-x: clip;
+}
+/* the bond with the companion, in words: the stage and the way to the next one */
+.bond-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: -4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--muted);
+  position: relative;
+  z-index: 3;
+}
+.bond-line .icon {
+  color: var(--heart);
+}
+.bond-line.gold,
+.bond-line.gold .icon {
+  color: var(--warm);
+}
+.bond-line-bar {
+  width: 44px;
+  height: 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+.bond-line-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--heart);
+}
+/* the session length: five equal fields in one row */
+.dur-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+.dur-seg {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-height: 52px;
+  border-radius: 16px;
+  border: 1.5px solid var(--line-2);
+  background: rgba(14, 12, 32, 0.5);
+  transition: border-color 0.2s, background 0.2s, color 0.2s, transform 0.18s var(--ease-spring);
+}
+.dur-seg b {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 18px;
+  line-height: 1.1;
+}
+.dur-seg small {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: var(--muted);
+  line-height: 1.1;
+}
+.dur-seg:active {
+  transform: scale(0.95);
+}
+.dur-seg.active {
+  border-color: var(--charge);
+  color: var(--charge);
+  background: var(--charge-soft);
+}
+.dur-seg.active small {
+  color: var(--charge);
+}
 .drop-meter {
   display: flex;
   flex-direction: column;
@@ -3962,6 +4077,11 @@ button.spark-meter:active {
   width: 124px;
   height: 124px;
   margin: -62px 0 0 -62px;
+}
+.sky.orbs-off .sky-sun,
+.sky.orbs-off .sky-moon {
+  opacity: 0 !important;
+  transition-duration: 0.4s;
 }
 /* the land: a valley between hills, lit from behind by a glow in the colour of the hour */
 .horizon {

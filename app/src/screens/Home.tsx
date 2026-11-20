@@ -2,7 +2,7 @@ import type { CSSProperties } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { RARITY_COLOR, WISH_COST, ghost, style } from '../data/catalog';
 import { fmtDate, nameOf, quoteOf, t } from '../i18n';
-import { bondLevel } from '../logic/bond';
+import { BOND_MAX, bondLevel, bondProgress } from '../logic/bond';
 import { CHARGE_DAY_MIN, WEEK_TARGET, chargeWeek, minutesByDay } from '../logic/progress';
 import { fmtMinutes } from '../logic/time';
 import { sfx } from '../platform/audio';
@@ -20,8 +20,7 @@ import {
   useAppState,
 } from '../state/store';
 import type { TagId } from '../state/store';
-import { BondChip } from '../ui/bond';
-import { Bar, Btn, Chip, Icon } from '../ui/kit';
+import { Bar, Btn, Icon } from '../ui/kit';
 import { CompanionSheet, DurationSheet, GhostSheet, SparkMeter, StyleSheet, TagSheet, WishSheet } from '../ui/sheets';
 import { CompanionStage, Portrait } from '../ui/stage';
 import { StyleBadge } from '../ui/style';
@@ -81,6 +80,13 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
   const target = sparkTarget(s);
   const wishCost = wish ? WISH_COST[wish.rarity] : 0;
   const sleepy = !woke && (new Date(now()).getHours() >= 23 || new Date(now()).getHours() < 5);
+  const bond = bondProgress(bondOf(s, s.companion));
+  const custom = !PRESETS.includes(dur);
+  const pick = (n: number) => {
+    haptic.tap();
+    sfx.tap();
+    setDur(n);
+  };
 
   // from the Familiar stage on he greets you: a wave and his saying in a bubble
   const rig = useRef<RigApi | null>(null);
@@ -106,7 +112,7 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
   };
 
   return (
-    <div class="page home">
+    <div class={`page home ${pending ? 'has-drop' : ''}`}>
       <header class="home-head">
         <div>
           <p class="eyebrow">{fmtDate(now(), { weekday: 'long', day: 'numeric', month: 'long' })}</p>
@@ -128,6 +134,19 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
           <WeekDots compact />
           <span class={`week-label ${wk.done ? 'done' : ''}`}>{wk.done ? t('home_week_done') : t('home_week_count', { n: wk.count, target: WEEK_TARGET })}</span>
         </div>
+      )}
+
+      {pending && (
+        <button type="button" class="card drop-card ready top" onClick={() => openDrop(pending.id)}>
+          <span class="drop-icon">
+            <Icon name="gift" size={22} />
+          </span>
+          <span class="card-text">
+            <b>{t('home_drop_ready_title')}</b>
+            <small>{t('home_drop_ready_short')}</small>
+          </span>
+          <span class="btn btn-warm btn-small">{t('home_drop_open')}</span>
+        </button>
       )}
 
       <section class="hero">
@@ -160,8 +179,22 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
         </button>
         <button type="button" class="hero-name" onClick={() => setCompOpen(true)} aria-label={t('home_companion_switch')}>
           <b>{full ? t('home_charged', { name }) : sleepy ? t('home_sleeping', { name }) : t('home_ready', { name })}</b>
-          <BondChip ghostId={s.companion} />
           <Icon name="chevronDown" size={16} />
+        </button>
+        <button type="button" class={`bond-line ${bond.level >= BOND_MAX ? 'gold' : ''}`} onClick={() => setGhostOpen(s.companion)} aria-label={t('bond_badge', { name, stage: t(`bond_${bond.level}`) })}>
+          <Icon name="heart" size={13} />
+          {bond.hearts === 0 ? (
+            <span>{t('home_bond_first', { name })}</span>
+          ) : bond.to === null ? (
+            <b>{t(`bond_${bond.level}`)}</b>
+          ) : (
+            <>
+              <span>{t('home_bond_line', { stage: t(`bond_${bond.level}`), n: bond.hearts, to: bond.to })}</span>
+              <i class="bond-line-bar">
+                <i style={{ width: `${bond.frac * 100}%` }} />
+              </i>
+            </>
+          )}
         </button>
         <div class="today-row">
           <span>
@@ -173,15 +206,26 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
       </section>
 
       <section class="launch">
-        <div class="chips center">
+        <div class="dur-row" role="group" aria-label={t('min')}>
           {PRESETS.map((n) => (
-            <Chip key={n} active={dur === n} onClick={() => setDur(n)}>
-              {n} {t('min')}
-            </Chip>
+            <button type="button" key={n} class={`dur-seg ${dur === n ? 'active' : ''}`} aria-pressed={dur === n} onClick={() => pick(n)}>
+              <b>{n}</b>
+              <small>{t('min')}</small>
+            </button>
           ))}
-          <Chip active={!PRESETS.includes(dur)} onClick={() => setDurOpen(true)} icon="clock">
-            {PRESETS.includes(dur) ? t('home_custom') : `${dur} ${t('min')}`}
-          </Chip>
+          <button
+            type="button"
+            class={`dur-seg ${custom ? 'active' : ''}`}
+            aria-pressed={custom}
+            onClick={() => {
+              haptic.tap();
+              sfx.tap();
+              setDurOpen(true);
+            }}
+          >
+            {custom ? <b>{dur}</b> : <Icon name="clock" size={19} />}
+            <small>{custom ? t('min') : t('home_custom')}</small>
+          </button>
         </div>
         <div class="launch-row">
           <button type="button" class="tag-btn" onClick={() => setTagOpen(true)}>
@@ -193,18 +237,7 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
         </div>
       </section>
 
-      {pending ? (
-        <button type="button" class="card drop-card ready" onClick={() => openDrop(pending.id)}>
-          <span class="drop-icon">
-            <Icon name="gift" size={26} />
-          </span>
-          <span class="card-text">
-            <b>{t('home_drop_ready_title')}</b>
-            <small>{t('home_drop_ready_body')}</small>
-          </span>
-          <span class="btn btn-warm btn-small">{t('home_drop_open')}</span>
-        </button>
-      ) : dailyDropOpen(s) ? (
+      {pending ? null : dailyDropOpen(s) ? (
         <div class="card drop-card">
           <span class="drop-icon dim">
             <Icon name="gift" size={24} />

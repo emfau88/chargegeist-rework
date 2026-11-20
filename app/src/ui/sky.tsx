@@ -189,9 +189,11 @@ export interface SkyProps {
   glow: string;
   /** A fixed hour for previews (dev tools). */
   hour?: number | null;
+  /** Sun and moon show where the sky is the stage; behind screens full of cards they would shine through. */
+  orbs?: boolean;
 }
 
-export function Sky({ timeOfDay, stars, moving, mood, glow, hour }: SkyProps) {
+export function Sky({ timeOfDay, stars, moving, mood, glow, hour, orbs = true }: SkyProps) {
   const h = useHour(hour);
   const w = timeOfDay ? skyWeights(h) : { morning: 0, day: 0, evening: 0, night: 1 };
   const o = skyOpacities(w);
@@ -205,7 +207,7 @@ export function Sky({ timeOfDay, stars, moving, mood, glow, hour }: SkyProps) {
   }, []);
 
   return (
-    <div class={`sky ${moving ? 'moving' : 'still'} ${hidden ? 'paused' : ''}`} style={{ '--sky-glow': glow } as CSSProperties} aria-hidden="true">
+    <div class={`sky ${moving ? 'moving' : 'still'} ${hidden ? 'paused' : ''} ${orbs ? '' : 'orbs-off'}`} style={{ '--sky-glow': glow } as CSSProperties} aria-hidden="true">
       {timeOfDay && (
         <>
           <div class="sky-layer sky-morning" style={{ opacity: o.morning }} />

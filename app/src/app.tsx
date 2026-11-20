@@ -98,7 +98,15 @@ export function App() {
   return (
     <div class={`app ${s.active ? 'is-focus' : ''} ${tabs ? 'has-tabs' : ''}`}>
       <div class="bg" style={{ background: bg }}>
-        <Sky timeOfDay={th.id === 'night'} stars={th.stars} moving={s.settings.sky && !reduce} mood={mood} glow={ghost(s.companion).glow} hour={s.dev.skyHour} />
+        <Sky
+          timeOfDay={th.id === 'night'}
+          stars={th.stars}
+          moving={s.settings.sky && !reduce}
+          mood={mood}
+          glow={ghost(s.companion).glow}
+          hour={s.dev.skyHour}
+          orbs={!plusOpen && (!tabs || tab === 'focus')}
+        />
       </div>
       <main class="shell">
         <div class="screen" key={key}>
