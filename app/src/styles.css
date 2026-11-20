@@ -3390,11 +3390,27 @@ input[type='range'] {
   gap: 6px;
 }
 
-/* a costume ghost filling up with sparks */
+/* a costume ghost filling up with sparks: colour rises softly into the silhouette */
+@property --top {
+  syntax: '<percentage>';
+  inherits: true;
+  initial-value: 88%;
+}
 .spark-portrait {
   position: relative;
   display: block;
   flex: none;
+  transition: --top 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+/* a round glow behind the ghost that grows with the sparks (--f: 0 none, 1 all) */
+.spark-portrait::before {
+  content: '';
+  position: absolute;
+  inset: 4%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--cg) 46%, transparent), transparent);
+  opacity: calc(var(--f, 0) * 0.85);
+  transition: opacity 0.9s ease;
 }
 .spark-portrait img {
   position: absolute;
@@ -3410,21 +3426,26 @@ input[type='range'] {
   opacity: 0.26;
 }
 .spark-portrait .sp-fill {
-  clip-path: inset(var(--top) 0 0 0);
-  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--cg) 55%, transparent));
-  transition: clip-path 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
+  -webkit-mask-image: linear-gradient(to bottom, transparent calc(var(--top) - 7%), #000 calc(var(--top) + 7%));
+  mask-image: linear-gradient(to bottom, transparent calc(var(--top) - 7%), #000 calc(var(--top) + 7%));
 }
+.spark-portrait.full .sp-fill {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+.spark-portrait.empty .sp-fill {
+  display: none;
+}
+/* the charge line: a soft band of light that keeps to the shape of the ghost (its mask is set inline) */
 .spark-portrait .sp-edge {
   position: absolute;
-  left: 20%;
-  right: 20%;
-  top: var(--top);
-  height: 2px;
-  margin-top: -1px;
-  border-radius: 2px;
-  background: var(--cg);
-  box-shadow: 0 0 8px var(--cg), 0 0 18px var(--cg);
-  transition: top 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
+  inset: 0;
+  background: linear-gradient(to bottom, transparent calc(var(--top) - 8%), color-mix(in srgb, var(--cg) 70%, #fff) var(--top), transparent calc(var(--top) + 8%));
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  mix-blend-mode: screen;
   animation: edge-pulse 1.6s ease-in-out infinite;
 }
 @keyframes edge-pulse {

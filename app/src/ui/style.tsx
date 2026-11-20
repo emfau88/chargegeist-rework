@@ -208,12 +208,15 @@ export function SparkPortrait({ id, size, have, need, class: cls }: { id: string
   // the ghost body sits roughly between 12 % and 88 % of the portrait
   const top = 88 - f * 76;
   return (
-    <span class={`spark-portrait ${f >= 1 ? 'full' : ''} ${cls ?? ''}`} style={{ width: `${size}px`, height: `${size}px`, '--cg': ghost(id).glow, '--top': `${top}%` } as CSSProperties}>
+    <span
+      class={`spark-portrait ${f >= 1 ? 'full' : f <= 0 ? 'empty' : ''} ${cls ?? ''}`}
+      style={{ width: `${size}px`, height: `${size}px`, '--cg': ghost(id).glow, '--top': `${top}%`, '--f': f } as CSSProperties}
+    >
       {url && (
         <>
           <img class="sp-sil" src={url} alt="" draggable={false} />
           <img class="sp-fill" src={url} alt="" draggable={false} />
-          {f > 0 && f < 1 && <i class="sp-edge" />}
+          {f > 0 && f < 1 && <i class="sp-edge" style={{ WebkitMaskImage: `url(${url})`, maskImage: `url(${url})` } as CSSProperties} />}
         </>
       )}
     </span>
