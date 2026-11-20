@@ -105,7 +105,7 @@ export function App() {
           mood={mood}
           glow={ghost(s.companion).glow}
           hour={s.dev.skyHour}
-          orbs={!plusOpen && (!tabs || tab === 'focus')}
+          orbs={!plusOpen && !s.active && (!tabs || tab === 'focus')}
         />
       </div>
       <main class="shell">

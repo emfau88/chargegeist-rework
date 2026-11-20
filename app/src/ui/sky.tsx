@@ -189,7 +189,7 @@ export interface SkyProps {
   glow: string;
   /** A fixed hour for previews (dev tools). */
   hour?: number | null;
-  /** Sun and moon show where the sky is the stage; behind screens full of cards they would shine through. */
+  /** Sun and moon show where the sky is the stage. Behind screens full of cards they would shine through, and a focus session stays calm. */
   orbs?: boolean;
 }
 

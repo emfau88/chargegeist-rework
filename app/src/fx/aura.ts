@@ -525,16 +525,14 @@ export class SvgAura {
     }
     return e;
   }
-  /** Brings the SVG in line with the simulation. */
-  sync(sim: AuraSim) {
+  /** Brings the SVG in line with the simulation. With allBack every particle stays behind the ghost. */
+  sync(sim: AuraSim, allBack = false) {
     for (const p of sim.particles) {
+      const want = allBack || p.back ? this.back : this.front;
       if (!p.el) {
         p.el = this.make(p);
-        (p.back ? this.back : this.front).appendChild(p.el);
-      } else {
-        const want = p.back ? this.back : this.front;
-        if (p.el.parentNode !== want) want.appendChild(p.el);
-      }
+        want.appendChild(p.el);
+      } else if (p.el.parentNode !== want) want.appendChild(p.el);
       const s = Math.max(0.01, p.size * p.scale * (UNIT[p.shape] ?? 1) * this.boost);
       const t = p.shape === 'arc' ? `translate(${p.x.toFixed(1)},${p.y.toFixed(1)})` : `translate(${p.x.toFixed(1)},${p.y.toFixed(1)}) rotate(${p.rot.toFixed(1)}) scale(${s.toFixed(3)})`;
       p.el.setAttribute('transform', t);

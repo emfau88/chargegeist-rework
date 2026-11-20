@@ -201,8 +201,12 @@ export function createRig(host: HTMLElement, look: Look, opts: RigOptions = {}):
     </defs>
     <circle data-k="glow" cx="300" cy="300" r="270" fill="url(#${id}glow)" opacity="0.3"/>
     <g data-k="ring" opacity="0" transform="rotate(-90 300 300)">
-      <circle cx="300" cy="300" r="205" fill="none" stroke="${glow0}" stroke-opacity="0.16" stroke-width="7"/>
-      <circle data-k="ringFill" cx="300" cy="300" r="205" fill="none" stroke="${glow0}" stroke-width="7" stroke-linecap="round" stroke-dasharray="1288.05" stroke-dashoffset="1288.05"/>
+      <circle cx="300" cy="300" r="205" fill="none" stroke="${glow0}" stroke-opacity="0.2" stroke-width="11"/>
+      <circle data-k="ringFill" cx="300" cy="300" r="205" fill="none" stroke="${glow0}" stroke-width="11" stroke-linecap="round" stroke-dasharray="1288.05" stroke-dashoffset="1288.05"/>
+      <g data-k="ringHead" opacity="0">
+        <ellipse data-k="ringHalo" rx="22" ry="22" fill="${glow0}" opacity="0.75" filter="url(#${id}blur)"/>
+        <ellipse rx="8.5" ry="8.5" fill="#ffffff"/>
+      </g>
     </g>
     <circle data-k="tuftGlow" cx="300" cy="120" r="70" fill="url(#${id}tuft)" opacity="0"/>
     <g data-k="pBack"></g>
@@ -222,6 +226,7 @@ export function createRig(host: HTMLElement, look: Look, opts: RigOptions = {}):
     glow: q<SVGCircleElement>('glow'),
     ring: q<SVGGElement>('ring'),
     ringFill: q<SVGCircleElement>('ringFill'),
+    ringHead: q<SVGGElement>('ringHead'),
     tuftGlow: q<SVGCircleElement>('tuftGlow'),
     shadow: q<SVGEllipseElement>('shadow'),
     hit: q<SVGEllipseElement>('hit'),
@@ -287,7 +292,7 @@ in vec2 aPos; in vec2 aUV; uniform vec4 uView; out vec2 vUV;
 void main(){ vUV = aUV; gl_Position = vec4((aPos.x - uView.x) * uView.z - 1.0, 1.0 - (aPos.y - uView.y) * uView.w, 0.0, 1.0); }`;
     const fs = `#version 300 es
 precision mediump float;
-in vec2 vUV; uniform sampler2D uTex; uniform float uAlpha, uLevel, uTime, uGlow, uDim; uniform vec3 uFill; out vec4 outColor;
+in vec2 vUV; uniform sampler2D uTex; uniform float uAlpha, uLevel, uTime, uGlow, uDim, uBoost; uniform vec3 uFill; out vec4 outColor;
 void main(){
   vec4 c = texture(uTex, vUV);
   vec3 rgb = c.a > 0.0 ? c.rgb / c.a : vec3(0.0);
@@ -295,9 +300,12 @@ void main(){
   if (uLevel > 0.001) {
     float line = 1.0 - uLevel * 1.03 + sin(vUV.x * 14.0 + uTime * 3.2) * 0.012 + sin(vUV.x * 27.0 - uTime * 2.1) * 0.006;
     float fill = smoothstep(line - 0.004, line + 0.004, vUV.y);
-    float crest = exp(-pow((vUV.y - line) / 0.012, 2.0));
+    float crest = exp(-pow((vUV.y - line) / (0.012 + 0.008 * uBoost), 2.0));
+    // uBoost (focus): the charge shows as light, brightest under the line, softer towards the foot, slowly breathing
+    float depth = clamp((vUV.y - line) / 0.45, 0.0, 1.0);
+    float body = fill * (0.36 + uBoost * (mix(0.30, 0.06, depth) + 0.04 * sin(uTime * 1.4)));
     vec3 fc = mix(uFill, vec3(1.0), 0.45);
-    rgb = mix(rgb, fc, skin * clamp(fill * 0.36 + crest * 0.6, 0.0, 1.0));
+    rgb = mix(rgb, fc, skin * clamp(body + crest * (0.6 + 0.25 * uBoost), 0.0, 1.0));
   }
   rgb += skin * uGlow * (uFill * 0.17 + 0.03);
   rgb *= 1.0 - uDim * vec3(0.20, 0.14, 0.06);
@@ -316,7 +324,7 @@ void main(){
     g.linkProgram(prog);
     if (!g.getProgramParameter(prog, g.LINK_STATUS)) throw new Error(g.getProgramInfoLog(prog) ?? 'link');
     g.useProgram(prog);
-    for (const n of ['uView', 'uTex', 'uAlpha', 'uLevel', 'uTime', 'uGlow', 'uDim', 'uFill']) loc[n] = g.getUniformLocation(prog, n);
+    for (const n of ['uView', 'uTex', 'uAlpha', 'uLevel', 'uTime', 'uGlow', 'uDim', 'uBoost', 'uFill']) loc[n] = g.getUniformLocation(prog, n);
     g.bindVertexArray(g.createVertexArray());
     const vbo = g.createBuffer();
     g.bindBuffer(g.ARRAY_BUFFER, vbo);
@@ -386,7 +394,7 @@ void main(){
     return t;
   }
 
-  function drawGrid(name: string, nx: number, ny: number, map: (s: number, t: number) => Vec, alpha: number, fx?: { level?: number; glow?: number }) {
+  function drawGrid(name: string, nx: number, ny: number, map: (s: number, t: number) => Vec, alpha: number, fx?: { level?: number; glow?: number; boost?: number }) {
     const tx = TEX[name];
     if (!tx || alpha <= 0.003) return;
     if (gl) {
@@ -404,6 +412,7 @@ void main(){
       gl.uniform1f(loc.uAlpha, Math.min(1, alpha));
       gl.uniform1f(loc.uLevel, fx?.level ?? 0);
       gl.uniform1f(loc.uGlow, fx?.glow ?? 0);
+      gl.uniform1f(loc.uBoost, fx?.boost ?? 0);
       gl.drawElements(gl.TRIANGLES, nx * ny * 6, gl.UNSIGNED_SHORT, 0);
     } else if (ctx2d) {
       const p0 = map(0, 0),
@@ -923,7 +932,12 @@ void main(){
     el.ring.setAttribute('opacity', clamp(S.ring.x, 0, 1).toFixed(3));
     el.ring.setAttribute('transform', `rotate(-90 300 ${300 + shiftY})`);
     el.ring.querySelectorAll('circle').forEach((c) => c.setAttribute('cy', String(300 + shiftY)));
-    el.ringFill.setAttribute('stroke-dashoffset', (RING_C * (1 - clamp(ringP ?? 0, 0, 1))).toFixed(1));
+    const rp = clamp(ringP ?? 0, 0, 1);
+    el.ringFill.setAttribute('stroke-dashoffset', (RING_C * (1 - rp)).toFixed(1));
+    // a point of light leads the arc; the ring group is turned, so angle 0 is at the top
+    const ra = rp * Math.PI * 2;
+    el.ringHead.setAttribute('transform', `translate(${(300 + 205 * Math.cos(ra)).toFixed(1)},${(300 + shiftY + 205 * Math.sin(ra)).toFixed(1)})`);
+    el.ringHead.setAttribute('opacity', rp > 0.004 ? '1' : '0');
     const tg = R.tuft ? D(R.tuft.at[0], R.tuft.at[1] - 80 * R.m) : D(R.cx, R.top + 30 * R.m);
     el.tuftGlow.setAttribute('cx', tg[0].toFixed(1));
     el.tuftGlow.setAttribute('cy', tg[1].toFixed(1));
@@ -945,7 +959,7 @@ void main(){
     const flash = T < flashUntil ? 0.9 : 0;
     if (R.tuft) hinged('tuft', R.tuft.at, R.tuft.anchor, R.tuft.rest + S.tuft.x, 1, 1, { glow: clamp(lv * 0.9 + flash, 0, 1.2) });
     const body = TEX.body;
-    drawGrid('body', 30, 34, (s, qq) => D(s * body.w, qq * body.h), 1, { level: lv, glow: clamp((S.glow.x - lv * 0.6) * 0.6, 0, 1) });
+    drawGrid('body', 30, 34, (s, qq) => D(s * body.w, qq * body.h), 1, { level: lv, glow: clamp((S.glow.x - lv * 0.6) * 0.6, 0, 1), boost: focus });
 
     const u = R.u,
       fs = R.fs;
@@ -993,7 +1007,7 @@ void main(){
     hinged('arm_L', R.armL.at, R.armL.anchor, S.armL.x, R.armL.s);
     hinged('arm_R', R.armR.at, R.armR.anchor, S.armR.x, R.armR.s);
     auraSvg.setGlow(glowRgb);
-    auraSvg.sync(aura);
+    auraSvg.sync(aura, mode === 'focus');
     drawCharm(sleepy);
   }
 
@@ -1054,6 +1068,7 @@ void main(){
   function setGradientColor(color: string) {
     layer.querySelectorAll(`#${id}glow stop, #${id}tuft stop:last-child, #${id}spark stop:last-child`).forEach((s) => s.setAttribute('stop-color', color));
     layer.querySelectorAll('[data-k="ring"] circle').forEach((c) => c.setAttribute('stroke', color));
+    layer.querySelectorAll('[data-k="ringHalo"]').forEach((c) => c.setAttribute('fill', color));
   }
 
   /** Loads a look, then swaps everything at once so the ghost never shows half-loaded. */
