@@ -48,6 +48,8 @@ export interface RigOptions {
   onGesture?: (g: Gesture) => void;
   /** A touch woke him up (tap, tickle, hold or a celebration); stroking keeps him asleep. */
   onWake?: () => void;
+  /** He hugs you (bond stage Friend and up, after a long stroke). */
+  onHug?: () => void;
 }
 
 export interface RigApi {
@@ -58,6 +60,10 @@ export interface RigApi {
   celebrate(big?: boolean): void;
   poke(): void;
   wave(): void;
+  /** Waves hello with a little hop (from the Familiar bond stage). */
+  greet(): void;
+  /** The bond stage with this ghost (0..4): 2 hugs after a long stroke, 3 turns holding into a high five. */
+  setBond(level: number): void;
   destroy(): void;
   ready: Promise<void>;
 }
@@ -599,6 +605,9 @@ void main(){
   let gestId = -1;
   let stroking = false, strokeT0 = 0, strokeRun = 0, strokeHeartAt = -9, sighed = false;
   let holding = false, saltoAt = -9, sleepSmileUntil = 0;
+  // bond perks: a hug after a long stroke, a high five instead of a squeeze
+  let bond = 0, hugAt = -9, highFive = false, layerK = 1;
+  const HUG_S = 1.7;
 
   function jump(v: number) {
     if (reduce) return;
@@ -660,12 +669,35 @@ void main(){
   function holdStart() {
     wakeUp();
     holding = true;
-    S.squash.t = 0.84;
     wideUntil = T + 60;
+    // best friends: he raises a hand for a high five instead of being squeezed
+    highFive = bond >= 3;
+    if (!highFive) S.squash.t = 0.84;
+  }
+  /** Where a hand is right now, in stage units. */
+  function handAt(left: boolean): Vec {
+    const a = left ? R.armL : R.armR;
+    const off = rot(left ? S.armL.x : S.armR.x, (a.hand[0] - a.anchor[0]) * a.s, (a.hand[1] - a.anchor[1]) * a.s);
+    return D(a.at[0] + off[0], a.at[1] + off[1]);
   }
   function holdEnd() {
     if (!holding) return;
     holding = false;
+    if (highFive) {
+      highFive = false;
+      wideUntil = T;
+      happyUntil = T + 1.3;
+      flashUntil = T + 0.35;
+      S.squash.v -= 3.5;
+      S.lean.v -= 60;
+      const [hx, hy] = handAt(false);
+      for (let i = 0; i < 9; i++) {
+        const a = (i / 9) * Math.PI * 2;
+        spawn('star', hx, hy, Math.cos(a) * 230, Math.sin(a) * 230 - 60, 0.75, 0.55 + Math.random() * 0.4, { g: 260, rot: Math.random() * 90, vr: 360 });
+      }
+      jump(360);
+      return;
+    }
     S.squash.t = 1;
     S.squash.v += 2;
     wideUntil = T;
@@ -706,12 +738,19 @@ void main(){
   function tick(dt: number) {
     T += dt;
     emit(gest.update(performance.now()));
-    if (holding && !reduce) S.lean.v += Math.sin(T * 41) * 1100 * dt;
+    if (holding && !highFive && !reduce) S.lean.v += Math.sin(T * 41) * 1100 * dt;
     // after a few seconds of stroking: a content sigh and a big heart
     if (stroking && !sighed && T - strokeT0 > 4) {
       sighed = true;
       S.squash.v -= 2.6;
       spawn('heart', 300, ghostY - 170, 0, -90, 1.8, 1.5, { g: 20 });
+      // friends: he opens his arms and comes close for a hug
+      if (bond >= 2 && mode !== 'sleep') {
+        hugAt = T;
+        happyUntil = T + HUG_S;
+        opts.onHug?.();
+        for (let i = 0; i < 5; i++) spawn('heart', 300 + (i - 2) * 55, ghostY - 120 - Math.abs(i - 2) * 18, (i - 2) * 40, -140 - Math.random() * 40, 1.6, 0.8 + Math.random() * 0.4, { g: 40 });
+      }
     }
     const sleepy = S.sleepy.x;
     waveT += reduce ? 0 : dt * (1 - 0.55 * sleepy);
@@ -779,6 +818,14 @@ void main(){
     if (happy) {
       aL = 60 + Math.sin(T * 15) * 14;
       aR = -60 - Math.sin(T * 15 + 0.6) * 14;
+    }
+    if (T - hugAt < HUG_S) {
+      aL = 88;
+      aR = -88;
+    }
+    if (holding && highFive) {
+      aR = -112 + (reduce ? 0 : Math.sin(T * 7) * 5);
+      aL = Math.min(aL, 10);
     }
     S.armL.t = aL;
     S.armR.t = aR;
@@ -854,6 +901,16 @@ void main(){
     F.gx = 300;
     F.gy = 280 + shiftY + floatY + hopY + S.low.x * 20;
     ghostY = F.gy;
+    const hp = (T - hugAt) / HUG_S;
+    const k = !reduce && hp >= 0 && hp < 1 ? 1 + 0.14 * Math.sin(Math.PI * Math.min(1, hp * 1.25)) ** 2 : 1;
+    if (k !== layerK) {
+      layerK = k;
+      if (k === 1) layer.style.transform = '';
+      else {
+        layer.style.transformOrigin = `${(((300 - view.x) / view.w) * layerBox.w).toFixed(0)}px ${(((ghostY - view.y) / view.h) * layerBox.h).toFixed(0)}px`;
+        layer.style.transform = `scale(${k.toFixed(4)})`;
+      }
+    }
 
     const lift = -(floatY + hopY);
     const shY = 524 + shiftY + S.low.x * 12;
@@ -1066,6 +1123,15 @@ void main(){
     poke,
     wave() {
       waveUntil = T + 1.3;
+    },
+    greet() {
+      if (mode !== 'idle') return;
+      waveUntil = T + 2.3;
+      wideUntil = T + 0.5;
+      jump(300);
+    },
+    setBond(l) {
+      bond = l;
     },
     destroy() {
       // a stroke or hold in progress ends with the stage (stops the purr)

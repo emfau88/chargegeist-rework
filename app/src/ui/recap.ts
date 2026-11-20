@@ -2,10 +2,11 @@
 import { RARITY_COLOR, charmImg, ghost, style } from '../data/catalog';
 import { rgbCss, shimmerRgb } from '../fx/shimmer';
 import { fmtDate, fmtNum, t } from '../i18n';
+import { BOND_MAX, bondLevel } from '../logic/bond';
 import { CHARGE_DAY_MIN, minutesByDay } from '../logic/progress';
 import { monthDays, monthKey } from '../logic/time';
 import { loadImage, renderPortrait } from '../rig/rig';
-import { companionName, now } from '../state/store';
+import { bondOf, companionName, now } from '../state/store';
 import type { State } from '../state/store';
 
 export interface MonthStats {
@@ -136,6 +137,22 @@ export async function renderRecap(s: State): Promise<HTMLCanvasElement> {
   ctx.fillStyle = glow;
   ctx.fillRect(0, 60, W, 820);
   ctx.drawImage(portrait, W / 2 - 260, 210, 520, 520);
+
+  // kindred spirits: a golden badge under the companion
+  if (bondLevel(bondOf(s, s.companion)) >= BOND_MAX) {
+    const label = `♥ ${t('bond_4')}`;
+    ctx.font = '800 30px Nunito';
+    const w = ctx.measureText(label).width + 56;
+    const gold = ctx.createLinearGradient(W / 2 - w / 2, 0, W / 2 + w / 2, 0);
+    gold.addColorStop(0, '#ffdf8a');
+    gold.addColorStop(1, '#ffb347');
+    ctx.fillStyle = gold;
+    rr(ctx, W / 2 - w / 2, 700, w, 52, 26);
+    ctx.fill();
+    ctx.fillStyle = '#3a2410';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, W / 2, 737);
+  }
 
   // header
   ctx.textAlign = 'center';

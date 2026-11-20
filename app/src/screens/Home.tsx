@@ -1,12 +1,15 @@
 import type { CSSProperties } from 'preact';
-import { useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { RARITY_COLOR, WISH_COST, ghost, style } from '../data/catalog';
-import { fmtDate, nameOf, t } from '../i18n';
+import { fmtDate, nameOf, quoteOf, t } from '../i18n';
+import { bondLevel } from '../logic/bond';
 import { CHARGE_DAY_MIN, WEEK_TARGET, chargeWeek, minutesByDay } from '../logic/progress';
 import { fmtMinutes } from '../logic/time';
 import { sfx } from '../platform/audio';
 import { haptic } from '../platform/device';
+import type { RigApi } from '../rig/rig';
 import {
+  bondOf,
   companionName,
   currentBoss,
   dailyDropOpen,
@@ -17,12 +20,15 @@ import {
   useAppState,
 } from '../state/store';
 import type { TagId } from '../state/store';
+import { BondChip } from '../ui/bond';
 import { Bar, Btn, Chip, Icon } from '../ui/kit';
 import { CompanionSheet, DurationSheet, GhostSheet, SparkMeter, StyleSheet, TagSheet, WishSheet } from '../ui/sheets';
 import { CompanionStage, Portrait } from '../ui/stage';
 import { StyleBadge } from '../ui/style';
 
 const PRESETS = [5, 15, 25, 50];
+/** The greeting comes once per app start. */
+let greeted = false;
 
 function greeting(): string {
   const h = new Date(now()).getHours();
@@ -76,6 +82,23 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
   const wishCost = wish ? WISH_COST[wish.rarity] : 0;
   const sleepy = !woke && (new Date(now()).getHours() >= 23 || new Date(now()).getHours() < 5);
 
+  // from the Familiar stage on he greets you: a wave and his saying in a bubble
+  const rig = useRef<RigApi | null>(null);
+  const [bubble, setBubble] = useState(false);
+  useEffect(() => {
+    if (greeted || bondLevel(bondOf(s, s.companion)) < 1 || sleepy) return;
+    greeted = true;
+    const a = setTimeout(() => {
+      rig.current?.greet();
+      setBubble(true);
+    }, 800);
+    const b = setTimeout(() => setBubble(false), 5600);
+    return () => {
+      clearTimeout(a);
+      clearTimeout(b);
+    };
+  }, []);
+
   const start = () => {
     sfx.start();
     haptic.success();
@@ -125,12 +148,19 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
           onWake={() => setWoke(true)}
           class={`hero-stage ${s.plus ? 'supporter' : ''}`}
           label={name}
+          apiRef={rig}
         />
+        {bubble && (
+          <p class="greet-bubble" role="status">
+            “{quoteOf(ghost(s.companion))}”
+          </p>
+        )}
         <button type="button" class="hero-dress" onClick={() => setStyleFor(s.companion)} aria-label={t('style_title')}>
           <Icon name="palette" size={20} />
         </button>
         <button type="button" class="hero-name" onClick={() => setCompOpen(true)} aria-label={t('home_companion_switch')}>
           <b>{full ? t('home_charged', { name }) : sleepy ? t('home_sleeping', { name }) : t('home_ready', { name })}</b>
+          <BondChip ghostId={s.companion} />
           <Icon name="chevronDown" size={16} />
         </button>
         <div class="today-row">

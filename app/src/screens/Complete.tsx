@@ -3,12 +3,13 @@ import { useEffect, useState } from 'preact/hooks';
 import { RARITY_COLOR, WISH_COST, ghost, style } from '../data/catalog';
 import { nameOf, t } from '../i18n';
 import type { Key } from '../i18n';
+import { bondProgress } from '../logic/bond';
 import { ACHIEVEMENTS } from '../logic/progress';
 import { WEEK_TARGET } from '../logic/progress';
 import { fmtClock, fmtMinutes } from '../logic/time';
 import { sfx } from '../platform/audio';
 import { cancelSessionEnd, haptic, scheduleSessionEnd } from '../platform/device';
-import { companionName, now, useAppState } from '../state/store';
+import { bondOf, companionName, now, useAppState } from '../state/store';
 import type { SessionResult } from '../state/store';
 import { Bar, Btn, Icon, toast, useCountUp } from '../ui/kit';
 import { StyleBadge } from '../ui/style';
@@ -111,6 +112,19 @@ export function Complete({ res, onDrop, onBreak, onClose }: { res: SessionResult
               <StyleBadge id={wish.id} size={30} />
               <Bar value={res.wish.after / WISH_COST[wish.rarity]} color={RARITY_COLOR[wish.rarity]} />
             </div>
+          )}
+          {res.bond.gained > 0 && (
+            <>
+              <div class="res-row">
+                <span class="res-label">
+                  <Icon name="heart" size={15} /> {t('done_hearts', { name: companionName(s, res.bond.ghost) })}
+                </span>
+                <span class="res-val">
+                  {res.bond.after > res.bond.before && <span class="ok-chip heart-chip">{t('done_bond_up', { stage: t(`bond_${res.bond.after}` as Key) })}</span>} +{res.bond.gained}
+                </span>
+              </div>
+              <Bar value={bondProgress(bondOf(s, res.bond.ghost)).frac} color="var(--heart)" />
+            </>
           )}
           <div class="res-row">
             <span class="res-label">

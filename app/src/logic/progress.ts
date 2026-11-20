@@ -89,7 +89,7 @@ export function pickBoss(week: string, ownedGhosts: ReadonlySet<string>, chargin
 }
 
 /* ---------- achievements ---------- */
-export type AchievementKind = 'sessions' | 'days' | 'goal' | 'drops' | 'hours' | 'weeks' | 'costumes';
+export type AchievementKind = 'sessions' | 'days' | 'goal' | 'drops' | 'hours' | 'weeks' | 'costumes' | 'bond';
 export interface Achievement {
   id: string;
   kind: AchievementKind;
@@ -107,8 +107,10 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'hours10', kind: 'hours', target: 10, energy: 60, icon: 'flame' },
   { id: 'week1', kind: 'weeks', target: 1, energy: 80, icon: 'star' },
   { id: 'costume1', kind: 'costumes', target: 1, energy: 50, icon: 'ghost' },
+  { id: 'friend1', kind: 'bond', target: 2, energy: 40, icon: 'heart' },
   { id: 'hours25', kind: 'hours', target: 25, energy: 100, icon: 'flame' },
   { id: 'hours50', kind: 'hours', target: 50, energy: 150, icon: 'crown' },
+  { id: 'kindred1', kind: 'bond', target: 4, energy: 150, icon: 'heart' },
 ];
 
 export interface Counters {
@@ -120,6 +122,8 @@ export interface Counters {
   weeks: number;
   /** Costume ghosts you own. */
   costumes: number;
+  /** The highest bond stage with any ghost (0..4). */
+  bond?: number;
 }
 
 export function achievementValue(a: Achievement, c: Counters): number {
@@ -138,6 +142,8 @@ export function achievementValue(a: Achievement, c: Counters): number {
       return c.weeks;
     case 'costumes':
       return c.costumes;
+    case 'bond':
+      return c.bond ?? 0;
   }
 }
 

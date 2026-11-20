@@ -67,6 +67,25 @@ function sweep(from: number, to: number, at: number, dur: number, gain: number) 
   o.stop(t0 + dur + 0.05);
 }
 
+/** A short burst of filtered noise (a slap or a clap). */
+function slap(at: number, dur: number, gain: number, freq: number) {
+  const c = ac();
+  const t0 = c.currentTime + at;
+  const buf = c.createBuffer(1, Math.ceil(c.sampleRate * dur), c.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length) ** 2;
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  const f = c.createBiquadFilter();
+  f.type = 'bandpass';
+  f.frequency.value = freq;
+  f.Q.value = 0.8;
+  const v = c.createGain();
+  v.gain.value = gain;
+  src.connect(f).connect(v).connect(master!);
+  src.start(t0);
+}
+
 const N = (semi: number) => 523.25 * 2 ** (semi / 12); // C5 based
 
 export const sfx = {
@@ -131,6 +150,24 @@ export const sfx = {
     if (!fxOn) return;
     sweep(320, 760, 0, 0.1, 0.05);
     bell(N(12), 0.07, 0.3, 0.035);
+  },
+  /** A high five: a soft slap and a bright chime. */
+  clap() {
+    if (!fxOn) return;
+    slap(0, 0.07, 0.09, 2200);
+    bell(N(12), 0.02, 0.4, 0.04);
+    bell(N(19), 0.08, 0.5, 0.03);
+  },
+  /** A hug: a warm rising chord. */
+  hug() {
+    if (!fxOn) return;
+    [0, 4, 7, 12].forEach((s, i) => bell(N(s - 12), i * 0.09, 0.9, 0.035));
+  },
+  /** Hello: two bright notes. */
+  hello() {
+    if (!fxOn) return;
+    bell(N(7), 0, 0.35, 0.035);
+    bell(N(12), 0.13, 0.45, 0.035);
   },
   giggle() {
     if (!fxOn) return;

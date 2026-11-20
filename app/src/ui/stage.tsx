@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { ghost } from '../data/catalog';
 import { nameOf } from '../i18n';
 import { createRig, renderPortrait } from '../rig/rig';
-import { gestureFx } from './gestureFx';
+import { bondLevel } from '../logic/bond';
+import { bondFromGesture, gestureFx, hugFx } from './gestureFx';
 import type { RigApi, RigMode, RigOptions, RigStyle } from '../rig/rig';
-import { lookOf, useAppState } from '../state/store';
+import { bondOf, lookOf, useAppState } from '../state/store';
 
 interface StageProps {
   ghostId: string;
@@ -39,6 +40,10 @@ export function CompanionStage(p: StageProps) {
   poke.current = p.onPoke;
   const wake = useRef(p.onWake);
   wake.current = p.onWake;
+  // the bond with this ghost: touches bring hearts, higher stages hug and high-five
+  const bond = s.ghosts[p.ghostId] ? bondLevel(bondOf(s, p.ghostId)) : 0;
+  const cur = useRef({ id: p.ghostId, bond });
+  cur.current = { id: p.ghostId, bond };
   const look = p.look ?? lookOf(s, p.ghostId);
   const key = `${p.ghostId}|${styleKey(look)}`;
   const shown = useRef(key);
@@ -51,8 +56,15 @@ export function CompanionStage(p: StageProps) {
       shiftY: p.shiftY,
       onPoke: () => poke.current?.(),
       onWake: () => wake.current?.(),
-      onGesture: p.interactive ? gestureFx : undefined,
+      onGesture: p.interactive
+        ? (g) => {
+            gestureFx(g, cur.current.bond);
+            bondFromGesture(cur.current.id, g);
+          }
+        : undefined,
+      onHug: hugFx,
     });
+    r.setBond(bond);
     rig.current = r;
     if (p.apiRef) p.apiRef.current = r;
     r.setMode(p.mode ?? 'idle');
@@ -71,6 +83,7 @@ export function CompanionStage(p: StageProps) {
     rig.current?.setLook({ ghost: p.ghostId, style: look });
   }, [key]);
   useEffect(() => rig.current?.setMode(p.mode ?? 'idle'), [p.mode]);
+  useEffect(() => rig.current?.setBond(bond), [bond]);
   useEffect(() => rig.current?.setLevel(p.level ?? 0), [p.level]);
   useEffect(() => rig.current?.setRing(p.ring ?? null), [p.ring]);
   useEffect(() => {

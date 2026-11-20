@@ -21,6 +21,7 @@
   --epic: #c58cff;
   --mythic: #ffc76b;
   --danger: #ff6b81;
+  --heart: #ff8fbf;
   --display: 'Fredoka', 'Nunito', system-ui, sans-serif;
   --body: 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --r-lg: 24px;
@@ -3266,4 +3267,232 @@ button.spark-meter:active {
   .style-preview .charm-bob {
     animation: none;
   }
+}
+
+/* ---------------- bond ---------------- */
+.bond-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 7px 2px 5px;
+  border-radius: 999px;
+  color: var(--heart);
+  background: color-mix(in srgb, var(--heart) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--heart) 35%, transparent);
+  font-family: var(--body);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  animation: bond-beat 0.6s var(--ease-spring);
+}
+.hero-name .bond-chip .icon {
+  color: inherit;
+}
+.bond-chip i {
+  font-style: normal;
+  color: var(--text);
+}
+.bond-chip.gold {
+  color: var(--mythic);
+  background: color-mix(in srgb, var(--mythic) 16%, transparent);
+  border-color: color-mix(in srgb, var(--mythic) 55%, transparent);
+}
+.bond-chip.big {
+  gap: 6px;
+  padding: 5px 12px;
+  font-size: 14px;
+  color: var(--text);
+}
+.bond-chip.big .icon {
+  color: var(--heart);
+}
+.bond-chip.big.gold .icon {
+  color: var(--mythic);
+}
+@keyframes bond-beat {
+  0% {
+    transform: scale(0.7);
+  }
+  60% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.bond-card {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  background: radial-gradient(60% 120% at 0% 0%, color-mix(in srgb, var(--heart) 14%, transparent), transparent 70%), var(--surface);
+  border: 1px solid color-mix(in srgb, var(--heart) 28%, transparent);
+  text-align: left;
+}
+.bond-card.gold {
+  background: radial-gradient(60% 120% at 0% 0%, color-mix(in srgb, var(--mythic) 18%, transparent), transparent 70%), var(--surface);
+  border-color: color-mix(in srgb, var(--mythic) 50%, transparent);
+}
+.bond-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.bond-heart {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #3a0d22;
+  background: var(--heart);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--heart) 55%, transparent);
+  flex: none;
+}
+.bond-card.gold .bond-heart {
+  background: var(--mythic);
+  color: #2d1a00;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--mythic) 60%, transparent);
+}
+.bond-title {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.bond-title small {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.bond-title b {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 17px;
+}
+.bond-count {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--heart);
+}
+.bond-card.gold .bond-count {
+  color: var(--mythic);
+}
+.bond-next {
+  font-size: 13px;
+  line-height: 1.35;
+}
+.bond-how {
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+.heart-chip {
+  background: var(--heart);
+  color: #3a0d22;
+  margin-right: 6px;
+}
+.ghost-tile.kindred {
+  border: 1.5px solid var(--mythic);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mythic) 30%, transparent), 0 0 18px color-mix(in srgb, var(--mythic) 26%, transparent);
+}
+.kindred-dot {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--mythic);
+  color: #2d1a00;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--mythic) 70%, transparent);
+}
+.hero {
+  position: relative;
+}
+.greet-bubble {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  z-index: 4;
+  max-width: min(78%, 300px);
+  padding: 9px 14px;
+  border-radius: 18px;
+  background: var(--surface-solid);
+  border: 1px solid var(--line-2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: center;
+  pointer-events: none;
+  transform-origin: 50% 100%;
+  animation: bubble-life 4.8s var(--ease-out) both;
+}
+.greet-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  background: var(--surface-solid);
+  border-right: 1px solid var(--line-2);
+  border-bottom: 1px solid var(--line-2);
+  transform: translateX(-50%) rotate(45deg);
+}
+@keyframes bubble-life {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px) scale(0.85);
+  }
+  8%,
+  88% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-6px) scale(0.96);
+  }
+}
+.bond-up {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  padding-bottom: 6px;
+}
+.bond-up-stage {
+  height: clamp(210px, 32dvh, 280px);
+}
+.bond-up h2 {
+  font-size: 23px;
+  line-height: 1.2;
+  max-width: 320px;
+}
+.bond-perks {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.bond-perks li {
+  font-size: 14px;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--heart) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--heart) 30%, transparent);
+}
+.bond-perks b {
+  color: var(--heart);
+  margin-right: 4px;
 }

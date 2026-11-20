@@ -13,6 +13,7 @@ import { Progress } from './screens/Progress';
 import { Settings } from './screens/Settings';
 import { useAppState } from './state/store';
 import type { SessionResult } from './state/store';
+import { BondUpHost } from './ui/bond';
 import { Icon, Toasts } from './ui/kit';
 import { theme } from './ui/themes';
 
@@ -137,6 +138,7 @@ export function App() {
           ))}
         </nav>
       )}
+      <BondUpHost active={tabs && !plusOpen} />
       <Toasts />
     </div>
   );

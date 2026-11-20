@@ -38,6 +38,7 @@ import {
 } from '../state/store';
 import type { AmbientId, ClaimResult, State, TagId, ThemeId } from '../state/store';
 import { Bar, Btn, Chip, Icon, RarityTag, Sheet, toast } from './kit';
+import { BondCard } from './bond';
 import { CompanionStage, Portrait } from './stage';
 import { KindTag, SparkPips, SparkPortrait, StyleBadge, StylePreview } from './style';
 import { THEMES } from './themes';
@@ -551,6 +552,7 @@ export function GhostSheet({ id, onClose, onStyle }: { id: string | null; onClos
             <p class="muted small">
               {t('col_joined', { date: fmtDate(rec.at) })} · {t(`col_via_${rec.via}`)}
             </p>
+            <BondCard ghostId={gid} />
             <div class="stack">
               {s.companion === gid ? (
                 <p class="ok-chip center-chip">

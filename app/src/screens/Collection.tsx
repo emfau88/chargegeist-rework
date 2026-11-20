@@ -4,7 +4,8 @@ import { COMPANIONS, COMPANION_UNLOCK_HOURS, COSTUME_GHOSTS, DROP_STYLES, GHOSTS
 import type { Key } from '../i18n';
 import { nameOf, t } from '../i18n';
 import { haptic } from '../platform/device';
-import { canUseStyle, companionName, lookOf, markSeen, sparkInfo, sparkTarget, useAppState } from '../state/store';
+import { BOND_MAX, bondLevel } from '../logic/bond';
+import { bondOf, canUseStyle, companionName, lookOf, markSeen, sparkInfo, sparkTarget, useAppState } from '../state/store';
 import { Bar, Icon } from '../ui/kit';
 import { GhostSheet, StyleItemSheet, StyleSheet, WishSheet, ghostUnlockText } from '../ui/sheets';
 import { Portrait } from '../ui/stage';
@@ -47,11 +48,12 @@ export function Collection({ openPlus }: { openPlus: () => void }) {
     const costume = g.kind === 'costume';
     const sp = costume ? sparkInfo(s, id) : null;
     const rc = g.rarity ? RARITY_COLOR[g.rarity] : g.glow;
+    const kindred = !!rec && bondLevel(bondOf(s, id)) >= BOND_MAX;
     return (
       <button
         type="button"
         key={id}
-        class={`tile ghost-tile ${rec ? 'own' : 'missing'} ${rec && !rec.seen ? 'unseen' : ''} ${s.companion === id ? 'active' : ''} ${!rec && target === id ? 'charging' : ''}`}
+        class={`tile ghost-tile ${kindred ? 'kindred' : ''} ${rec ? 'own' : 'missing'} ${rec && !rec.seen ? 'unseen' : ''} ${s.companion === id ? 'active' : ''} ${!rec && target === id ? 'charging' : ''}`}
         style={{ '--rc': rc, '--cg': g.glow } as CSSProperties}
         onClick={() => openGhost(id)}
         aria-label={rec ? companionName(s, id) : `${nameOf(g)}: ${sp ? t('spark_count', sp) : ghostUnlockText(s, id)}`}
@@ -71,6 +73,11 @@ export function Collection({ openPlus }: { openPlus: () => void }) {
           </span>
         )}
         {rec && !rec.seen && <span class="new-dot">{t('new_badge')}</span>}
+        {kindred && (
+          <span class="kindred-dot" aria-hidden="true">
+            <Icon name="heart" size={11} />
+          </span>
+        )}
         {s.companion === id && (
           <span class="active-dot" aria-hidden="true">
             <Icon name="bolt" size={12} />

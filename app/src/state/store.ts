@@ -14,6 +14,8 @@ import {
   unlockOrder,
 } from '../data/catalog';
 import { nameOf } from '../i18n';
+import { addFocus, addTouch, bondLevel, emptyBond, levelFor } from '../logic/bond';
+import type { BondLevel, BondRec, BondTouch } from '../logic/bond';
 import { rollDrop } from '../logic/drops';
 import type { Pity } from '../logic/drops';
 import {
@@ -91,6 +93,8 @@ export interface State {
   sparks: { target: string | null; have: Record<string, number> };
   /** Achievement id -> when it was reached. */
   achievements: Record<string, number>;
+  /** Ghost id -> the bond with it (hearts and stage). */
+  bonds: Record<string, BondRec>;
   names: Record<string, string>;
   goal: number;
   tags: TagId[];
@@ -127,6 +131,7 @@ export function defaultState(): State {
     looks: {},
     sparks: { target: null, have: {} },
     achievements: {},
+    bonds: {},
     names: {},
     goal: 30,
     tags: ['study', 'work'],
@@ -318,6 +323,17 @@ export function todayMinutes(s: State = state): number {
   const d = dayKey(now());
   return s.sessions.filter((x) => x.day === d).reduce((a, x) => a + x.min, 0);
 }
+/** The bond with a ghost; an empty one for ghosts never touched (and for old saves). */
+export function bondOf(s: State, id: string): BondRec {
+  return { ...emptyBond(), ...s.bonds[id] };
+}
+/** Ghosts you own that reached a stage that was not celebrated yet. */
+export function bondUps(s: State = state): string[] {
+  return Object.keys(s.ghosts).filter((id) => {
+    const b = bondOf(s, id);
+    return levelFor(b.hearts) > b.seen;
+  });
+}
 export function companionName(s: State = state, id = s.companion): string {
   return s.names[id] ?? nameOf(ghost(id));
 }
@@ -331,6 +347,7 @@ export function counters(s: State): Counters {
     minutes: totalMinutes(s.sessions),
     weeks: s.weekDropWeeks.length,
     costumes: COSTUME_GHOSTS.filter((g) => s.ghosts[g.id]).length,
+    bond: Object.keys(s.ghosts).reduce((m, id) => Math.max(m, bondLevel(bondOf(s, id))), 0),
   };
 }
 export function currentBoss(s: State = state) {
@@ -479,6 +496,8 @@ export interface SessionResult {
   /** sparkRefund: wish energy for sparks the boss ghost already had. */
   boss: { ghost: string; before: number; after: number; goal: number; calmedNow: boolean; wasOwned: boolean; sparkRefund: number };
   wish: { before: number; after: number; target: string | null };
+  /** Hearts the companion got from this session. */
+  bond: { ghost: string; gained: number; hearts: number; before: BondLevel; after: BondLevel };
   achievements: string[];
   companionsUnlocked: string[];
 }
@@ -496,6 +515,8 @@ function credit(s: State, min: number, planned: number, tag: TagId, completed: b
 
   s.sessions.push({ id: rid(), at, day: dayKey(at), min, planned, tag, done: completed });
   s.wish.energy += min;
+  const bg = addFocus(bondOf(s, s.companion), min);
+  s.bonds[s.companion] = bg.bond;
 
   const byDay = minutesByDay(s.sessions);
   const todayAfter = byDay.get(today) ?? 0;
@@ -555,6 +576,7 @@ function credit(s: State, min: number, planned: number, tag: TagId, completed: b
     weekDoneNow,
     boss: { ghost: boss.ghost, before: bossBefore, after: week.minutes, goal: boss.goal, calmedNow, wasOwned, sparkRefund },
     wish: { before: wishBefore, after: s.wish.energy, target: s.wish.target },
+    bond: { ghost: s.companion, gained: bg.gained, hearts: bg.bond.hearts, before: bg.before, after: bg.after },
     achievements,
     companionsUnlocked,
   };
@@ -690,6 +712,34 @@ export function setSparkTarget(id: string | null) {
   });
 }
 
+/* ---------- bond ---------- */
+export interface TouchResult {
+  gained: number;
+  hearts: number;
+  before: BondLevel;
+  after: BondLevel;
+  achievements: string[];
+}
+/** A stroke, hold or tickle on a ghost you own: a heart, once per kind of touch a day. */
+export function touchBond(id: string, kind: BondTouch): TouchResult | null {
+  if (!state.ghosts[id]) return null;
+  const g = addTouch(bondOf(state, id), kind, dayKey(now()));
+  if (!g.gained) return null;
+  let achievements: string[] = [];
+  mutate((s) => {
+    s.bonds[id] = g.bond;
+    achievements = grantAchievements(s);
+  });
+  return { gained: g.gained, hearts: g.bond.hearts, before: g.before, after: g.after, achievements };
+}
+/** The level-up of this ghost was celebrated. */
+export function ackBond(id: string) {
+  mutate((s) => {
+    const b = bondOf(s, id);
+    s.bonds[id] = { ...b, seen: bondLevel(b) };
+  });
+}
+
 /* ---------- misc ---------- */
 export function markSeen(kind: 'ghosts' | 'styles', ids: string[]) {
   if (!ids.some((id) => state[kind][id] && !state[kind][id].seen)) return;
@@ -752,6 +802,14 @@ export const dev = {
   nextDay() {
     mutate((s) => {
       s.dev.dayOffset += 1;
+    });
+  },
+  /** Adds hearts to a ghost's bond, to try the stages. */
+  addHearts(id: string, n: number) {
+    mutate((s) => {
+      const b = bondOf(s, id);
+      s.bonds[id] = { ...b, hearts: b.hearts + n };
+      grantAchievements(s);
     });
   },
   grantDrop() {
