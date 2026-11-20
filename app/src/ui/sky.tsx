@@ -5,7 +5,7 @@
  */
 import type { CSSProperties } from 'preact';
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { skyOpacities, skyWeights, starAlpha } from '../logic/sky';
+import { moonPhase, moonPlace, orbAlpha, skyOpacities, skyWeights, starAlpha, sunPlace } from '../logic/sky';
 import { now } from '../state/store';
 
 export type SkyMood = 'idle' | 'focus' | 'drop' | 'done';
@@ -23,31 +23,120 @@ export function useReducedMotion(): boolean {
   return r;
 }
 
+/** Most stars are tiny, some are medium, and a few are bright ones with a glint. */
 function useStars(n: number, seed0: number, maxY: number) {
   return useMemo(() => {
     let seed = seed0;
     const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-    return Array.from({ length: n }, () => ({ x: rnd() * 100, y: rnd() * maxY, r: 0.6 + rnd() * 1.3 }));
+    return Array.from({ length: n }, () => {
+      const size = rnd();
+      const r = size < 0.7 ? 0.5 + rnd() * 0.4 : size < 0.94 ? 1 + rnd() * 0.5 : 1.6 + rnd() * 0.5;
+      return { x: rnd() * 100, y: rnd() * maxY, r, bright: size >= 0.95, warm: rnd() < 0.18 };
+    });
   }, []);
 }
 
 /**
  * Stars in three layers that twinkle out of step. Each layer fades as a whole, which the GPU does
  * on its own; fading every star by itself would cost the main thread on every frame.
+ * Positions are a share of the sky and sizes are pixels, so stars stay round on every screen.
  */
 function Stars({ n, seed, maxY, opacity, cls }: { n: number; seed: number; maxY: number; opacity: number; cls?: string }) {
   const stars = useStars(n, seed, maxY);
   return (
     <div class={`stars ${cls ?? ''}`} style={{ opacity }}>
       {[0, 1, 2].map((k) => (
-        <svg key={k} class={`star-layer tw-${k}`} viewBox="0 0 100 100" preserveAspectRatio="none">
+        <svg key={k} class={`star-layer tw-${k}`}>
           {stars
             .filter((_, i) => i % 3 === k)
-            .map((s, i) => (
-              <circle key={i} cx={s.x} cy={s.y} r={s.r * 0.12} />
-            ))}
+            .map((s, i) =>
+              s.bright ? (
+                <svg key={i} x={`${s.x}%`} y={`${s.y}%`} overflow="visible">
+                  <circle class="halo" r={s.r * 3} />
+                  <path class="glint" d="M0,-6 L0.7,-0.7 L6,0 L0.7,0.7 L0,6 L-0.7,0.7 L-6,0 L-0.7,-0.7Z" transform={`scale(${(s.r / 2.1).toFixed(2)})`} />
+                  <circle r={s.r * 0.7} />
+                </svg>
+              ) : (
+                <circle key={i} class={s.warm ? 'warm' : undefined} cx={`${s.x}%`} cy={`${s.y}%`} r={s.r} />
+              ),
+            )}
         </svg>
       ))}
+    </div>
+  );
+}
+
+/** The lit side of the moon for a phase (0 new, 0.5 full): the right limb plus the terminator. */
+function moonLit(phase: number, r: number): { d: string; flip: boolean } {
+  const waning = phase > 0.5;
+  // always leave a slim crescent, so the night sky keeps its moon
+  const p = Math.max(0.07, waning ? 1 - phase : phase);
+  const k = Math.cos(2 * Math.PI * p);
+  return { d: `M0,${-r} A${r},${r} 0 0 1 0,${r} A${(Math.abs(k) * r).toFixed(2)},${r} 0 0 ${k > 0 ? 0 : 1} 0,${-r}Z`, flip: waning };
+}
+
+/** Sun and moon cross the sky with the hour; the moon shows the phase of the real one. */
+function Orbs({ hour }: { hour: number }) {
+  const sun = sunPlace(hour);
+  const moon = moonPlace(hour);
+  const lit = useMemo(() => moonLit(moonPhase(now()), 26), []);
+  return (
+    <>
+      {sun && <i class="sky-sun" style={{ left: `${sun.x * 100}%`, top: `${sun.y * 100}%`, opacity: orbAlpha(sun.alt), '--low': (1 - sun.alt).toFixed(3) } as CSSProperties} />}
+      {moon && (
+        <svg class="sky-moon" viewBox="-60 -60 120 120" style={{ left: `${moon.x * 100}%`, top: `${moon.y * 100}%`, opacity: orbAlpha(moon.alt) }}>
+          <defs>
+            <radialGradient id="cg-moon-halo">
+              <stop offset="0.4" stop-color="#cfd2ff" stop-opacity="0.34" />
+              <stop offset="1" stop-color="#cfd2ff" stop-opacity="0" />
+            </radialGradient>
+            <radialGradient id="cg-moon-face" cx="0.4" cy="0.35" r="0.75">
+              <stop offset="0" stop-color="#fffdf4" />
+              <stop offset="0.7" stop-color="#ece8ff" />
+              <stop offset="1" stop-color="#cdc7f2" />
+            </radialGradient>
+          </defs>
+          <circle r="60" fill="url(#cg-moon-halo)" />
+          <circle r="26" fill="#b9b6ee" opacity="0.14" />
+          <g transform={lit.flip ? 'scale(-1,1)' : undefined}>
+            <path d={lit.d} fill="url(#cg-moon-face)" />
+          </g>
+        </svg>
+      )}
+    </>
+  );
+}
+
+// One tile of the land, 400 wide. Every ridge starts and ends level, so the tiles join without a kink,
+// and reaches one unit past each side, so no hairline shows between two tiles.
+const HILL_FAR = 'M-1,80 H0 C25,80 40,40 75,40 S150,120 200,120 S280,30 325,30 S375,80 400,80 H401 V440 H-1Z';
+const HILL_MID = 'M-1,150 H0 C30,150 60,120 100,128 S165,190 205,190 S270,140 300,132 S370,150 400,150 H401 V440 H-1Z';
+const PINES = 'M48,140 l7,-28 l7,28Z M62,138 l8,-36 l8,36Z M82,136 l6,-24 l6,24Z M282,142 l6,-24 l6,24Z M296,140 l8,-36 l8,36Z M316,142 l7,-28 l7,28Z';
+const HILL_NEAR = 'M-1,215 H0 C30,215 70,205 100,225 S160,268 200,268 S270,245 300,225 S370,215 400,215 H401 V440 H-1Z';
+const TILES = [-3, -2, -1, 0, 1, 2, 3];
+
+/**
+ * The land under the sky: a valley between three ridges of hills with a few pines. The hills are high
+ * at the sides and low in the middle, so the ghost floats over the valley and sun and moon rise and
+ * set behind them. The tile repeats sideways, so the land keeps its shape on any width.
+ * A glow in the valley lifts the ridges out of the sky; it takes the colour of the time of day.
+ */
+function Horizon({ glow }: { glow: { morning: number; day: number; evening: number } }) {
+  return (
+    <div class="horizon">
+      <i class="hz-glow night" />
+      <i class="hz-glow morning" style={{ opacity: glow.morning }} />
+      <i class="hz-glow day" style={{ opacity: glow.day }} />
+      <i class="hz-glow evening" style={{ opacity: glow.evening }} />
+      <svg viewBox="0 0 400 440" preserveAspectRatio="xMidYMax meet" overflow="visible">
+        {(['far', 'mid', 'near'] as const).map((layer) => (
+          <g key={layer} class={`hill ${layer}`}>
+            {TILES.map((k) => (
+              <path key={k} transform={`translate(${k * 400} 0)`} d={layer === 'far' ? HILL_FAR : layer === 'mid' ? `${HILL_MID} ${PINES}` : HILL_NEAR} />
+            ))}
+          </g>
+        ))}
+      </svg>
     </div>
   );
 }
@@ -126,6 +215,7 @@ export function Sky({ timeOfDay, stars, moving, mood, glow, hour }: SkyProps) {
       )}
       {stars && <Stars n={70} seed={7} maxY={70} opacity={sa} />}
       {stars && timeOfDay && <Stars n={55} seed={23} maxY={85} opacity={Math.max(0, w.night - 0.2) / 0.8} cls="more" />}
+      {timeOfDay && <Orbs hour={h} />}
       {moving && (
         <>
           <div class="fog fog-a" />
@@ -133,6 +223,7 @@ export function Sky({ timeOfDay, stars, moving, mood, glow, hour }: SkyProps) {
         </>
       )}
       {star && <i class="shoot" key={star.key} style={{ left: `${star.x}%`, top: `${star.y}%`, '--a': `${star.a}deg` } as CSSProperties} />}
+      {timeOfDay && <Horizon glow={o} />}
       <div class={`sky-mood mood-${mood}`} />
       {mood === 'done' && moving && <SparkRain />}
     </div>

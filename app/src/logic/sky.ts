@@ -57,6 +57,51 @@ export function skyOpacities(w: SkyWeights): { morning: number; day: number; eve
   return out;
 }
 
+/** Where the sun or moon stands: x and y as a share of the sky (0..1), alt 0 at the horizon and 1 at its highest. */
+export interface OrbPlace {
+  x: number;
+  y: number;
+  alt: number;
+}
+
+/**
+ * One pass over the sky, t from 0 (rising behind the hills on the left) to 1 (setting on the right).
+ * The path climbs along the left edge, runs flat below the headings, where the ghost floats in front
+ * of it, and sinks along the right edge. So sun and moon never lie behind a line of text.
+ */
+function arc(t: number): OrbPlace | null {
+  if (!(t >= 0 && t <= 1)) return null;
+  const alt = Math.sin(Math.PI * t);
+  return { x: 0.08 + 0.48 * (1 - Math.cos(Math.PI * t)), y: 0.78 - 0.54 * (1 - (1 - alt) ** 2), alt };
+}
+
+/** The sun is up from 6 to 20 o'clock. */
+export function sunPlace(hour: number): OrbPlace | null {
+  const h = ((hour % 24) + 24) % 24;
+  return arc((h - 6) / 14);
+}
+
+/** The moon is up from 19 to 7 o'clock. */
+export function moonPlace(hour: number): OrbPlace | null {
+  const h = ((hour % 24) + 24) % 24;
+  return arc(((h - 19 + 24) % 24) / 12);
+}
+
+/** Right at the horizon the sun and moon fade in; the hills hide them until they are higher up. */
+export function orbAlpha(alt: number): number {
+  return Math.max(0, Math.min(1, alt * 4));
+}
+
+const SYNODIC_DAYS = 29.530588853;
+/** A new moon, as a reference point: 6 January 2000, 18:14 UTC. */
+const NEW_MOON_MS = Date.UTC(2000, 0, 6, 18, 14);
+
+/** The phase of the real moon at a time: 0 new, 0.25 waxing half, 0.5 full, 0.75 waning half. */
+export function moonPhase(ms: number): number {
+  const p = ((ms - NEW_MOON_MS) / 86_400_000 / SYNODIC_DAYS) % 1;
+  return p < 0 ? p + 1 : p;
+}
+
 /** How visible the stars are: all at night, some in the morning and evening, few by day. */
 export function starAlpha(w: SkyWeights): number {
   return Math.min(1, w.night + 0.55 * w.evening + 0.45 * w.morning + 0.18 * w.day);

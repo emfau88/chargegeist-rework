@@ -140,6 +140,16 @@ img {
 .stars circle {
   fill: #d8deff;
 }
+.stars circle.warm {
+  fill: #ffe6c2;
+}
+.stars circle.halo {
+  fill: #cfd8ff;
+  opacity: 0.13;
+}
+.stars .glint {
+  fill: #f4f6ff;
+}
 .star-layer {
   position: absolute;
   inset: 0;
@@ -201,6 +211,12 @@ img {
 }
 .page-head h1 {
   font-size: 30px;
+}
+/* sun and moon pass behind the headings: a soft dark edge keeps them readable */
+.page-head h1,
+.home-head h1,
+.hero-name {
+  text-shadow: 0 1px 12px rgba(12, 10, 28, 0.6);
 }
 .eyebrow {
   font-size: 12px;
@@ -3903,6 +3919,73 @@ button.spark-meter:active {
 }
 .sky .stars {
   transition: opacity 4s ease;
+}
+/* sun and moon: they cross the sky with the hour and are faint near the horizon */
+.sky-sun,
+.sky-moon {
+  position: absolute;
+  transition: opacity 4s ease;
+}
+.sky-sun {
+  width: 56px;
+  height: 56px;
+  margin: -28px 0 0 -28px;
+  border-radius: 50%;
+  /* --low: 0 high in the sky, 1 at the horizon, where the sun turns warm */
+  background: radial-gradient(circle, color-mix(in srgb, #fff8e2, #ffd9ad calc(var(--low) * 100%)) 0%, color-mix(in srgb, #ffe2a0, #ff9460 calc(var(--low) * 100%)) 100%);
+  box-shadow:
+    0 0 44px 16px color-mix(in srgb, rgba(255, 224, 160, 0.4), rgba(255, 150, 90, 0.42) calc(var(--low) * 100%)),
+    0 0 150px 64px color-mix(in srgb, rgba(255, 214, 150, 0.16), rgba(255, 130, 80, 0.2) calc(var(--low) * 100%));
+}
+.sky-moon {
+  width: 124px;
+  height: 124px;
+  margin: -62px 0 0 -62px;
+}
+/* the land: a valley between hills, lit from behind by a glow in the colour of the hour */
+.horizon {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: clamp(300px, 52vh, 520px);
+}
+.hz-glow {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -24%;
+  height: 86%;
+  transition: opacity 4s ease;
+}
+.hz-glow.night {
+  background: radial-gradient(64% 52% at 50% 60%, rgba(124, 108, 240, 0.4), transparent 72%);
+}
+.hz-glow.morning {
+  background: radial-gradient(64% 52% at 50% 60%, rgba(255, 158, 196, 0.58), transparent 72%);
+}
+.hz-glow.day {
+  background: radial-gradient(64% 52% at 50% 60%, rgba(176, 212, 255, 0.42), transparent 72%);
+}
+.hz-glow.evening {
+  background: radial-gradient(64% 52% at 50% 60%, rgba(255, 150, 84, 0.66), transparent 72%);
+}
+.horizon svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+/* solid, so sun and moon stay hidden while they are behind a hill */
+.hill.far {
+  fill: #2f2569;
+}
+.hill.mid {
+  fill: #221a53;
+}
+.hill.near {
+  fill: #150f37;
 }
 .sky.still .star-layer {
   animation: none;

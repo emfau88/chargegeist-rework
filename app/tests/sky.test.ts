@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SKY_PHASES, skyOpacities, skyWeights, starAlpha } from '../src/logic/sky';
+import { SKY_PHASES, moonPhase, moonPlace, orbAlpha, skyOpacities, skyWeights, starAlpha, sunPlace } from '../src/logic/sky';
 import type { SkyWeights } from '../src/logic/sky';
 
 const main = (w: SkyWeights) => SKY_PHASES.reduce((a, b) => (w[b] > w[a] ? b : a));
@@ -47,5 +47,47 @@ describe('sky by the time of day', () => {
   it('has the most stars at night and few by day', () => {
     expect(starAlpha(skyWeights(23))).toBe(1);
     expect(starAlpha(skyWeights(13))).toBeLessThan(0.25);
+  });
+});
+
+describe('sun and moon', () => {
+  it('the sun is up by day and the moon by night', () => {
+    expect(sunPlace(13)).not.toBeNull();
+    expect(sunPlace(2)).toBeNull();
+    expect(moonPlace(1)).not.toBeNull();
+    expect(moonPlace(12)).toBeNull();
+  });
+
+  it('they rise on the left, stand highest in the middle and set on the right', () => {
+    const rise = sunPlace(6.5)!,
+      noon = sunPlace(13)!,
+      set = sunPlace(19.5)!;
+    expect(rise.x).toBeLessThan(noon.x);
+    expect(noon.x).toBeLessThan(set.x);
+    expect(noon.y).toBeLessThan(rise.y);
+    expect(noon.alt).toBeCloseTo(1, 6);
+    expect(moonPlace(1)!.alt).toBeCloseTo(1, 6);
+    expect(moonPlace(23)!.x).toBeLessThan(moonPlace(3)!.x);
+  });
+
+  it('they are faint near the horizon and never jump from one minute to the next', () => {
+    expect(orbAlpha(sunPlace(6.05)!.alt)).toBeLessThan(0.1);
+    expect(orbAlpha(sunPlace(13)!.alt)).toBe(1);
+    for (let h = 6; h < 20 - 1 / 60; h += 1 / 60) {
+      const a = sunPlace(h)!,
+        b = sunPlace(h + 1 / 60)!;
+      expect(Math.abs(a.x - b.x) + Math.abs(a.y - b.y)).toBeLessThan(0.01);
+    }
+  });
+
+  it('the moon shows the phase of the real one', () => {
+    // a new moon (solar eclipse of 8 April 2024) and a full moon (lunar eclipse of 14 March 2025)
+    const nm = moonPhase(Date.UTC(2024, 3, 8, 18, 21));
+    expect(Math.min(nm, 1 - nm)).toBeLessThan(0.03);
+    expect(moonPhase(Date.UTC(2025, 2, 14, 6, 55))).toBeCloseTo(0.5, 1);
+    for (const ms of [0, Date.UTC(1990, 5, 1), Date.UTC(2040, 1, 1)]) {
+      expect(moonPhase(ms)).toBeGreaterThanOrEqual(0);
+      expect(moonPhase(ms)).toBeLessThan(1);
+    }
   });
 });

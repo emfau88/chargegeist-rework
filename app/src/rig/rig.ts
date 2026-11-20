@@ -70,6 +70,8 @@ export interface RigApi {
 
 const NS = 'http://www.w3.org/2000/svg';
 const RAD = Math.PI / 180;
+/** Where the ground shadow lies in the 600-unit stage: close under the ghost, so it reads as its own. */
+const SHADOW_Y = 500;
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const smooth = (a: number, b: number, v: number) => {
   const x = clamp((v - a) / (b - a), 0, 1);
@@ -204,7 +206,7 @@ export function createRig(host: HTMLElement, look: Look, opts: RigOptions = {}):
     </g>
     <circle data-k="tuftGlow" cx="300" cy="120" r="70" fill="url(#${id}tuft)" opacity="0"/>
     <g data-k="pBack"></g>
-    <ellipse data-k="shadow" cx="300" cy="524" rx="112" ry="15" fill="#03020a" opacity="0.55" filter="url(#${id}blur)"/>
+    <ellipse data-k="shadow" cx="300" cy="${SHADOW_Y}" rx="112" ry="15" fill="#03020a" opacity="0.55" filter="url(#${id}blur)"/>
   </svg>
   <canvas class="rig-gl" style="position:absolute;inset:0;width:100%;height:100%;display:block" aria-hidden="true"></canvas>
   <svg class="rig-front" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;touch-action:pan-y pinch-zoom" aria-hidden="true">
@@ -913,8 +915,8 @@ void main(){
     }
 
     const lift = -(floatY + hopY);
-    const shY = 524 + shiftY + S.low.x * 12;
-    el.shadow.setAttribute('transform', `translate(300,${shY.toFixed(1)}) scale(${clamp(1 - lift * 0.0028, 0.45, 1.2).toFixed(3)},1) translate(-300,-524)`);
+    const shY = SHADOW_Y + shiftY + S.low.x * 12;
+    el.shadow.setAttribute('transform', `translate(300,${shY.toFixed(1)}) scale(${clamp(1 - lift * 0.0028, 0.45, 1.2).toFixed(3)},1) translate(-300,-${SHADOW_Y})`);
     el.shadow.setAttribute('opacity', clamp(0.55 - lift * 0.0022, 0.12, 0.7).toFixed(3));
     el.glow.setAttribute('cy', (F.gy + 20).toFixed(1));
     el.glow.setAttribute('opacity', clamp(0.3 + S.glow.x * 0.6, 0.1, 1).toFixed(3));
