@@ -9,6 +9,8 @@
   /* the quiet level of surface: a dark veil without a border, see "surface levels". As dark as a card,
      so that small grey text keeps its contrast over the bright sky of the day */
   --quiet: rgba(20, 17, 42, 0.7);
+  /* the quiet level on a sheet or a card, which are dark already: a light veil instead of a dark one */
+  --quiet-in: rgba(255, 255, 255, 0.055);
   --line: rgba(190, 180, 255, 0.14);
   --line-2: rgba(190, 180, 255, 0.24);
   --text: #f3f1ff;
@@ -411,11 +413,15 @@ img {
   min-height: 40px;
   padding: 0 15px;
   border-radius: 999px;
-  border: 1.5px solid var(--line-2);
-  background: rgba(14, 12, 32, 0.5);
+  border: 1.5px solid transparent;
+  background: var(--quiet);
   font-weight: 800;
   font-size: 14px;
   transition: border-color 0.2s, background 0.2s, color 0.2s, transform 0.18s var(--ease-spring);
+}
+.sheet .chip:not(.active),
+.card .chip:not(.active) {
+  background: var(--quiet-in);
 }
 .chip:active {
   transform: scale(0.95);
@@ -524,8 +530,10 @@ img {
 
 /* ---------------- cards ---------------- */
 /* Surface levels: three of them, so that one card at most asks for attention on a screen.
-   quiet:  lists and background cards. A thin dark veil without a border (--quiet). Stats, groups of
-           rows, tiles you do not own yet, the pickers for length and tab.
+   quiet:  lists and background cards. A dark veil without a border (--quiet); on a sheet or a card,
+           which are dark already, a light veil (--quiet-in). Stats, groups of rows, tiles you do not
+           own yet, everything you pick from (lengths, tabs, chips, goals, companions, styles): what
+           is picked shows by its coloured edge alone.
    normal: a card, as .card draws it.
    lift:   the one card that matters right now, tinted by its role through --tone: warm for a reward,
            cyan for charging, a rarity colour for something to collect. */
@@ -1559,6 +1567,10 @@ button.row:active {
 .unlock-card.boss {
   --rc: var(--season);
 }
+.unlock-card ~ .unlock-card {
+  background: var(--surface);
+  border-color: var(--line);
+}
 /* on the session result the news wait for their step, then pop in */
 .complete .unlock-card {
   animation-duration: 0.5s;
@@ -1605,8 +1617,8 @@ button.row:active {
   color: var(--epic);
   padding: 10px 14px;
   border-radius: 16px;
-  background: rgba(197, 140, 255, 0.08);
-  border: 1px solid rgba(197, 140, 255, 0.22);
+  background: var(--quiet);
+  border: 1px solid transparent;
 }
 .pity span {
   display: inline-flex;
@@ -2451,8 +2463,8 @@ blockquote {
   gap: 4px;
   padding: 10px 4px;
   border-radius: 16px;
-  border: 1.5px solid var(--line);
-  background: rgba(255, 255, 255, 0.03);
+  border: 1.5px solid transparent;
+  background: var(--quiet-in);
 }
 .wish-pick b {
   font-size: 12px;
@@ -2513,8 +2525,8 @@ blockquote {
   min-height: 52px;
   padding: 0 16px;
   border-radius: 16px;
-  border: 1.5px solid var(--line);
-  background: rgba(255, 255, 255, 0.03);
+  border: 1.5px solid transparent;
+  background: var(--quiet-in);
   font-weight: 800;
   text-align: left;
 }
@@ -2575,8 +2587,8 @@ input[type='range'] {
   gap: 4px;
   padding: 10px 4px;
   border-radius: 18px;
-  border: 1.5px solid var(--line);
-  background: rgba(255, 255, 255, 0.03);
+  border: 1.5px solid transparent;
+  background: var(--quiet-in);
   text-align: center;
 }
 .comp-card.active {
@@ -2751,7 +2763,6 @@ input[type='range'] {
   flex-direction: row;
   align-items: center;
   gap: 14px;
-  border-color: rgba(255, 154, 98, 0.35);
 }
 .boss-card .eyebrow {
   color: var(--season);
@@ -2848,7 +2859,10 @@ input[type='range'] {
   flex-direction: row;
   align-items: center;
   gap: 14px;
-  border-color: rgba(255, 199, 107, 0.35);
+  /* lifted, warm: the one card on Progress that asks for something */
+  background: linear-gradient(110deg, color-mix(in srgb, var(--warm) 18%, transparent), var(--surface) 58%);
+  border-color: color-mix(in srgb, var(--warm) 55%, transparent);
+  box-shadow: 0 12px 30px -20px var(--warm);
 }
 .plus-teaser b {
   display: inline-flex;
@@ -2974,8 +2988,8 @@ input[type='range'] {
   gap: 14px;
   padding: 12px 14px;
   border-radius: var(--r-md);
-  background: var(--surface);
-  border: 1px solid var(--line);
+  background: var(--quiet);
+  border: 1px solid transparent;
 }
 .benefits li > span:last-child {
   display: flex;
@@ -3166,8 +3180,8 @@ input[type='range'] {
   align-items: center;
   padding: 18px 10px;
   border-radius: 22px;
-  border: 1.5px solid var(--line-2);
-  background: var(--surface);
+  border: 1.5px solid transparent;
+  background: var(--quiet);
   transition: border-color 0.2s, background 0.2s, transform 0.2s var(--ease-spring);
 }
 .goal-card:active {
@@ -3209,8 +3223,8 @@ input[type='range'] {
   gap: 4px;
   padding: 10px 4px;
   border-radius: 20px;
-  border: 2px solid var(--line);
-  background: var(--surface);
+  border: 2px solid transparent;
+  background: var(--quiet);
   transition: border-color 0.2s, transform 0.2s var(--ease-spring), box-shadow 0.3s;
 }
 .pick-comp b {
@@ -3475,8 +3489,6 @@ input[type='range'] {
   flex-direction: row;
   align-items: center;
   gap: 14px;
-  border-color: color-mix(in srgb, var(--cg, var(--warm)) 35%, transparent);
-  background: radial-gradient(50% 90% at 10% 50%, color-mix(in srgb, var(--cg, var(--warm)) 16%, transparent), transparent 70%), var(--surface);
 }
 .dress-banner > .icon {
   color: var(--cg, var(--warm));
@@ -3552,8 +3564,8 @@ input[type='range'] {
   gap: 4px;
   padding: 10px 3px 8px;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1.5px solid var(--line);
+  background: var(--quiet-in);
+  border: 1.5px solid transparent;
   min-width: 0;
   transition: transform 0.2s var(--ease-spring), border-color 0.2s, background 0.2s;
 }
@@ -3955,8 +3967,6 @@ button.spark-meter:active {
   gap: 12px;
   align-self: stretch;
   text-align: left;
-  border-color: color-mix(in srgb, var(--cg) 40%, transparent);
-  background: radial-gradient(55% 90% at 10% 50%, color-mix(in srgb, var(--cg) 20%, transparent), transparent 70%), var(--surface);
   animation: pop-in 0.5s var(--ease-spring) 0.3s both;
 }
 .drop-spark {
@@ -4294,8 +4304,8 @@ button.spark-meter:active {
   font-size: 14px;
   padding: 8px 12px;
   border-radius: 14px;
-  background: color-mix(in srgb, var(--heart) 12%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--heart) 30%, transparent);
+  background: var(--quiet-in);
+  border: 1px solid transparent;
 }
 .bond-perks b {
   color: var(--heart);
