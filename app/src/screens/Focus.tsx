@@ -5,6 +5,7 @@ import { playAmbient, setAmbientVolume, sfx, stopAmbient } from '../platform/aud
 import { cancelSessionEnd, haptic, keepAwake, scheduleSessionEnd } from '../platform/device';
 import {
   companionName,
+  dev,
   discardSession,
   elapsedMin,
   finishSession,
@@ -130,6 +131,11 @@ export function Focus({ onDone, openPlus }: { onDone: (r: SessionResult | null) 
           {tip}
         </p>
         {a.speed > 1 && <span class="demo-badge">{t('focus_demo')}</span>}
+        {s.dev.tools && (
+          <button type="button" class="demo-badge dev-finish" onClick={() => dev.finishNow()}>
+            {t('dev_finish')}
+          </button>
+        )}
       </div>
 
       <div class="focus-controls">

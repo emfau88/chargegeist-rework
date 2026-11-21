@@ -804,6 +804,34 @@ button.row:active {
   background: rgba(255, 199, 107, 0.14);
   color: var(--warm);
 }
+/* the developer menu: groups of rows, and chips to give or take single ghosts and styles */
+.dev-menu .group + .group {
+  margin-top: 12px;
+}
+.dev-chips {
+  padding: 6px 14px 14px;
+  gap: 6px;
+}
+.dev-chips .chip {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+.dev-sub {
+  padding: 8px 16px 0;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--muted);
+}
+.dev-finish {
+  /* a button, so it gets a size a finger can hit */
+  min-height: 36px;
+  padding: 6px 16px;
+  margin-top: 6px;
+  font-size: 13px;
+  background: rgba(255, 199, 107, 0.12);
+  cursor: pointer;
+}
 
 /* ---------------- ghosts ---------------- */
 @keyframes float {

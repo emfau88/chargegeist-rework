@@ -115,8 +115,11 @@ export interface State {
   settings: Settings;
   plus: boolean;
   plusOfferSeen: boolean;
-  /** skyHour: a fixed hour for the sky, to preview the time of day. */
-  dev: { speed: boolean; dayOffset: number; skyHour: number | null };
+  /**
+   * For testing. skyHour: a fixed hour for the sky, to preview the time of day. acts: he does one of
+   * his little acts every few seconds. tools: a button on the focus screen ends the session at once.
+   */
+  dev: { speed: boolean; dayOffset: number; skyHour: number | null; acts: boolean; tools: boolean };
 }
 
 const KEY = 'chargegeist.v3';
@@ -166,7 +169,7 @@ export function defaultState(): State {
     },
     plus: false,
     plusOfferSeen: false,
-    dev: { speed: false, dayOffset: 0, skyHour: null },
+    dev: { speed: false, dayOffset: 0, skyHour: null, acts: false, tools: false },
   };
 }
 
@@ -263,9 +266,12 @@ export function mutate(fn: (s: State) => void) {
 
 export function useAppState(): State {
   const [, force] = useState(0);
+  const drawn = state;
   useEffect(() => {
     const f = () => force((x) => x + 1);
     subs.add(f);
+    // a change between the first drawing and this moment would otherwise go unseen
+    if (state !== drawn) f();
     return () => {
       subs.delete(f);
     };
@@ -370,6 +376,24 @@ function ownGhost(s: State, id: string, via: Via) {
 function ensureBoss(s: State) {
   const b = currentBoss(s);
   if (!s.boss || s.boss.week !== b.week) s.boss = { ...b };
+}
+/**
+ * The boss of the week is calmed: its ghost joins you, or wish energy if it is yours already.
+ * sparkRefund: wish energy for the sparks that ghost had collected.
+ */
+function calmBoss(s: State): { wasOwned: boolean; sparkRefund: number } {
+  const boss = s.boss!;
+  const wasOwned = !!s.ghosts[boss.ghost];
+  let sparkRefund = 0;
+  boss.done = true;
+  if (wasOwned) s.wish.energy += BOSS_DUPE_ENERGY;
+  else {
+    ownGhost(s, boss.ghost, 'boss');
+    sparkRefund = (s.sparks.have[boss.ghost] ?? 0) * SPARK_ENERGY;
+    s.wish.energy += sparkRefund;
+    delete s.sparks.have[boss.ghost];
+  }
+  return { wasOwned, sparkRefund };
 }
 /** Grants every achievement that is due and adds its wish energy. */
 function grantAchievements(s: State): string[] {
@@ -550,15 +574,8 @@ function credit(s: State, min: number, planned: number, tag: TagId, completed: b
   let calmedNow = false,
     sparkRefund = 0;
   if (!boss.done && week.minutes >= boss.goal) {
-    boss.done = true;
     calmedNow = true;
-    if (wasOwned) s.wish.energy += BOSS_DUPE_ENERGY;
-    else {
-      ownGhost(s, boss.ghost, 'boss');
-      sparkRefund = (s.sparks.have[boss.ghost] ?? 0) * SPARK_ENERGY;
-      s.wish.energy += sparkRefund;
-      delete s.sparks.have[boss.ghost];
-    }
+    sparkRefund = calmBoss(s).sparkRefund;
   }
 
   const achievements = grantAchievements(s);
@@ -821,6 +838,106 @@ export const dev = {
       s.pending.push({ id: rid(), kind: 'daily', at: now(), cards: null });
     });
   },
+  /** Ends the running session at once, as if its time were up (also when it is paused). */
+  finishNow() {
+    mutate((s) => {
+      const a = s.active;
+      if (!a) return;
+      a.pausedAt = null;
+      a.startedAt = now() - a.pausedMs - Math.ceil((a.planned * 60000) / a.speed) - 500;
+    });
+  },
+  /** Today's drop can be earned again (it comes with the next session that is long enough). */
+  freeDailyDrop() {
+    mutate((s) => {
+      s.dailyDropDay = null;
+    });
+  },
+  /** Stroking, holding and tickling bring a heart again today, for every ghost. */
+  freeTouches() {
+    mutate((s) => {
+      for (const id of Object.keys(s.bonds)) s.bonds[id] = { ...s.bonds[id], day: '', touched: [] };
+    });
+  },
+  /** Calms the boss of this week at once; false if it was calm already. */
+  calmBoss(): boolean {
+    let did = false;
+    mutate((s) => {
+      ensureBoss(s);
+      if (s.boss!.done) return;
+      calmBoss(s);
+      grantAchievements(s);
+      did = true;
+    });
+    return did;
+  },
+  /** One ghost spark for the costume ghost you are charging, as a drop brings it. */
+  addSpark(): SparkResult {
+    let res!: SparkResult;
+    mutate((s) => {
+      res = addSpark(s);
+      grantAchievements(s);
+    });
+    return res;
+  },
+  addWish(n: number) {
+    mutate((s) => {
+      s.wish.energy += n;
+    });
+  },
+  /** Gives or takes one ghost. The active companion always stays. */
+  setGhost(id: string, own: boolean) {
+    mutate((s) => {
+      if (own) {
+        if (!s.ghosts[id]) s.ghosts[id] = { at: now(), via: 'spark', seen: true };
+        delete s.sparks.have[id];
+        if (s.sparks.target === id) s.sparks.target = null;
+        grantAchievements(s);
+      } else if (id !== s.companion) {
+        delete s.ghosts[id];
+        delete s.looks[id];
+      }
+    });
+  },
+  /** Gives or takes one style. A style that is taken also comes off every ghost that wears it. */
+  setStyle(id: string, own: boolean) {
+    mutate((s) => {
+      if (own) {
+        if (!s.styles[id]) s.styles[id] = { at: now(), via: 'drop', seen: true };
+        return;
+      }
+      delete s.styles[id];
+      const kind = style(id).kind;
+      for (const look of Object.values(s.looks)) if (look[kind] === id) delete look[kind];
+    });
+  },
+  /** A fixed hour for the sky, or null for the real time. */
+  setSkyHour(h: number | null) {
+    mutate((s) => {
+      s.dev.skyHour = h;
+    });
+  },
+  setActs(v: boolean) {
+    mutate((s) => {
+      s.dev.acts = v;
+    });
+  },
+  setTools(v: boolean) {
+    mutate((s) => {
+      s.dev.tools = v;
+    });
+  },
+  /** Back to the first screen of the onboarding; focus time and ghosts stay. */
+  restartOnboarding() {
+    mutate((s) => {
+      s.onboarded = false;
+      s.styles = {};
+      s.looks = {};
+      s.sparks = { target: null, have: {} };
+      s.pending = [];
+      s.plusOfferSeen = false;
+    });
+  },
   /** Every style and every ghost, to try them all. */
   unlockAll(styleIds: string[], ghostIds: string[]) {
     mutate((s) => {
@@ -830,8 +947,12 @@ export const dev = {
     });
   },
   reset() {
-    localStorage.removeItem(KEY);
-    localStorage.removeItem(OLD_KEY);
+    try {
+      localStorage.removeItem(KEY);
+      localStorage.removeItem(OLD_KEY);
+    } catch {
+      /* storage is not there or blocked: the fresh save below still replaces what is in memory */
+    }
     state = defaultState();
     save();
     subs.forEach((f) => f());

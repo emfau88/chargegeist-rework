@@ -13,7 +13,7 @@
 import { charmImg, ghost, partUrl } from '../data/catalog';
 import { CHARMS } from '../data/charms.gen';
 import { EYES } from '../data/eyes.gen';
-import { ACT_SECONDS, CHARM_PUSH_AT, IDLE_ACTS, PROUD_SPARKLE_AT, actPose, mayAct, onPlayAct, pickAct } from './acts';
+import { ACT_SECONDS, CHARM_PUSH_AT, IDLE_ACTS, PROUD_SPARKLE_AT, actGap, actPose, eagerActs, mayAct, onPlayAct, pickAct } from './acts';
 import type { ActName } from './acts';
 import { GLINT_FOLLOW, eyePose, lids, pupilShift } from './gaze';
 import { GestureTracker } from './gestures';
@@ -954,7 +954,10 @@ void main(){
     } else if (T >= nextAct && mayAct({ mode, busy, off: reduce || opts.idleActs === false })) {
       const name = pickAct({ sky: !indoors && lightOn(), charm: charmOn, tired: !!opts.tired }, lastAct, Math.random());
       if (name) startAct(name);
-      nextAct = T + 14 + Math.random() * 12;
+      nextAct = T + actGap(Math.random());
+    } else if (eagerActs() && nextAct - T > 6) {
+      // switched on in the developer menu while he was still waiting for the usual gap
+      nextAct = T + actGap(Math.random());
     }
     const actAt = act ? (act.frozen ?? T - act.t0) : 0;
     const pose = act ? actPose(act.name, actAt, indoors ? null : sceneLight().dir) : null;

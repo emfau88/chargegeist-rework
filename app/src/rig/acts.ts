@@ -133,6 +133,20 @@ export function mayAct(s: ActState): boolean {
   return s.mode === 'idle' && !s.busy && !s.off;
 }
 
+let eager = false;
+/** The developer menu makes him act every few seconds, to watch the acts without waiting. */
+export function setEagerActs(v: boolean) {
+  eager = v;
+}
+export function eagerActs(): boolean {
+  return eager;
+}
+/** Seconds of rest before the next act. roll: a random number from 0 to 1. */
+export function actGap(roll: number, often = eager): number {
+  const r = clamp(Number.isFinite(roll) ? roll : 0, 0, 1);
+  return often ? 3 + r * 2 : 14 + r * 12;
+}
+
 /* The preview tools can play an act on every ghost on screen, or freeze it at a moment. */
 type Listener = (name: ActName | null, at?: number) => void;
 const listeners = new Set<Listener>();

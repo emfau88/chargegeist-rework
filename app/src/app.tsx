@@ -2,6 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { ghost } from './data/catalog';
 import { lang, t } from './i18n';
 import { setFx } from './platform/audio';
+import { setEagerActs } from './rig/acts';
 import { haptic } from './platform/device';
 import { Collection } from './screens/Collection';
 import { Break, Complete } from './screens/Complete';
@@ -38,6 +39,7 @@ export function App() {
   const reduce = useReducedMotion();
 
   useEffect(() => setFx(s.settings.sound), [s.settings.sound]);
+  useEffect(() => setEagerActs(s.dev.acts), [s.dev.acts]);
   useEffect(() => {
     document.documentElement.lang = lang();
     document.title = 'ChargeGeist';

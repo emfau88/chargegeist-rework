@@ -1,33 +1,31 @@
 import { useState } from 'preact/hooks';
-import { GHOSTS, STYLES, ghost } from '../data/catalog';
-import { nameOf, t } from '../i18n';
-import type { Key } from '../i18n';
+import { GHOSTS } from '../data/catalog';
+import { t } from '../i18n';
 import { askNotifications } from '../platform/device';
 import { stopAmbient } from '../platform/audio';
 import {
   TAGS,
   companionName,
   dev,
-  mutate,
   setGoal,
-  setPlus,
   setSetting,
   setTags,
   useAppState,
 } from '../state/store';
 import type { Lang } from '../state/store';
-import { Btn, Chip, Row, Sheet, Toggle, toast } from '../ui/kit';
+import { Btn, Chip, Row, Sheet, Toggle } from '../ui/kit';
 import { AmbientSheet, CompanionSheet, OddsSheet, ThemeSheet } from '../ui/sheets';
 import { useReducedMotion } from '../ui/sky';
 import { Portrait } from '../ui/stage';
 import { theme } from '../ui/themes';
+import { DevMenu } from './DevMenu';
 
 const GOALS = [15, 30, 45, 60, 90, 120];
 
 export function Settings({ openPlus }: { openPlus: () => void }) {
   const s = useAppState();
   const reduce = useReducedMotion();
-  const [sheet, setSheet] = useState<null | 'companion' | 'goal' | 'tags' | 'theme' | 'ambient' | 'lang' | 'privacy' | 'odds' | 'reset' | 'reminder'>(null);
+  const [sheet, setSheet] = useState<null | 'companion' | 'goal' | 'tags' | 'theme' | 'ambient' | 'lang' | 'privacy' | 'odds' | 'reset' | 'reminder' | 'dev'>(null);
   const close = () => setSheet(null);
   const langName = s.settings.lang === 'auto' ? t('set_lang_auto') : s.settings.lang === 'de' ? 'Deutsch' : 'English';
 
@@ -84,60 +82,7 @@ export function Settings({ openPlus }: { openPlus: () => void }) {
       </div>
 
       <div class="group dev">
-        <p class="group-title">
-          {t('set_dev')} <small>{t('set_dev_hint')}</small>
-        </p>
-        <Row icon="wand" label={t('set_dev_speed')}>
-          <Toggle on={s.dev.speed} onChange={(v) => dev.setSpeed(v)} label={t('set_dev_speed')} />
-        </Row>
-        <Row icon="crown" label={t('set_dev_plus')}>
-          <Toggle on={s.plus} onChange={(v) => setPlus(v)} label={t('set_dev_plus')} />
-        </Row>
-        <Row
-          icon="plus"
-          label={t('set_dev_add')}
-          onClick={() => {
-            const r = dev.addMinutes(25);
-            toast(`+25 ${t('min')}`, { icon: 'bolt' });
-            if (r.dailyDrop || r.weekDrop) toast(t('home_drop_ready_title'), { icon: 'gift' });
-            r.achievements.forEach((a) => toast(`${t(`ach_${a}` as Key)} · ${t('done_achievement')}`, { icon: 'trophy' }));
-            r.companionsUnlocked.forEach((id) => toast(`${nameOf(ghost(id))} ${t('done_unlocked')}`, { ghost: id }));
-          }}
-        />
-        <Row
-          icon="calendar"
-          label={t('set_dev_day')}
-          onClick={() => {
-            dev.nextDay();
-            toast(t('set_dev_day'), { icon: 'calendar' });
-          }}
-        />
-        <Row icon="gift" label={t('set_dev_drop')} onClick={() => dev.grantDrop()} />
-        <Row
-          icon="palette"
-          label={t('set_dev_all')}
-          onClick={() => {
-            dev.unlockAll(
-              STYLES.map((i) => i.id),
-              GHOSTS.map((g) => g.id),
-            );
-            toast(t('set_dev_all'), { icon: 'sparkle' });
-          }}
-        />
-        <Row
-          icon="restore"
-          label={t('set_dev_onboarding')}
-          onClick={() =>
-            mutate((x) => {
-              x.onboarded = false;
-              x.styles = {};
-              x.looks = {};
-              x.sparks = { target: null, have: {} };
-              x.pending = [];
-              x.plusOfferSeen = false;
-            })
-          }
-        />
+        <Row icon="wand" label={t('dev_title')} hint={t('dev_open_hint')} onClick={() => setSheet('dev')} />
       </div>
       <p class="muted small center">{t('set_version', { v: '2.0.0' })}</p>
 
@@ -153,6 +98,7 @@ export function Settings({ openPlus }: { openPlus: () => void }) {
         preview
       />
       <OddsSheet open={sheet === 'odds'} onClose={close} />
+      <DevMenu open={sheet === 'dev'} onClose={close} />
 
       <Sheet open={sheet === 'goal'} onClose={close} title={t('set_goal')}>
         <p class="muted">{t('ob_goal_body')}</p>

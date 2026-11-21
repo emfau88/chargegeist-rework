@@ -4,6 +4,30 @@
  */
 import { getState } from '../state/store';
 
+/* ---------- fullscreen (for testing in the browser) ---------- */
+/** Whether this browser lets a page go fullscreen by itself. An iPhone does not: there only the home screen helps. */
+export function canFullscreen(): boolean {
+  return typeof document !== 'undefined' && typeof document.documentElement.requestFullscreen === 'function' && document.fullscreenEnabled !== false;
+}
+export function isFullscreen(): boolean {
+  return typeof document !== 'undefined' && !!document.fullscreenElement;
+}
+/** Enters or leaves fullscreen; resolves to whether the page is fullscreen afterwards. */
+export async function setFullscreen(on: boolean): Promise<boolean> {
+  try {
+    if (on) await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+    else if (document.fullscreenElement) await document.exitFullscreen();
+  } catch {
+    /* refused by the browser: the state below says so */
+  }
+  return isFullscreen();
+}
+/** Opened from the home screen, where the manifest already takes the browser bars away. */
+export function isStandalone(): boolean {
+  if (typeof matchMedia !== 'function') return false;
+  return matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true;
+}
+
 /* ---------- haptics ---------- */
 export const haptic = {
   tap() {

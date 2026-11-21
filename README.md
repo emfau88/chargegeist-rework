@@ -8,13 +8,15 @@ ChargeGeist ist ein Fokus-Timer mit Geist. Jede Fokusminute lädt deinen Begleit
 
 ## Schnell testen
 
-Unter **Einstellungen → Prototyp-Werkzeuge** gibt es Abkürzungen für den Test:
+**Vollbild:** Auf dem Handy im Browser-Menü „Zum Startbildschirm hinzufügen“ wählen. Von dort startet die App ohne Browserleisten. Auf Android und am Rechner geht es auch direkt über den Schalter **Vollbild** im Entwicklermenü.
 
-- **Demo-Tempo:** 1 Sekunde zählt als 1 Minute, damit du nicht 25 Minuten warten musst.
-- **25 Fokusminuten hinzufügen**, **Zum nächsten Tag springen**, **Einen Drop bekommen**
-- **Plus aktiv** schaltet die Plus-Inhalte frei. Der Kauf ist im Prototyp nur simuliert.
-- **Alle Stile und Geister freischalten**, um die ganze Sammlung zu sehen.
-- **Einstieg neu starten** zeigt das Onboarding noch einmal.
+Unter **Einstellungen → Entwicklermenü** gibt es Abkürzungen für den Test:
+
+- **Zeit:** Demo-Tempo (1 Sekunde zählt als 1 Minute), 25 Fokusminuten hinzufügen, Tagesziel jetzt erreichen, zum nächsten Tag springen, einen Drop bekommen, den Tages-Drop wieder freigeben, Berührungen für heute zurücksetzen, den Wochenboss besänftigen. Mit „Sofort fertig“ bekommt der Fokus-Screen einen Knopf, der die laufende Sitzung sofort beendet.
+- **Geister und Stile:** jeden Geist, jede Aura, jeden Schimmer und jeden Talisman einzeln geben oder nehmen, oder alles auf einmal freischalten.
+- **Werte:** einen Geisterfunken, 50 Wunschenergie oder 10 Herzen hinzufügen. **Plus aktiv** schaltet die Plus-Inhalte frei, der Kauf ist im Prototyp nur simuliert.
+- **Aussehen:** die Tageszeit des Himmels festlegen, alle paar Sekunden eine Einlage des Geists zeigen, Vollbild.
+- **Neu starten:** den Einstieg noch einmal zeigen oder alles zurücksetzen.
 
 Der Spielstand liegt nur im Browser (localStorage).
 
