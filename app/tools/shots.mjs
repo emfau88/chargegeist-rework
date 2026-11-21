@@ -94,7 +94,7 @@ async function shot(page, name, wait = 900) {
 // 1. onboarding
 {
   const p = await fresh();
-  await shot(p, 'ob1-welcome', 1500);
+  await shot(p, 'ob1-welcome', 5200); // after the entrance of the title screen
   await tap(p, T('Let’s begin', 'Los geht’s'));
   await tap(p, T('Work', 'Arbeit'));
   await shot(p, 'ob2-tags');

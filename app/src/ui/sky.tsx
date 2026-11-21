@@ -6,7 +6,7 @@
 import type { CSSProperties } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { SCENE, SCENE_PROPS } from '../data/scene.gen';
-import { GROUND_LINE, SCROLL_RATE, groundY, onGround, scenePlace } from '../fx/ground';
+import { GROUND_LINE, SCROLL_RATE, groundY, onGround, onStagedLights, scenePlace, stagedLights } from '../fx/ground';
 import type { SceneLit } from '../fx/ground';
 import { setSceneLight } from '../fx/light';
 import { moonPhase, moonPlace, orbAlpha, skyLight, skyOpacities, skyWeights, starAlpha, sunPlace } from '../logic/sky';
@@ -180,8 +180,8 @@ const SCENE_URL = (name: string) => `${import.meta.env.BASE_URL}assets/scene/${n
 const LAYERS = ['far', 'mid', 'ground'] as const;
 /** Things that stand in the scene: where their foot is on the canvas (x of the middle, y of the lower edge) and how large they are drawn. */
 const LANTERNS = [
-  { off: 'lantern_hang_off', on: 'lantern_hang_on', x: 96, y: 742, k: 0.44, lit: 'first' },
-  { off: 'lantern_stand_off', on: 'lantern_stand_on', x: 884, y: GROUND_LINE + 14, k: 0.4, lit: 'goal' },
+  { id: 'hang', off: 'lantern_hang_off', on: 'lantern_hang_on', x: 96, y: 742, k: 0.44, lit: 'first' },
+  { id: 'stand', off: 'lantern_stand_off', on: 'lantern_stand_on', x: 884, y: GROUND_LINE + 14, k: 0.4, lit: 'goal' },
 ] as const;
 
 let sceneLoad: Promise<boolean> | null = null;
@@ -206,11 +206,17 @@ function loadScene(): Promise<boolean> {
  * clearing lies under the shadow of the ghost on the screen (see fx/ground.ts); without one it rests
  * low. The ground goes along as the page scrolls, the land behind it lags a little. Two lanterns
  * stand in it: the first burns once there was focus today, the second when the daily goal is reached.
+ * A screen can light them itself (stageLights in fx/ground.ts).
  */
 function Scene({ glow, lit }: { glow: { morning: number; day: number; evening: number }; lit: SceneLit }) {
   const [state, setState] = useState<'wait' | 'ok' | 'none'>('wait');
   const root = useRef<HTMLDivElement>(null);
   const parts = useRef<Record<string, HTMLDivElement | null>>({});
+  const [staged, setStaged] = useState(stagedLights);
+  useEffect(() => {
+    setStaged(stagedLights());
+    return onStagedLights(() => setStaged(stagedLights()));
+  }, []);
   useEffect(() => {
     let live = true;
     loadScene().then((ok) => live && setState(ok ? 'ok' : 'none'));
@@ -297,9 +303,9 @@ function Scene({ glow, lit }: { glow: { morning: number; day: number; evening: n
         <div class="scene-props">
           {LANTERNS.map((l) => {
             const [w, h] = SCENE_PROPS[l.off];
-            const on = lit[l.lit];
+            const on = (staged ?? lit)[l.lit];
             return (
-              <div key={l.off} class={`scene-prop ${on ? 'lit' : ''}`} style={{ '--px': l.x, '--py': l.y, '--pw': w * l.k, '--ph': h * l.k } as CSSProperties}>
+              <div key={l.id} class={`scene-prop ${l.id} ${on ? 'lit' : ''}`} style={{ '--px': l.x, '--py': l.y, '--pw': w * l.k, '--ph': h * l.k } as CSSProperties}>
                 <i class="pool" />
                 <img src={SCENE_URL(l.off)} alt="" draggable={false} />
                 <img class="glowing" src={SCENE_URL(l.on)} alt="" draggable={false} />

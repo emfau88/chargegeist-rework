@@ -28,10 +28,12 @@ OUT.mkdir(parents=True, exist_ok=True)
 PROPS = {
     "lantern_hang_off": (175, 300), "lantern_hang_on": (560, 300),
     "lantern_stand_off": (945, 250), "lantern_stand_on": (1335, 250),
+    # plants for the foreground of the title screen
+    "flowers_open": (540, 640), "mushrooms_glow": (1320, 600),
 }
-# also on the sheet, not in the app yet (the ground layer has its own flowers, mushrooms and stones):
-#   flowers_closed (165, 640), flowers_open (540, 640), mushrooms_plain (930, 600), mushrooms_glow (1320, 600),
-#   grass_a (140, 880), grass_b (400, 870), stone_a (665, 890), stone_b (965, 870), fireflies around (1320, 860)
+# also on the sheet, not in the app (the ground layer has its own flowers, mushrooms and stones):
+#   flowers_closed (165, 640), mushrooms_plain (930, 600), grass_a (140, 880), grass_b (400, 870),
+#   stone_a (665, 890), stone_b (965, 870), fireflies around (1320, 860)
 
 
 def land(im):

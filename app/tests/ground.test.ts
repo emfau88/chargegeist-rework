@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SCENE, SCENE_PROPS } from '../src/data/scene.gen';
-import { GROUND_LINE, REST_ABOVE_BOTTOM, SCENE_MAX_W, SCROLL_RATE, groundY, onGround, sceneLit, scenePlace, setGround } from '../src/fx/ground';
+import { GROUND_LINE, REST_ABOVE_BOTTOM, SCENE_MAX_W, SCROLL_RATE, groundY, onGround, onStagedLights, sceneLit, scenePlace, setGround, stageLights, stagedLights } from '../src/fx/ground';
 
 const ASSETS = resolve(dirname(fileURLToPath(import.meta.url)), '../public/assets/scene');
 const A = {},
@@ -117,6 +117,34 @@ describe('the painted scene: what the day lights', () => {
   it('stays dark for numbers that make no sense', () => {
     expect(sceneLit(Number.NaN, 30)).toEqual({ first: false, goal: false });
     expect(sceneLit(10, 0)).toEqual({ first: true, goal: false });
+  });
+});
+
+describe('the painted scene: a screen lights the lanterns itself', () => {
+  afterEach(() => stageLights(null));
+
+  it('nothing is staged until a screen asks, and null gives the lanterns back to the day', () => {
+    expect(stagedLights()).toBeNull();
+    stageLights({ first: false, goal: true });
+    expect(stagedLights()).toEqual({ first: false, goal: true });
+    stageLights(null);
+    expect(stagedLights()).toBeNull();
+  });
+
+  it('tells its listeners, and only when something changed', () => {
+    let n = 0;
+    const off = onStagedLights(() => n++);
+    stageLights({ first: false, goal: false });
+    stageLights({ first: false, goal: false });
+    expect(n).toBe(1);
+    stageLights({ first: false, goal: true });
+    expect(n).toBe(2);
+    stageLights(null);
+    stageLights(null);
+    expect(n).toBe(3);
+    off();
+    stageLights({ first: true, goal: true });
+    expect(n).toBe(3);
   });
 });
 

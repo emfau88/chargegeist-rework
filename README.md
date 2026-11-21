@@ -24,6 +24,7 @@ Der Spielstand liegt nur im Browser (localStorage).
 
 ## Was drin ist
 
+- **Titelbild:** Beim ersten Start steht der Name der App über der Lichtung, und die drei Startgeister stehen lebendig darauf. Das Bild öffnet mit einem kurzen Auftritt: Die Lichtung liegt dunkel, die Laterne geht an, Skye schwebt herein, die beiden anderen kommen dazu, dann folgen Name und Knopf. Ein Tipp überspringt ihn, und bei „Bewegung reduzieren“ steht das fertige Bild sofort da.
 - **Fokus-Timer:** 5 bis 180 Minuten, Pause, Tags, ruhige Hintergrundgeräusche, Pausenvorschlag danach. Das Ergebnis baut sich nach der Sitzung Zeile für Zeile auf, ein erreichtes Tagesziel bekommt eine eigene Zeile, und ein Tipp überspringt den Ablauf.
 - **6 Begleiter:** Skye, Kürbis-Pip oder Hazel begleiten dich von Anfang an. Die anderen fünf kommen nach 3, 8, 15, 25 und 40 Fokusstunden dazu. Die Startgeister der ersten Fassung (Volti, Ember, Luna) sind vorerst abgeschaltet; wer sie in einem alten Spielstand hatte, bekommt Skye an ihre Stelle, und ihre Bindung bleibt für später aufgehoben.
 - **13 Kostümgeister**, zum Beispiel Ronin, Professor Huhu und Kitsu, dazu Gewitterwolke Nimbus, Kaktus Piks, Drache Jade, Laternenqualle Nori, Phönix Fenix und Mondhirsch Elara. Sie kommen komplett mit Kostüm, sobald sie genug Geisterfunken haben (3 oder 5, je nach Seltenheit). Du wählst selbst, welchen Geist du gerade auflädst.
@@ -85,6 +86,13 @@ Die gemalte Szene neu einlesen (Ebenen `far`, `mid`, `ground` und der Requisiten
 
 ```bash
 python -I rig_tools/build_scene.py rig_input/szene app
+```
+
+App-Icon neu bauen (es zeigt den ersten Startgeist, so wie die App ihn zeichnet; der Dev-Server muss laufen):
+
+```bash
+node app/tools/portrait.mjs aviator portrait.png 1024
+python -I app/tools/make_icon.py portrait.png app 7fd8ff
 ```
 
 Talismane neu schneiden (aus demselben Ordner):

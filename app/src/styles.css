@@ -3093,80 +3093,283 @@ input[type='range'] {
   align-self: center;
   font-size: 15.5px;
 }
-/* the welcome in three short lines */
-.ob-points {
-  list-style: none;
-  margin: 2px 0 0;
-  padding: 0;
-  align-self: center;
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-}
-.ob-points li {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  font-weight: 700;
-  font-size: 15px;
-  color: #d9d5f3;
-}
-.ob-points .p-style .icon {
-  color: var(--charge);
-}
-.ob-points .p-ghost .icon {
-  color: var(--warm);
-}
-.ob-points .p-fair .icon {
-  color: var(--heart);
-}
 .ob-stage {
   height: clamp(260px, 40dvh, 360px);
 }
 .ob-stage.small {
   height: clamp(200px, 28dvh, 260px);
 }
-.ob-welcome .ob-body {
+/* ---------------- the title screen: the first step of the onboarding ----------------
+   The name over the clearing, the three starters on it, one button. Title in screens/Onboarding.tsx. */
+.ob-body.title {
   position: relative;
-  padding-top: 20px;
+  gap: 0;
+  /* its own entrance replaces the usual one */
+  animation: none;
 }
-.ob-preview {
+.title-head {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  margin-top: clamp(10px, 5.5dvh, 60px);
+}
+.wordmark {
+  font-weight: 700;
+  font-size: clamp(42px, 13.4vw, 60px);
+  line-height: 1;
+  letter-spacing: -0.5px;
+  text-wrap: nowrap;
+  text-shadow:
+    0 3px 0 rgba(20, 13, 56, 0.55),
+    0 0 34px color-mix(in srgb, var(--charge) 46%, transparent);
+}
+.wordmark b {
+  font-weight: inherit;
+  color: #7fe6ff;
+}
+.title-claim {
+  margin-top: 10px;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: clamp(16.5px, 4.9vw, 20px);
+  color: #e9e5ff;
+  text-shadow: 0 2px 10px rgba(20, 13, 56, 0.6);
+}
+/* the free room is shared: sky above the ghosts, meadow below them */
+.title-cast {
+  position: relative;
+  margin-top: auto;
+}
+/* the two friends stand a step behind the first ghost: smaller, their shadows a little higher on the ground */
+.title-friend {
   position: absolute;
-  inset: 0 0 auto;
-  height: 380px;
+  top: 17%;
+  width: 46%;
+  height: 68%;
   pointer-events: none;
 }
-.ob-float {
+.title-friend.left {
+  left: -10.5%;
+}
+.title-friend.right {
+  right: -10.5%;
+}
+/* The lanterns make room for the three. The standing one comes forward onto the meadow (its place is a
+   point of the scene's canvas, set inline in ui/sky.tsx); the hanging one would be behind the left friend. */
+.app:has(.ob-body.title) .scene-prop.hang {
+  display: none;
+}
+.app:has(.ob-body.title) .scene-prop.stand {
+  --px: 846 !important;
+  --py: 1052 !important;
+}
+/* the meadow in front of them: plants at the edges and fireflies. Its top edge is the ground line of the first ghost */
+.title-meadow {
   position: absolute;
-  animation: float 5s ease-in-out infinite;
-  opacity: 0.9;
+  left: -18px;
+  right: -18px;
+  top: 85%;
+  height: 0;
+  pointer-events: none;
 }
-.ob-float.f0 {
-  left: 0;
-  top: 40px;
-  animation-delay: -1s;
-  transform: rotate(-8deg);
+.title-meadow img {
+  position: absolute;
+  display: block;
+  height: auto;
+  filter: drop-shadow(0 6px 8px rgba(8, 5, 30, 0.45));
 }
-.ob-float.f1 {
-  right: 4px;
-  top: 20px;
-  animation-delay: -2.5s;
+.title-meadow .m-left {
+  left: -12px;
+  top: 30px;
+  width: 104px;
 }
-.ob-float.f2 {
-  right: -6px;
-  top: 220px;
-  animation-delay: -0.5s;
+.title-meadow .m-right {
+  right: -22px;
+  top: 58px;
+  width: 78px;
 }
-.ob-float.f3 {
-  left: -4px;
-  top: 250px;
-  animation-delay: -3s;
+/* the plants glow: their light lies on the grass around them */
+.title-meadow::before,
+.title-meadow::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  mix-blend-mode: screen;
 }
-.ob-float.f4 {
-  left: 50%;
-  margin-left: -32px;
-  top: -10px;
+.title-meadow::before {
+  left: -56px;
+  top: 60px;
+  width: 196px;
+  height: 88px;
+  background: radial-gradient(closest-side, rgba(255, 188, 108, 0.3), transparent);
+}
+.title-meadow::after {
+  right: -64px;
+  top: 92px;
+  width: 164px;
+  height: 72px;
+  background: radial-gradient(closest-side, rgba(255, 150, 190, 0.22), transparent);
+}
+.title-meadow .fly {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #fff1bd;
+  box-shadow: 0 0 9px 3px rgba(255, 214, 120, 0.55);
   opacity: 0;
+  animation: title-fly 5.5s ease-in-out infinite;
+}
+@keyframes title-fly {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  25% {
+    opacity: 0.95;
+  }
+  50% {
+    transform: translate(12px, -16px);
+  }
+  75% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-8px, -30px);
+  }
+}
+.title-foot {
+  position: relative;
+  z-index: 2;
+}
+.title-fair {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-bottom: 4px;
+  font-weight: 700;
+  font-size: 13.5px;
+  color: #dcd7fb;
+  text-shadow: 0 1px 8px rgba(20, 13, 56, 0.7);
+}
+.title-fair .icon {
+  color: var(--heart);
+}
+/* on a short screen the meadow has no room between the ghosts and the button */
+@media (max-height: 660px) {
+  .title-meadow img,
+  .title-meadow .fly.low,
+  .title-meadow::before,
+  .title-meadow::after {
+    display: none;
+  }
+}
+/* on a wide screen the page is a column in the middle: the plants stay inside it instead of being cut at its edge */
+@media (min-width: 700px) {
+  .title-meadow {
+    left: 16px;
+    right: 16px;
+  }
+  /* there the flowers would stand right under the lantern */
+  .title-meadow .m-right {
+    top: 104px;
+  }
+  .title-meadow::after {
+    top: 138px;
+  }
+}
+/* Sun and moon do not cross this sky: on their path they would end up behind the name or a ghost's head.
+   Each has its place in the open sky between the two; they still fade with the hour. */
+.app:has(.ob-body.title) .sky-moon {
+  left: 78% !important;
+  top: 28% !important;
+}
+.app:has(.ob-body.title) .sky-sun {
+  left: 22% !important;
+  top: 28% !important;
+}
+
+/* The entrance. wait: the ghosts are loading, the clearing lies dark. enter: the lantern lights up (ENTER in
+   Onboarding.tsx), the first ghost floats in, its friends join, the name appears, the button comes last.
+   A ghost's layer moves, not its stage: the stage tells the scene where the ground is. */
+.app:has(.title.wait) .bg::after,
+.app:has(.title.enter) .bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #07051a;
+  opacity: 0.74;
+  pointer-events: none;
+}
+.app:has(.title.enter) .bg::after {
+  animation: title-veil 2s ease-out both;
+}
+@keyframes title-veil {
+  to {
+    opacity: 0;
+  }
+}
+.title.wait .title-head,
+.title.wait .title-cast,
+.title.wait .title-foot {
+  opacity: 0;
+}
+.title.wait .title-foot,
+.title.enter .title-foot {
+  pointer-events: none;
+}
+.title.enter .title-hero > .rig-layer {
+  animation: title-rise 0.85s cubic-bezier(0.2, 0.9, 0.25, 1.12) 0.6s both;
+}
+@keyframes title-rise {
+  from {
+    opacity: 0;
+    transform: translateY(54px) scale(0.86);
+  }
+}
+.title.enter .title-friend > .rig-layer {
+  animation: title-pop 0.6s var(--ease-spring) 1.15s both;
+}
+.title.enter .title-friend.right > .rig-layer {
+  animation-delay: 1.32s;
+}
+@keyframes title-pop {
+  from {
+    opacity: 0;
+    transform: translateY(26px) scale(0.72);
+  }
+}
+.title.enter .title-meadow {
+  animation: title-fade 0.9s ease 1.3s both;
+}
+.title.enter .wordmark {
+  animation: title-name 0.75s var(--ease-out) 1.9s both;
+}
+@keyframes title-name {
+  from {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.93);
+    filter: blur(7px);
+  }
+}
+.title.enter .title-claim {
+  animation: title-fade 0.6s ease 2.25s both;
+}
+.title.enter .title-foot {
+  animation: title-up 0.6s var(--ease-out) 2.5s both;
+}
+@keyframes title-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes title-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
 }
 .goal-grid {
   display: grid;

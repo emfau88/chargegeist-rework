@@ -84,3 +84,22 @@ export function sceneLit(todayMin: number, goal: number): SceneLit {
   const m = Number.isFinite(todayMin) ? todayMin : 0;
   return { first: m > 0, goal: goal > 0 && m >= goal };
 }
+
+let staged: SceneLit | null = null;
+const lightSubs = new Set<Listener>();
+/**
+ * A screen can light the lanterns itself, whatever the day has lit: the title screen does, as part of
+ * its entrance. Null gives them back to the day.
+ */
+export function stageLights(l: SceneLit | null) {
+  if (l === staged || (l && staged && l.first === staged.first && l.goal === staged.goal)) return;
+  staged = l;
+  for (const fn of lightSubs) fn();
+}
+export function stagedLights(): SceneLit | null {
+  return staged;
+}
+export function onStagedLights(fn: Listener): () => void {
+  lightSubs.add(fn);
+  return () => lightSubs.delete(fn);
+}
