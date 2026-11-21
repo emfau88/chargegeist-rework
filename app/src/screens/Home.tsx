@@ -112,7 +112,7 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
   };
 
   return (
-    <div class={`page home ${pending ? 'has-drop' : ''}`}>
+    <div class="page home">
       <header class="home-head">
         <div>
           <p class="eyebrow">{fmtDate(now(), { weekday: 'long', day: 'numeric', month: 'long' })}</p>
@@ -136,19 +136,6 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
         </div>
       )}
 
-      {pending && (
-        <button type="button" class="card drop-card ready top" onClick={() => openDrop(pending.id)}>
-          <span class="drop-icon">
-            <Icon name="gift" size={22} />
-          </span>
-          <span class="card-text">
-            <b>{t('home_drop_ready_title')}</b>
-            <small>{t('home_drop_ready_short')}</small>
-          </span>
-          <span class="btn btn-warm btn-small">{t('home_drop_open')}</span>
-        </button>
-      )}
-
       <section class="hero">
         <CompanionStage
           ghostId={s.companion}
@@ -160,7 +147,7 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
           shiftY={10}
           cheer={cheer}
           cheerBig={false}
-          attend={['.drop-card.top', '.start-btn']}
+          attend={['.hero-drop', '.start-btn']}
           ground
           tired={new Date(now()).getHours() >= 21 || new Date(now()).getHours() < 6}
           onPoke={() => {
@@ -180,6 +167,15 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
         <button type="button" class="hero-dress" onClick={() => setStyleFor(s.companion)} aria-label={t('style_title')}>
           <Icon name="palette" size={20} />
         </button>
+        {/* a waiting drop is a mark beside the ghost: it takes no room, so nothing below it moves when one comes */}
+        {pending && (
+          <button type="button" class="hero-drop" onClick={() => openDrop(pending.id)} aria-label={`${t('home_drop_ready_title')}. ${t('home_drop_open')}`}>
+            <span class="hero-drop-icon">
+              <Icon name="gift" size={22} />
+            </span>
+            <small>{t('home_drop_mark')}</small>
+          </button>
+        )}
         <button type="button" class="hero-name" onClick={() => setCompOpen(true)} aria-label={t('home_companion_switch')}>
           <b>{full ? t('home_charged', { name }) : sleepy ? t('home_sleeping', { name }) : t('home_ready', { name })}</b>
           <Icon name="chevronDown" size={16} />
@@ -240,7 +236,18 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
         </div>
       </section>
 
-      {pending ? null : dailyDropOpen(s) ? (
+      {pending ? (
+        <button type="button" class="card drop-card ready" onClick={() => openDrop(pending.id)}>
+          <span class="drop-icon">
+            <Icon name="gift" size={24} />
+          </span>
+          <span class="card-text">
+            <b>{t('home_drop_ready_title')}</b>
+            <small>{t('home_drop_ready_short')}</small>
+          </span>
+          <span class="btn btn-warm btn-small">{t('home_drop_open')}</span>
+        </button>
+      ) : dailyDropOpen(s) ? (
         <div class="card drop-card">
           <span class="drop-icon dim">
             <Icon name="gift" size={24} />

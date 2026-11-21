@@ -63,9 +63,9 @@ check('the gift is a first drop', s.pending.length === 1 && s.pending[0].kind ==
 /* ---------- 2. the gift can wait ---------- */
 const cards = s.pending[0].cards;
 await page.locator('.drop-head .icon-btn').click();
-check('closing the gift leads to the clearing', await until(() => has(page, '.page.home.has-drop')));
+check('closing the gift leads to the clearing, where it waits beside the ghost', await until(() => has(page, '.page.home .hero-drop')));
 check('the tab bar is there', await has(page, '.tabbar'));
-await page.locator('.drop-card.top').click();
+await page.locator('.hero-drop').click();
 await until(() => has(page, '.page.drop'));
 s = await state(page);
 check('it waits with the same cards', JSON.stringify(s.pending[0].cards) === JSON.stringify(cards) && Array.isArray(cards), JSON.stringify(cards));
@@ -78,7 +78,7 @@ const first = Object.keys(s.styles)[0];
 check('one card is kept and the drop is gone', Object.keys(s.styles).length === 1 && s.pending.length === 0);
 check('the first style goes straight on', !!first && Object.values(s.looks.pumpkin ?? {}).includes(first), JSON.stringify(s.looks));
 await page.getByText('Weiter', { exact: true }).click();
-check('then the clearing, with nothing waiting', await until(async () => (await has(page, '.page.home')) && !(await has(page, '.page.home.has-drop'))));
+check('then the clearing, with nothing waiting', await until(async () => (await has(page, '.page.home')) && !(await has(page, '.hero-drop'))));
 
 /* ---------- 3. a session: start, pause, reload, go on, finish ---------- */
 await page.evaluate(() => window.__cg.mutate((x) => (x.dev.speed = true))); // one second is one minute
@@ -103,7 +103,14 @@ await page.locator('.page.complete').click({ position: { x: 20, y: 20 } }); // a
 await page.locator('.bottom-actions .btn-warm').click();
 check('the drop opens from the result', await until(() => has(page, '.page.drop')));
 await page.locator('.drop-head .icon-btn').click();
-check('and can wait as well', await until(() => has(page, '.page.home.has-drop')));
+check('and can wait as well', await until(() => has(page, '.page.home .hero-drop')));
+check('the card under the start button opens it too', await (async () => {
+  await page.locator('.drop-card.ready').click();
+  const ok = await until(() => has(page, '.page.drop'));
+  await page.locator('.drop-head .icon-btn').click();
+  await until(() => has(page, '.page.home'));
+  return ok;
+})());
 
 /* ---------- 4. the week in one row ---------- */
 await page.locator('.tab').nth(2).click();
