@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COMPANIONS, COSTUME_GHOSTS, DROP_STYLES, GHOSTS, ODDS, POOL_BY_RARITY, STYLES, ghost, rarityRank, sparksNeeded, style, stylesOf } from '../src/data/catalog';
+import { COMPANIONS, COSTUME_GHOSTS, DEFAULT_COMPANION, DROP_STYLES, GHOSTS, ODDS, POOL_BY_RARITY, STYLES, ghost, hasGhost, rarityRank, sparksNeeded, style, stylesOf, unlockOrder } from '../src/data/catalog';
 import { RIGS } from '../src/data/rigs.gen';
 import { CARDS_PER_DROP, PITY_EPIC, PITY_RARE, mulberry32, rollDrop, rollRarity } from '../src/logic/drops';
 import type { Pity } from '../src/logic/drops';
@@ -8,12 +8,27 @@ import type { SessionRec } from '../src/logic/progress';
 import { addDays, dayKey, fmtClock, fmtMinutes, weekDays, weekKey } from '../src/logic/time';
 
 describe('catalog', () => {
-  it('has 6 companions and 16 costume ghosts, each with a rig', () => {
+  it('has 6 companions and 13 costume ghosts, each with a rig', () => {
     expect(COMPANIONS).toHaveLength(6);
-    expect(COSTUME_GHOSTS).toHaveLength(16);
-    expect(GHOSTS).toHaveLength(22);
-    expect(new Set(GHOSTS.map((g) => g.id)).size).toBe(22);
-    expect(COMPANIONS.filter((c) => c.starter).map((c) => c.id)).toEqual(['volti', 'ember', 'luna']);
+    expect(COSTUME_GHOSTS).toHaveLength(13);
+    expect(GHOSTS).toHaveLength(19);
+    expect(new Set(GHOSTS.map((g) => g.id)).size).toBe(19);
+    expect(COMPANIONS.filter((c) => c.starter).map((c) => c.id)).toEqual(['aviator', 'pumpkin', 'witch']);
+    expect(COMPANIONS[0].id).toBe(DEFAULT_COMPANION);
+  });
+  it('the starters of the first version are switched off: known by id, but no part of the game', () => {
+    for (const id of ['volti', 'ember', 'luna']) {
+      expect(ghost(id).off).toBe(true);
+      expect(hasGhost(id)).toBe(false);
+      expect(GHOSTS.some((g) => g.id === id)).toBe(false);
+      expect(unlockOrder(DEFAULT_COMPANION)).not.toContain(id);
+      expect(RIGS[id]).toBeTruthy();
+    }
+    expect(hasGhost('aviator')).toBe(true);
+    expect(hasGhost('nobody')).toBe(false);
+    // the two other starters come first with focus hours, then the plain companions
+    expect(unlockOrder('aviator')).toEqual(['pumpkin', 'witch', 'sprout', 'mochi', 'sunny']);
+    expect(unlockOrder('witch')).toEqual(['aviator', 'pumpkin', 'sprout', 'mochi', 'sunny']);
     for (const g of GHOSTS) expect(RIGS[g.id]).toBeTruthy();
   });
   it('costume ghosts need 3 sparks when epic and 5 when mythic, companions none', () => {

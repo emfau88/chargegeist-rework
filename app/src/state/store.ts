@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import {
   BOSS_DUPE_ENERGY,
+  DEFAULT_COMPANION,
   COMPANION_UNLOCK_HOURS,
   COSTUME_GHOSTS,
   DUPE_ENERGY,
@@ -8,6 +9,7 @@ import {
   STYLE_KINDS,
   WISH_COST,
   ghost,
+  hasGhost,
   hasStyle,
   sparksNeeded,
   style,
@@ -88,6 +90,8 @@ export interface State {
   companion: string;
   firstCompanion: string;
   ghosts: Record<string, OwnedRec>;
+  /** Ghosts that were switched off in the catalog wait here with what belonged to them (see retire). */
+  shelf?: Record<string, { ghost: OwnedRec; bond?: State['bonds'][string]; look?: StyleLook; name?: string }>;
   styles: Record<string, OwnedRec>;
   /** Ghost id -> the style it shows. */
   looks: Record<string, StyleLook>;
@@ -130,9 +134,9 @@ export function defaultState(): State {
     v: 3,
     onboarded: false,
     createdAt: Date.now(),
-    companion: 'volti',
-    firstCompanion: 'volti',
-    ghosts: { volti: { at: Date.now(), via: 'start', seen: true } },
+    companion: DEFAULT_COMPANION,
+    firstCompanion: DEFAULT_COMPANION,
+    ghosts: { [DEFAULT_COMPANION]: { at: Date.now(), via: 'start', seen: true } },
     styles: {},
     looks: {},
     sparks: { target: null, have: {} },
@@ -176,6 +180,61 @@ export function defaultState(): State {
 function fill(s: State): State {
   const d = defaultState();
   return { ...d, ...s, settings: { ...d.settings, ...s.settings }, dev: { ...d.dev, ...s.dev }, sparks: { ...d.sparks, ...s.sparks } };
+}
+
+/**
+ * Brings a save in line with the catalog, where ghosts can be switched off and costume ghosts can
+ * become companions.
+ *  - A ghost that is switched off goes on the shelf with its bond, style and name. It comes back from
+ *    there if it is switched on again.
+ *  - If it was the companion you started with, the first starter takes that place and joins you. If it
+ *    was the active one, the companion you started with is active now.
+ *  - Sparks only charge costume ghosts: sparks of any other ghost come back as wish energy.
+ *  - A boss of the week that is no costume ghost any more makes room for a new one.
+ *  - Companions that are due by your focus hours join at once.
+ */
+export function retire(s: State): State {
+  const shelf = (s.shelf ??= {});
+  for (const id of Object.keys(shelf)) {
+    if (!hasGhost(id)) continue;
+    const r = shelf[id];
+    s.ghosts[id] ??= r.ghost;
+    if (r.bond) s.bonds[id] ??= r.bond;
+    if (r.look) s.looks[id] ??= r.look;
+    if (r.name) s.names[id] ??= r.name;
+    delete shelf[id];
+  }
+  for (const id of Object.keys(s.ghosts)) {
+    if (hasGhost(id)) continue;
+    shelf[id] = { ghost: s.ghosts[id], bond: s.bonds[id], look: s.looks[id], name: s.names[id] };
+    delete s.ghosts[id];
+    delete s.bonds[id];
+    delete s.looks[id];
+    delete s.names[id];
+  }
+  if (!hasGhost(s.firstCompanion)) {
+    s.firstCompanion = DEFAULT_COMPANION;
+    s.ghosts[DEFAULT_COMPANION] ??= { at: s.createdAt, via: 'start', seen: true };
+  }
+  if (!s.ghosts[s.companion]) s.companion = s.ghosts[s.firstCompanion] ? s.firstCompanion : (Object.keys(s.ghosts)[0] ?? DEFAULT_COMPANION);
+  s.ghosts[s.companion] ??= { at: s.createdAt, via: 'start', seen: true };
+  const charges = (id: string) => hasGhost(id) && sparksNeeded(id) > 0;
+  for (const id of Object.keys(s.sparks.have)) {
+    if (charges(id)) continue;
+    s.wish.energy += s.sparks.have[id] * SPARK_ENERGY;
+    delete s.sparks.have[id];
+  }
+  if (s.sparks.target && !charges(s.sparks.target)) s.sparks.target = null;
+  if (s.boss && !s.boss.done && !charges(s.boss.ghost)) s.boss = null;
+  // Not through grantCompanions: this runs while the save is being loaded, before there is a state,
+  // and that function asks the app's clock, which reads the state. It threw, and the save was dropped.
+  if (s.onboarded) {
+    const hours = totalMinutes(s.sessions) / 60;
+    unlockOrder(s.firstCompanion).forEach((id, i) => {
+      if (hours >= COMPANION_UNLOCK_HOURS[i]) s.ghosts[id] ??= { at: Date.now(), via: 'hours', seen: false };
+    });
+  }
+  return s;
 }
 
 /** v2 pieces by id prefix -> the costume ghost they belonged to. */
@@ -223,13 +282,13 @@ function load(): State {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const s = JSON.parse(raw) as State;
-      return s.v === 3 ? fill(s) : defaultState();
+      return s.v === 3 ? retire(fill(s)) : defaultState();
     }
     const old = localStorage.getItem(OLD_KEY);
     if (old) {
       const o = JSON.parse(old);
       if (o?.v === 2) {
-        const s = migrateV2(o);
+        const s = retire(migrateV2(o));
         localStorage.setItem(KEY, JSON.stringify(s));
         localStorage.removeItem(OLD_KEY);
         return s;

@@ -66,34 +66,34 @@ describe('bond logic', () => {
 describe('bond in the app', () => {
   it('a session gives the companion its hearts', () => {
     const r = focus(25);
-    expect(r.bond).toMatchObject({ ghost: 'volti', gained: 5, hearts: 5, before: 0, after: 0 });
-    expect(bondOf(getState(), 'volti').hearts).toBe(5);
+    expect(r.bond).toMatchObject({ ghost: 'aviator', gained: 5, hearts: 5, before: 0, after: 0 });
+    expect(bondOf(getState(), 'aviator').hearts).toBe(5);
     const r2 = focus(25);
     expect(r2.bond).toMatchObject({ gained: 5, hearts: 10, before: 0, after: 1 });
   });
 
   it('touches count for ghosts you own only, once per kind a day', () => {
-    expect(touchBond('ember', 'stroke')).toBeNull();
-    expect(touchBond('volti', 'stroke')?.gained).toBe(1);
-    expect(touchBond('volti', 'stroke')).toBeNull();
-    expect(touchBond('volti', 'hold')?.hearts).toBe(2);
+    expect(touchBond('pumpkin', 'stroke')).toBeNull();
+    expect(touchBond('aviator', 'stroke')?.gained).toBe(1);
+    expect(touchBond('aviator', 'stroke')).toBeNull();
+    expect(touchBond('aviator', 'hold')?.hearts).toBe(2);
     vi.setSystemTime(T0 + 24 * 3600_000);
-    expect(touchBond('volti', 'stroke')?.hearts).toBe(3);
+    expect(touchBond('aviator', 'stroke')?.hearts).toBe(3);
   });
 
   it('a new stage waits for its celebration once, then stays', () => {
-    dev.addHearts('volti', 10);
-    expect(bondUps()).toEqual(['volti']);
-    ackBond('volti');
+    dev.addHearts('aviator', 10);
+    expect(bondUps()).toEqual(['aviator']);
+    ackBond('aviator');
     expect(bondUps()).toEqual([]);
-    expect(bondLevel(bondOf(getState(), 'volti'))).toBe(1);
+    expect(bondLevel(bondOf(getState(), 'aviator'))).toBe(1);
   });
 
   it('becoming friends and kindred spirits are achievements', () => {
-    dev.addHearts('volti', 40);
+    dev.addHearts('aviator', 40);
     expect(getState().achievements.friend1).toBeTruthy();
     expect(getState().achievements.kindred1).toBeFalsy();
-    dev.addHearts('volti', 210);
+    dev.addHearts('aviator', 210);
     expect(getState().achievements.kindred1).toBeTruthy();
   });
 
@@ -106,7 +106,7 @@ describe('bond in the app', () => {
     const s: State = m.getState();
     expect(s.onboarded).toBe(true);
     expect(s.bonds).toEqual({});
-    expect(m.bondOf(s, 'volti')).toMatchObject({ hearts: 0, seen: 0 });
+    expect(m.bondOf(s, 'aviator')).toMatchObject({ hearts: 0, seen: 0 });
     vi.unstubAllGlobals();
   });
 });

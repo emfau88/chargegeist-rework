@@ -25,7 +25,7 @@ const T0 = new Date(2026, 10, 16, 9, 0).getTime(); // Monday 09:00
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(T0);
-  dev.replace({ ...defaultState(), onboarded: true, ghosts: { volti: { at: T0, via: 'start', seen: true } } });
+  dev.replace({ ...defaultState(), onboarded: true, ghosts: { aviator: { at: T0, via: 'start', seen: true } } });
 });
 
 describe('developer menu: time', () => {
@@ -80,11 +80,11 @@ describe('developer menu: time', () => {
   });
 
   it('lets a touch bring a heart again on the same day', () => {
-    expect(touchBond('volti', 'stroke')?.gained).toBe(1);
-    expect(touchBond('volti', 'stroke')).toBeNull();
+    expect(touchBond('aviator', 'stroke')?.gained).toBe(1);
+    expect(touchBond('aviator', 'stroke')).toBeNull();
     dev.freeTouches();
-    expect(touchBond('volti', 'stroke')?.gained).toBe(1);
-    expect(bondOf(getState(), 'volti').hearts).toBe(2);
+    expect(touchBond('aviator', 'stroke')?.gained).toBe(1);
+    expect(bondOf(getState(), 'aviator').hearts).toBe(2);
   });
 
   it('calms the boss once: its ghost joins, a second time changes nothing', () => {
@@ -107,7 +107,7 @@ describe('developer menu: time', () => {
     expect(dev.calmBoss()).toBe(true);
     expect(getState().wish.energy - before).toBeGreaterThanOrEqual(BOSS_DUPE_ENERGY);
 
-    dev.replace({ ...defaultState(), onboarded: true, ghosts: { volti: { at: T0, via: 'start', seen: true } } });
+    dev.replace({ ...defaultState(), onboarded: true, ghosts: { aviator: { at: T0, via: 'start', seen: true } } });
     dev.addMinutes(5);
     const b2 = getState().boss!.ghost;
     dev.replace({ ...getState(), sparks: { target: null, have: { [b2]: 2 } } });
@@ -140,11 +140,11 @@ describe('developer menu: ghosts, styles, values', () => {
 
   it('gives and takes a single style; a taken one comes off every ghost', () => {
     dev.setStyle('charm_teacup', true);
-    wearStyle('volti', 'charm_teacup');
-    expect(lookOf(getState(), 'volti').charm).toBe('charm_teacup');
+    wearStyle('aviator', 'charm_teacup');
+    expect(lookOf(getState(), 'aviator').charm).toBe('charm_teacup');
     dev.setStyle('charm_teacup', false);
     expect(getState().styles.charm_teacup).toBeUndefined();
-    expect(lookOf(getState(), 'volti').charm).toBeUndefined();
+    expect(lookOf(getState(), 'aviator').charm).toBeUndefined();
   });
 
   it('sparks add up until the ghost joins', () => {
@@ -161,8 +161,8 @@ describe('developer menu: ghosts, styles, values', () => {
   it('adds wish energy and hearts', () => {
     dev.addWish(50);
     expect(getState().wish.energy).toBe(50);
-    dev.addHearts('volti', 10);
-    expect(bondOf(getState(), 'volti').hearts).toBe(10);
+    dev.addHearts('aviator', 10);
+    expect(bondOf(getState(), 'aviator').hearts).toBe(10);
   });
 });
 
@@ -200,7 +200,7 @@ describe('developer menu: look and starting over', () => {
     expect(s.styles).toEqual({});
     expect(s.pending).toEqual([]);
     expect(s.sessions.length).toBe(1);
-    expect(s.ghosts.volti).toBeTruthy();
+    expect(s.ghosts.aviator).toBeTruthy();
   });
 
   it('a reset gives a fresh save', () => {

@@ -4,7 +4,7 @@
  */
 import type { CSSProperties } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
-import { RARITY_COLOR, charmImg, ghost, style } from '../data/catalog';
+import { DEFAULT_COMPANION, RARITY_COLOR, charmImg, ghost, style } from '../data/catalog';
 import { AuraSim, SvgAura } from '../fx/aura';
 import type { AuraBox } from '../fx/aura';
 import { rgbCss, shimmerMoves, shimmerRgb, shimmerSwatch } from '../fx/shimmer';
@@ -75,7 +75,7 @@ const ORB_BOX = (glow: Rgb): AuraBox => ({ cx: 300, cy: 300, rx: 100, ry: 100, g
 export function StylePreview({ id, ghostId, size, live = true, class: cls }: { id: string; ghostId: string | null; size: number; live?: boolean; class?: string }) {
   const st = style(id);
   const ref = useRef<SVGSVGElement>(null);
-  const url = usePortrait(ghostId ?? 'volti', 320);
+  const url = usePortrait(ghostId ?? DEFAULT_COMPANION, 320);
   const base = ghostId ? ghost(ghostId).glow : RARITY_COLOR[st.rarity];
   const uid = useRef(`sp${Math.random().toString(36).slice(2, 8)}`).current;
   const orb = !ghostId;

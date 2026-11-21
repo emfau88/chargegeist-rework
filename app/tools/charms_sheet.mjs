@@ -29,7 +29,7 @@ async function seed(g, charm) {
         x.onboarded = true;
         x.plusOfferSeen = true;
         x.companion = g;
-        x.firstCompanion = 'volti';
+        x.firstCompanion = 'aviator';
         x.ghosts = Object.fromEntries(GHOSTS.map((d) => [d.id, { at: Date.now(), via: 'start', seen: true }]));
         x.styles = Object.fromEntries(STYLES.filter((d) => d.kind === 'charm').map((d) => [d.id, { at: Date.now(), via: 'drop', seen: true }]));
         x.looks = { [g]: { charm } };
@@ -56,7 +56,7 @@ for (const g of want) {
 }
 
 // while focusing the charm moves up and out of the charge ring
-for (const g of want.filter((g) => ['volti', 'luna', 'pirate', 'kitsune', 'reaper', 'forest'].includes(g))) {
+for (const g of want.filter((g) => ['aviator', 'witch', 'pirate', 'kitsune', 'reaper', 'forest'].includes(g))) {
   const charm = charms[(ghosts.indexOf(g) + 3) % charms.length];
   await seed(g, charm);
   await sleep(800);

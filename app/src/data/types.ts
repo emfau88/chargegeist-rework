@@ -15,6 +15,11 @@ export interface GhostDef {
   rarity: Rarity | null;
   /** Companions offered in onboarding. */
   starter: boolean;
+  /**
+   * Switched off: not offered, not earned and not shown anywhere. The ghost keeps its id, rig and
+   * pictures, so an old save that has it can put it on the shelf (see retire in state/store.ts).
+   */
+  off: boolean;
 }
 
 export type StyleKind = 'aura' | 'shimmer' | 'charm';

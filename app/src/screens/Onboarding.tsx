@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { COMPANIONS, ghost } from '../data/catalog';
+import { COMPANIONS, DEFAULT_COMPANION, ghost } from '../data/catalog';
 import { nameOf, t } from '../i18n';
 import { sfx } from '../platform/audio';
 import { askNotifications, haptic } from '../platform/device';
@@ -34,7 +34,7 @@ const GOALS: [number, 'ob_goal_15' | 'ob_goal_30' | 'ob_goal_60' | 'ob_goal_120'
   [120, 'ob_goal_120'],
 ];
 /** Costume ghosts floating around the welcome screen, a peek at what you can collect. */
-const PREVIEW = ['pumpkin', 'witch', 'kitsune', 'pirate', 'starmage'];
+const PREVIEW = ['dragon', 'jellyfish', 'kitsune', 'pirate', 'phoenix'];
 
 function Dots({ step }: { step: number }) {
   return (
@@ -57,8 +57,8 @@ function PreSteps({ openDrop }: { openDrop: (id: string) => void }) {
   const [step, setStep] = useState<Pre>('welcome');
   const [tags, setLocalTags] = useState<TagId[]>(['study']);
   const [goal, setLocalGoal] = useState(30);
-  const [pick, setPick] = useState('volti');
-  const [name, setName] = useState('Volti');
+  const [pick, setPick] = useState(DEFAULT_COMPANION);
+  const [name, setName] = useState(() => nameOf(ghost(DEFAULT_COMPANION)));
   const [cheer, setCheer] = useState(0);
   const idx = PRE.indexOf(step);
   const go = (p: Pre) => {
@@ -88,7 +88,7 @@ function PreSteps({ openDrop }: { openDrop: (id: string) => void }) {
             ))}
           </div>
           {/* no clearing here: the other ghosts float around him, and firs behind them would crowd the picture */}
-          <CompanionStage ghostId="volti" level={0.55} interactive zoom={1.15} overscan={{ top: 0.25, side: 0.1, bottom: 0 }} class="ob-stage" cheer={cheer} onPoke={() => sfx.poke()} />
+          <CompanionStage ghostId={DEFAULT_COMPANION} level={0.55} interactive zoom={1.15} overscan={{ top: 0.25, side: 0.1, bottom: 0 }} class="ob-stage" cheer={cheer} onPoke={() => sfx.poke()} />
           <h1 class="ob-title">{t('ob_welcome_title')}</h1>
           <p class="ob-text">{t('ob_welcome_body')}</p>
           <ul class="ob-points">

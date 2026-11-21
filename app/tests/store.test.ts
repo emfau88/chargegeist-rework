@@ -107,7 +107,7 @@ describe('daily loop', () => {
   });
   it('the trial session opens a first drop with a rare or better', () => {
     dev.replace(defaultState());
-    chooseCompanion('ember', 'Funke');
+    chooseCompanion('pumpkin', 'Funke');
     startSession(1, 'study', true);
     vi.advanceTimersByTime(60_000);
     const r = finishSession()!;
@@ -118,8 +118,8 @@ describe('daily loop', () => {
     const cards = revealDrop(p.id);
     expect(cards.some((c) => style(c).rarity !== 'common')).toBe(true);
     for (const c of cards) expect(style(c).kind).toBe('aura');
-    expect(getState().names.ember).toBe('Funke');
-    expect(Object.keys(getState().ghosts)).toEqual(['ember']);
+    expect(getState().names.pumpkin).toBe('Funke');
+    expect(Object.keys(getState().ghosts)).toEqual(['pumpkin']);
   });
   it('enough sparks bring the costume ghost you charge', () => {
     setSparkTarget('owl');
@@ -135,10 +135,10 @@ describe('daily loop', () => {
     expect(sparkTarget()).not.toBe('owl');
   });
   it('without a pick, sparks go to the ghost furthest along; switching keeps sparks', () => {
-    dev.replace({ ...getState(), sparks: { target: null, have: { witch: 1, kitsune: 3 } } });
+    dev.replace({ ...getState(), sparks: { target: null, have: { owl: 1, kitsune: 3 } } });
     expect(sparkTarget()).toBe('kitsune'); // 3/5 beats 1/3
-    setSparkTarget('witch');
-    expect(sparkTarget()).toBe('witch');
+    setSparkTarget('owl');
+    expect(sparkTarget()).toBe('owl');
     expect(getState().sparks.have.kitsune).toBe(3);
   });
   it('once every costume ghost is yours, a spark turns into wish energy', () => {
@@ -163,30 +163,30 @@ describe('daily loop', () => {
       },
       ghosts: { ...getState().ghosts, kitsune: { at: 0, via: 'boss', seen: true } },
     });
-    toggleStyle('volti', 'aura_snow');
-    toggleStyle('volti', 'shimmer_mint');
-    expect(lookOf(getState(), 'volti')).toEqual({ aura: 'aura_snow', shimmer: 'shimmer_mint' });
-    toggleStyle('volti', 'charm_teacup');
-    expect(lookOf(getState(), 'volti')).toEqual({ aura: 'aura_snow', shimmer: 'shimmer_mint', charm: 'charm_teacup' });
-    toggleStyle('volti', 'charm_moon'); // not owned
-    expect(lookOf(getState(), 'volti').charm).toBe('charm_teacup');
-    toggleStyle('volti', 'aura_notes');
-    expect(lookOf(getState(), 'volti').aura).toBe('aura_notes');
-    toggleStyle('volti', 'aura_notes');
-    expect(lookOf(getState(), 'volti').aura).toBeUndefined();
+    toggleStyle('aviator', 'aura_snow');
+    toggleStyle('aviator', 'shimmer_mint');
+    expect(lookOf(getState(), 'aviator')).toEqual({ aura: 'aura_snow', shimmer: 'shimmer_mint' });
+    toggleStyle('aviator', 'charm_teacup');
+    expect(lookOf(getState(), 'aviator')).toEqual({ aura: 'aura_snow', shimmer: 'shimmer_mint', charm: 'charm_teacup' });
+    toggleStyle('aviator', 'charm_moon'); // not owned
+    expect(lookOf(getState(), 'aviator').charm).toBe('charm_teacup');
+    toggleStyle('aviator', 'aura_notes');
+    expect(lookOf(getState(), 'aviator').aura).toBe('aura_notes');
+    toggleStyle('aviator', 'aura_notes');
+    expect(lookOf(getState(), 'aviator').aura).toBeUndefined();
     toggleStyle('kitsune', 'aura_snow'); // costume ghosts wear style too
     expect(lookOf(getState(), 'kitsune').aura).toBe('aura_snow');
-    toggleStyle('volti', 'aura_storm'); // not owned
-    expect(lookOf(getState(), 'volti').aura).toBeUndefined();
+    toggleStyle('aviator', 'aura_storm'); // not owned
+    expect(lookOf(getState(), 'aviator').aura).toBeUndefined();
     toggleStyle('pumpkin', 'aura_snow'); // ghost not owned
     expect(getState().looks.pumpkin).toBeUndefined();
-    toggleStyle('volti', 'shimmer_heart');
-    expect(lookOf(getState(), 'volti').shimmer).toBe('shimmer_mint');
+    toggleStyle('aviator', 'shimmer_heart');
+    expect(lookOf(getState(), 'aviator').shimmer).toBe('shimmer_mint');
     setPlus(true);
-    toggleStyle('volti', 'shimmer_heart');
-    expect(lookOf(getState(), 'volti').shimmer).toBe('shimmer_heart');
+    toggleStyle('aviator', 'shimmer_heart');
+    expect(lookOf(getState(), 'aviator').shimmer).toBe('shimmer_heart');
     setPlus(false);
-    expect(lookOf(getState(), 'volti').shimmer).toBeUndefined();
+    expect(lookOf(getState(), 'aviator').shimmer).toBeUndefined();
   });
   it('turns a v2 save into v3: pieces become sparks, outfits go, ghosts and energy stay', () => {
     const d = defaultState();
@@ -284,8 +284,8 @@ describe('week, boss, goal, wish', () => {
     expect(claimWish()).toBeNull();
   });
   it('unlocks the next companion at 3 hours', () => {
-    chooseCompanion('volti', 'Volti');
+    chooseCompanion('aviator', 'Skye');
     const r = focus(180);
-    expect(r.companionsUnlocked).toEqual(['ember']);
+    expect(r.companionsUnlocked).toEqual(['pumpkin']);
   });
 });

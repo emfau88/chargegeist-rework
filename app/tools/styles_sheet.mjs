@@ -3,7 +3,7 @@
 import { chromium } from 'playwright-core';
 import { mkdirSync } from 'node:fs';
 
-const [, , out = 'styles', ghostId = 'volti', only = '', frames = '1'] = process.argv;
+const [, , out = 'styles', ghostId = 'aviator', only = '', frames = '1'] = process.argv;
 const URL = process.env.CG_URL ?? 'http://localhost:5173/';
 const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 mkdirSync(out, { recursive: true });

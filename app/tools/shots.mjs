@@ -42,8 +42,8 @@ async function seed(page, extra = {}) {
     window.__cg.mutate((x) => {
       x.onboarded = true;
       x.plusOfferSeen = true;
-      x.companion = 'volti';
-      x.firstCompanion = 'volti';
+      x.companion = 'aviator';
+      x.firstCompanion = 'aviator';
       x.names = {};
       x.goal = 30;
       x.tags = ['study', 'work'];
@@ -59,15 +59,15 @@ async function seed(page, extra = {}) {
       });
       x.goalDays = [key(now - 5 * day), key(now - 4 * day), key(now - day)];
       x.ghosts = {
-        volti: { at: now - 10 * day, via: 'start', seen: true },
-        ember: { at: now - 4 * day, via: 'hours', seen: true },
-        pumpkin: { at: now - 2 * day, via: 'spark', seen: false },
+        aviator: { at: now - 10 * day, via: 'start', seen: true },
+        pumpkin: { at: now - 4 * day, via: 'hours', seen: true },
+        owl: { at: now - 2 * day, via: 'spark', seen: false },
         dragon: { at: now - 1 * day, via: 'spark', seen: true },
       };
       const styles = ['aura_fireflies', 'shimmer_moon', 'aura_bubbles', 'shimmer_mint', 'aura_snow', 'shimmer_rose', 'aura_stardust', 'aura_blossoms', 'shimmer_rainbow', 'charm_teacup', 'charm_compass'];
       x.styles = {};
       styles.forEach((id, i) => (x.styles[id] = { at: now - (styles.length - i) * day * 0.9, via: 'drop', seen: i < styles.length - 2 }));
-      x.looks = { volti: { aura: 'aura_fireflies', shimmer: 'shimmer_mint', charm: 'charm_teacup' }, ember: { aura: 'aura_snow' } };
+      x.looks = { aviator: { aura: 'aura_fireflies', shimmer: 'shimmer_mint', charm: 'charm_teacup' }, pumpkin: { aura: 'aura_snow' } };
       x.sparks = { target: null, have: { kitsune: 3, witch: 1, phoenix: 2 } };
       x.achievements = { first: now - 9 * day, days3: now - 7 * day, goal1: now - 5 * day, sessions5: now - 4 * day, costume1: now - 2 * day };
       x.wish = { target: 'aura_leaves', energy: 112 };
@@ -102,9 +102,9 @@ async function shot(page, name, wait = 900) {
   await shot(p, 'ob3-goal');
   await tap(p, T('Continue', 'Weiter'));
   await sleep(500);
-  await tap(p, 'Ember');
+  await tap(p, 'Hazel');
   await shot(p, 'ob4-pick', 1400);
-  await tap(p, 'Volti');
+  await tap(p, 'Skye');
   await tap(p, T('Continue', 'Weiter'));
   await shot(p, 'ob5-trial', 1200);
   await p.evaluate(() => window.__cg.dev.setSpeed(true));

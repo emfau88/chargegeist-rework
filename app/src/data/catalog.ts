@@ -1,8 +1,10 @@
 /**
  * Everything you can collect.
- *  - 6 companions: they charge while you focus and join with focus hours.
- *  - 16 costume ghosts: every drop brings a ghost spark; enough sparks (or a calmed weekly boss) bring one.
+ *  - 6 companions: they charge while you focus and join with focus hours. Three of them are the
+ *    starters you pick from; they wear a costume, the other three are plain.
+ *  - 13 costume ghosts: every drop brings a ghost spark; enough sparks (or a calmed weekly boss) bring one.
  *    Ghosts always look exactly like their kit.
+ *  - 3 ghosts are switched off (the starters of the first version): see GhostDef.off.
  *  - Style (auras, shimmers, charms): it comes from drops and wishes and never changes a ghost's shape.
  */
 import { CHARMS } from './charms.gen';
@@ -31,16 +33,17 @@ export const RARITY_COLOR: Record<Rarity, string> = {
   mythic: '#ffc76b',
 };
 
-const C = (id: string, nameEn: string, glow: string, quoteEn: string, quoteDe: string, starter: boolean): GhostDef => ({
+const C = (id: string, nameEn: string, nameDe: string, glow: string, quoteEn: string, quoteDe: string, starter: boolean, off = false): GhostDef => ({
   id,
   kind: 'companion',
   nameEn,
-  nameDe: nameEn,
+  nameDe,
   quoteEn,
   quoteDe,
   glow,
   rarity: null,
   starter,
+  off,
 });
 const K = (id: string, nameEn: string, nameDe: string, rarity: Rarity, glow: string, quoteEn: string, quoteDe: string): GhostDef => ({
   id,
@@ -52,21 +55,27 @@ const K = (id: string, nameEn: string, nameDe: string, rarity: Rarity, glow: str
   glow,
   rarity,
   starter: false,
+  off: false,
 });
 
-export const GHOSTS: GhostDef[] = [
-  C('volti', 'Volti', '#5be3ff', 'Every minute is a spark.', 'Jede Minute ist ein Funke.', true),
-  C('ember', 'Ember', '#ffa36b', 'Warm up, then glow.', 'Erst warm werden, dann glühen.', true),
-  C('luna', 'Luna', '#b69bff', 'Quiet minds shine brightest.', 'Ruhige Köpfe leuchten am hellsten.', true),
-  C('sprout', 'Sprout', '#8ef08a', 'A little every day.', 'Jeden Tag ein bisschen.', false),
-  C('mochi', 'Mochi', '#ff9fd2', 'Soft focus, strong heart.', 'Weicher Fokus, starkes Herz.', false),
-  C('sunny', 'Sunny', '#ffd66b', 'Let’s make today bright!', 'Machen wir den Tag hell!', false),
-  K('pumpkin', 'Pumpkin Pip', 'Kürbis-Pip', 'epic', '#ffa04a', 'Carved a smile, kept the candle.', 'Ein Lächeln geschnitzt, die Kerze behalten.'),
+/**
+ * Every ghost the app knows. The three starters wear a costume and have every moving part: arms of
+ * their own, blush, eyes in layers. The starters of the first version (Volti, Ember, Luna) are
+ * switched off for now.
+ */
+const ALL_GHOSTS: GhostDef[] = [
+  C('aviator', 'Skye', 'Skye', '#7fd8ff', 'Goggles down, clouds out.', 'Brille runter, Wolken weg.', true),
+  C('pumpkin', 'Pumpkin Pip', 'Kürbis-Pip', '#ffa04a', 'Carved a smile, kept the candle.', 'Ein Lächeln geschnitzt, die Kerze behalten.', true),
+  C('witch', 'Hazel', 'Hazel', '#b07bff', 'My best spell is a closed tab.', 'Mein bester Zauber: ein geschlossener Tab.', true),
+  C('sprout', 'Sprout', 'Sprout', '#8ef08a', 'A little every day.', 'Jeden Tag ein bisschen.', false),
+  C('mochi', 'Mochi', 'Mochi', '#ff9fd2', 'Soft focus, strong heart.', 'Weicher Fokus, starkes Herz.', false),
+  C('sunny', 'Sunny', 'Sunny', '#ffd66b', 'Let’s make today bright!', 'Machen wir den Tag hell!', false),
+  C('volti', 'Volti', 'Volti', '#5be3ff', 'Every minute is a spark.', 'Jede Minute ist ein Funke.', false, true),
+  C('ember', 'Ember', 'Ember', '#ffa36b', 'Warm up, then glow.', 'Erst warm werden, dann glühen.', false, true),
+  C('luna', 'Luna', 'Luna', '#b69bff', 'Quiet minds shine brightest.', 'Ruhige Köpfe leuchten am hellsten.', false, true),
   K('samurai', 'Ronin', 'Ronin', 'epic', '#ff6b6b', 'One breath. One task. Then tea.', 'Ein Atemzug. Eine Aufgabe. Dann Tee.'),
-  K('witch', 'Hazel', 'Hazel', 'epic', '#b07bff', 'My best spell is a closed tab.', 'Mein bester Zauber: ein geschlossener Tab.'),
   K('owl', 'Professor Hoot', 'Professor Huhu', 'epic', '#e0b27a', 'Whooo needs notifications?', 'Wer braucht schon Benachrichtigungen? Huhu!'),
   K('pirate', 'Captain Boo', 'Käpt’n Buh', 'epic', '#ffcf5b', 'X marks the deadline.', 'Das X markiert die Deadline.'),
-  K('aviator', 'Skye', 'Skye', 'epic', '#7fd8ff', 'Goggles down, clouds out.', 'Brille runter, Wolken weg.'),
   K('kitsune', 'Kitsu', 'Kitsu', 'mythic', '#ff7a7a', 'Nine tails, one focus.', 'Neun Schwänze, ein Fokus.'),
   K('reaper', 'Grim', 'Grimmi', 'mythic', '#c48bff', 'I only reap distractions.', 'Ich ernte nur Ablenkungen.'),
   K('starmage', 'Stella', 'Stella', 'mythic', '#ffd85b', 'Small steps, big constellations.', 'Kleine Schritte, große Sternbilder.'),
@@ -78,6 +87,11 @@ export const GHOSTS: GhostDef[] = [
   K('phoenix', 'Fenix', 'Fenix', 'mythic', '#ff8a3c', 'Burnt out? Rise again tomorrow.', 'Ausgebrannt? Morgen steigst du neu auf.'),
   K('moondeer', 'Elara', 'Elara', 'mythic', '#a9b8ff', 'Even the moon takes it one phase at a time.', 'Auch der Mond nimmt eine Phase nach der anderen.'),
 ];
+
+/** The ghosts of the game: every one that is switched on. */
+export const GHOSTS: GhostDef[] = ALL_GHOSTS.filter((g) => !g.off);
+/** The companion a new save starts with, and the one the welcome screen shows. */
+export const DEFAULT_COMPANION = 'aviator';
 
 export const COMPANIONS = GHOSTS.filter((g) => g.kind === 'companion');
 export const COSTUME_GHOSTS = GHOSTS.filter((g) => g.kind === 'costume');
@@ -134,7 +148,8 @@ export const POOL_BY_RARITY: Record<Rarity, StyleDef[]> = {
   mythic: DROP_STYLES.filter((i) => i.rarity === 'mythic'),
 };
 
-const ghostById = new Map(GHOSTS.map((g) => [g.id, g]));
+// by id every ghost is known, also one that is switched off: an old save or a tool may still name it
+const ghostById = new Map(ALL_GHOSTS.map((g) => [g.id, g]));
 const styleById = new Map(STYLES.map((i) => [i.id, i]));
 
 export function ghost(id: string): GhostDef {
@@ -142,8 +157,9 @@ export function ghost(id: string): GhostDef {
   if (!g) throw new Error(`unknown ghost ${id}`);
   return g;
 }
+/** Whether this ghost is part of the game: known and switched on. */
 export function hasGhost(id: string): boolean {
-  return ghostById.has(id);
+  return ghostById.get(id)?.off === false;
 }
 export function style(id: string): StyleDef {
   const i = styleById.get(id);
