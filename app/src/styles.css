@@ -4035,32 +4035,39 @@ input[type='range'] {
   filter: brightness(0) invert(0.82) sepia(0.4) hue-rotate(200deg);
   opacity: 0.26;
 }
+.spark-portrait .sp-fill,
+.spark-portrait .sp-edge {
+  /* A clear line: below it the ghost is there in full colour, above it only its outline. The line is a picture of a
+     gentle wave with everything under it filled. That picture is twice as high as the portrait and its line lies in
+     its middle, so moving it puts the line at --top. */
+  --wave-at: 0 calc(100% - var(--top));
+}
 .spark-portrait .sp-fill {
-  -webkit-mask-image: linear-gradient(to bottom, transparent calc(var(--top) - 7%), #000 calc(var(--top) + 7%));
-  mask-image: linear-gradient(to bottom, transparent calc(var(--top) - 7%), #000 calc(var(--top) + 7%));
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 200' preserveAspectRatio='none'%3E%3Cpath d='M0 100 Q6.25 97 12.5 100 T25 100 T37.5 100 T50 100 T62.5 100 T75 100 T87.5 100 T100 100 V200 H0Z'/%3E%3C/svg%3E") var(--wave-at) / 100% 200% no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 200' preserveAspectRatio='none'%3E%3Cpath d='M0 100 Q6.25 97 12.5 100 T25 100 T37.5 100 T50 100 T62.5 100 T75 100 T87.5 100 T100 100 V200 H0Z'/%3E%3C/svg%3E") var(--wave-at) / 100% 200% no-repeat;
 }
 .spark-portrait.full .sp-fill {
-  -webkit-mask-image: none;
-  mask-image: none;
+  -webkit-mask: none;
+  mask: none;
 }
 .spark-portrait.empty .sp-fill {
   display: none;
 }
-/* the charge line: a soft band of light that keeps to the shape of the ghost (its mask is set inline) */
+/* the crest of the charge: a bright line along the wave that keeps to the shape of the ghost (its mask is set inline) */
 .spark-portrait .sp-edge {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, transparent calc(var(--top) - 8%), color-mix(in srgb, var(--cg) 70%, #fff) var(--top), transparent calc(var(--top) + 8%));
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 200' preserveAspectRatio='none'%3E%3Cpath d='M0 100 Q6.25 97 12.5 100 T25 100 T37.5 100 T50 100 T62.5 100 T75 100 T87.5 100 T100 100' fill='none' stroke='white' stroke-width='1.9' stroke-linecap='round'/%3E%3C/svg%3E") var(--wave-at) / 100% 200% no-repeat;
+  filter: drop-shadow(0 0 3px var(--cg)) drop-shadow(0 0 1px var(--cg));
   -webkit-mask-size: 100% 100%;
   mask-size: 100% 100%;
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
-  mix-blend-mode: screen;
-  animation: edge-pulse 1.6s ease-in-out infinite;
+  animation: edge-pulse 2.4s ease-in-out infinite;
 }
 @keyframes edge-pulse {
   50% {
-    opacity: 0.5;
+    opacity: 0.72;
   }
 }
 .spark-portrait.float {

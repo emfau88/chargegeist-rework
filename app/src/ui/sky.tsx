@@ -180,7 +180,8 @@ const SCENE_URL = (name: string) => `${import.meta.env.BASE_URL}assets/scene/${n
 const LAYERS = ['far', 'mid', 'ground'] as const;
 /** Things that stand in the scene: where their foot is on the canvas (x of the middle, y of the lower edge) and how large they are drawn. */
 const LANTERNS = [
-  { id: 'hang', off: 'lantern_hang_off', on: 'lantern_hang_on', x: 96, y: 742, k: 0.44, lit: 'first' },
+  // the branch of the hanging lantern is cut off at its left end: it reaches past the left edge of the picture, so the cut is not seen
+  { id: 'hang', off: 'lantern_hang_off', on: 'lantern_hang_on', x: 56, y: 742, k: 0.44, lit: 'first' },
   { id: 'stand', off: 'lantern_stand_off', on: 'lantern_stand_on', x: 884, y: GROUND_LINE + 14, k: 0.4, lit: 'goal' },
 ] as const;
 
