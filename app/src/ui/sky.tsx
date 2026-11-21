@@ -5,7 +5,8 @@
  */
 import type { CSSProperties } from 'preact';
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { moonPhase, moonPlace, orbAlpha, skyOpacities, skyWeights, starAlpha, sunPlace } from '../logic/sky';
+import { setSceneLight } from '../fx/light';
+import { moonPhase, moonPlace, orbAlpha, skyLight, skyOpacities, skyWeights, starAlpha, sunPlace } from '../logic/sky';
 import { now } from '../state/store';
 
 export type SkyMood = 'idle' | 'focus' | 'drop' | 'done';
@@ -199,6 +200,8 @@ export function Sky({ timeOfDay, stars, moving, mood, glow, hour, orbs = true }:
   const o = skyOpacities(w);
   const sa = starAlpha(w);
   const star = useShootingStar(moving && sa > 0.3);
+  // the ghosts pick up the light of this sky; a theme picture has no sun, so its light is neutral
+  useEffect(() => setSceneLight(timeOfDay ? skyLight(h) : null), [timeOfDay, h]);
   const [hidden, setHidden] = useState(false);
   useEffect(() => {
     const f = () => setHidden(document.hidden);

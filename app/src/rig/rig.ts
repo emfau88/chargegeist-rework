@@ -18,6 +18,8 @@ import { RIGS } from '../data/rigs.gen';
 import type { RigConfig, Vec } from '../data/rigTypes';
 import { AuraSim, SvgAura } from '../fx/aura';
 import type { AuraBox } from '../fx/aura';
+import { NEUTRAL_LIGHT, lightOn, sceneLight } from '../fx/light';
+import type { SceneLight } from '../logic/sky';
 import { rgbCss, shimmerMoves, shimmerRgb } from '../fx/shimmer';
 
 export type RigMode = 'idle' | 'focus' | 'sleep';
@@ -70,6 +72,25 @@ export interface RigApi {
 
 const NS = 'http://www.w3.org/2000/svg';
 const RAD = Math.PI / 180;
+/**
+ * The light of the scene on a ghost. It falls past the figure: a fine seam of light outside the
+ * outline on the side of the sun or moon, and a fainter one under the hem from the glow of the
+ * valley. The drawing itself keeps its colours. Sizes are stage units: RIM is how far the seam
+ * reaches out, step by step fainter, RIM_PAD the room the mesh needs for it. SHEER: how much of
+ * the scene shows through the skin at the very hem.
+ */
+const RIM = [2.6, 4.6, 7.2, 10.5];
+const RIM_PAD = 16;
+const SHEER = 0.18;
+/** What the light needs to know about a part. */
+interface Lit {
+  /** The body only: where the hem starts and how long it is (share of the texture height). */
+  hem?: Vec;
+  /** How far the part is turned on the stage, in degrees. */
+  deg: number;
+  /** Stage units per pixel of its texture. */
+  k: number;
+}
 /** Where the ground shadow lies in the 600-unit stage: close under the ghost, so it reads as its own. */
 const SHADOW_Y = 500;
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -292,10 +313,30 @@ in vec2 aPos; in vec2 aUV; uniform vec4 uView; out vec2 vUV;
 void main(){ vUV = aUV; gl_Position = vec4((aPos.x - uView.x) * uView.z - 1.0, 1.0 - (aPos.y - uView.y) * uView.w, 0.0, 1.0); }`;
     const fs = `#version 300 es
 precision mediump float;
-in vec2 vUV; uniform sampler2D uTex; uniform float uAlpha, uLevel, uTime, uGlow, uDim, uBoost; uniform vec3 uFill; out vec4 outColor;
+in vec2 vUV; uniform sampler2D uTex; uniform float uAlpha, uLevel, uTime, uGlow, uDim, uBoost; uniform vec3 uFill;
+// the light of the scene. uLit: x the seam of light (its own pass, before the figure), y the glow under the hem in that pass,
+// z the sheer hem. uPx: one stage unit in texture space
+uniform vec3 uLit; uniform vec2 uLDir, uPx, uHem; uniform vec3 uKey, uUnder, uTint; out vec4 outColor;
+// how solid the figure is a step away; a higher blur reads a coarser level of the texture, for a soft falloff
+float solid(vec2 uv, float blur){
+  vec2 q = step(vec2(0.0), uv) * step(uv, vec2(1.0));
+  return texture(uTex, uv, blur).a * q.x * q.y;
+}
 void main(){
+  if (uLit.x > 0.0) {
+    // the light that falls past the figure: its shape, moved a little towards the light, and a little
+    // down for the glow from below. The figure is drawn over it afterwards, so only the seam shows.
+    vec2 d = uLDir * uPx;
+    vec2 dn = vec2(0.0, uPx.y);
+    float key = 0.36 * solid(vUV - d * ${RIM[0].toFixed(1)}, 0.5) + 0.18 * solid(vUV - d * ${RIM[1].toFixed(1)}, 1.0) + 0.1 * solid(vUV - d * ${RIM[2].toFixed(1)}, 1.5) + 0.06 * solid(vUV - d * ${RIM[3].toFixed(1)}, 1.5);
+    float low = 0.16 * solid(vUV - dn * ${RIM[0].toFixed(1)}, 0.5) + 0.09 * solid(vUV - dn * ${RIM[1].toFixed(1)}, 1.0) + 0.05 * solid(vUV - dn * ${RIM[2].toFixed(1)}, 1.5);
+    vec3 col = min(uLit.x * (uKey * key + uUnder * low * uLit.y), vec3(1.0));
+    outColor = vec4(col, max(col.r, max(col.g, col.b))) * uAlpha;
+    return;
+  }
   vec4 c = texture(uTex, vUV);
   vec3 rgb = c.a > 0.0 ? c.rgb / c.a : vec3(0.0);
+  float a = c.a;
   float skin = smoothstep(0.30, 0.50, dot(rgb, vec3(0.3, 0.55, 0.15)));
   if (uLevel > 0.001) {
     float line = 1.0 - uLevel * 1.03 + sin(vUV.x * 14.0 + uTime * 3.2) * 0.012 + sin(vUV.x * 27.0 - uTime * 2.1) * 0.006;
@@ -308,8 +349,14 @@ void main(){
     rgb = mix(rgb, fc, skin * clamp(body + crest * (0.6 + 0.25 * uBoost), 0.0, 1.0));
   }
   rgb += skin * uGlow * (uFill * 0.17 + 0.03);
+  rgb *= uTint;
+  if (uLit.z > 0.0) {
+    // the skin lets a little of the scene through towards the hem; outlines stay solid
+    float hem = clamp((vUV.y - uHem.x) / uHem.y, 0.0, 1.0);
+    a *= 1.0 - uLit.z * hem * hem * skin;
+  }
   rgb *= 1.0 - uDim * vec3(0.20, 0.14, 0.06);
-  outColor = vec4(rgb * c.a, c.a) * uAlpha;
+  outColor = vec4(rgb * a, a) * uAlpha;
 }`;
     const sh = (type: number, src: string) => {
       const s = g.createShader(type)!;
@@ -324,7 +371,7 @@ void main(){
     g.linkProgram(prog);
     if (!g.getProgramParameter(prog, g.LINK_STATUS)) throw new Error(g.getProgramInfoLog(prog) ?? 'link');
     g.useProgram(prog);
-    for (const n of ['uView', 'uTex', 'uAlpha', 'uLevel', 'uTime', 'uGlow', 'uDim', 'uBoost', 'uFill']) loc[n] = g.getUniformLocation(prog, n);
+    for (const n of ['uView', 'uTex', 'uAlpha', 'uLevel', 'uTime', 'uGlow', 'uDim', 'uBoost', 'uFill', 'uLit', 'uLDir', 'uPx', 'uHem', 'uKey', 'uUnder', 'uTint']) loc[n] = g.getUniformLocation(prog, n);
     g.bindVertexArray(g.createVertexArray());
     const vbo = g.createBuffer();
     g.bindBuffer(g.ARRAY_BUFFER, vbo);
@@ -394,15 +441,27 @@ void main(){
     return t;
   }
 
-  function drawGrid(name: string, nx: number, ny: number, map: (s: number, t: number) => Vec, alpha: number, fx?: { level?: number; glow?: number; boost?: number }) {
+  /** The light of this frame, null when it is off; a ghost on a sheet or a card is not in front of the sky. */
+  const indoors = !!host.closest('.sheet, .unlock-card');
+  let light: SceneLight | null = null;
+  /** How far the body is turned right now (lean and somersault), in degrees. */
+  let bodyDeg = 0;
+  /** halo: draws the light that falls past the part instead of the part itself (0..1). */
+  function drawGrid(name: string, nx: number, ny: number, map: (s: number, t: number) => Vec, alpha: number, fx?: { level?: number; glow?: number; boost?: number; lit?: Lit; halo?: number }) {
     const tx = TEX[name];
     if (!tx || alpha <= 0.003) return;
+    const lit = light ? fx?.lit : undefined;
+    const halo = lit ? (fx?.halo ?? 0) : 0;
+    if (fx?.halo && !(gl && halo)) return;
     if (gl) {
+      // the seam of light reaches past the texture, so its mesh is a little larger
+      const mx = halo && lit ? RIM_PAD / (lit.k * tx.w) : 0,
+        my = halo && lit ? RIM_PAD / (lit.k * tx.h) : 0;
       let o = 0;
       for (let j = 0; j <= ny; j++)
         for (let i = 0; i <= nx; i++) {
-          const s = i / nx,
-            t = j / ny,
+          const s = (i / nx) * (1 + 2 * mx) - mx,
+            t = (j / ny) * (1 + 2 * my) - my,
             p = map(s, t);
           VERTS[o++] = p[0]; VERTS[o++] = p[1]; VERTS[o++] = s; VERTS[o++] = t;
         }
@@ -413,6 +472,15 @@ void main(){
       gl.uniform1f(loc.uLevel, fx?.level ?? 0);
       gl.uniform1f(loc.uGlow, fx?.glow ?? 0);
       gl.uniform1f(loc.uBoost, fx?.boost ?? 0);
+      if (lit && light) {
+        // the light direction in the part's own texture space
+        const d = rot(-lit.deg, light.dir[0], light.dir[1]);
+        const hem = lit.hem;
+        gl.uniform3f(loc.uLit, halo, halo && hem ? 1 : 0, !halo && hem ? SHEER : 0);
+        gl.uniform2f(loc.uLDir, d[0], d[1]);
+        gl.uniform2f(loc.uPx, 1 / (lit.k * tx.w), 1 / (lit.k * tx.h));
+        gl.uniform2f(loc.uHem, hem ? hem[0] : 2, hem ? hem[1] : 1);
+      } else gl.uniform3f(loc.uLit, 0, 0, 0);
       gl.drawElements(gl.TRIANGLES, nx * ny * 6, gl.UNSIGNED_SHORT, 0);
     } else if (ctx2d) {
       const p0 = map(0, 0),
@@ -455,7 +523,7 @@ void main(){
     drawGrid(name, grid, grid, (s, qq) => D(cx + (s - 0.5) * t.w * sx, cy + (qq - 0.5) * t.h * sy), alpha);
   }
   /** A rigid texture fixed at body point P; local() gives the body-space offset of texture point (a, b). */
-  function rigidAt(name: string, P: Vec, local: (a: number, b: number) => Vec, alpha = 1, fx?: { glow?: number }) {
+  function rigidAt(name: string, P: Vec, local: (a: number, b: number) => Vec, alpha = 1, fx?: { glow?: number; lit?: Lit; halo?: number }) {
     const S0 = D(P[0], P[1]),
       X = D(P[0] + 1, P[1]),
       Y = D(P[0], P[1] + 1);
@@ -466,10 +534,12 @@ void main(){
       return [S0[0] + jx[0] * ox + jy[0] * oy, S0[1] + jx[1] * ox + jy[1] * oy];
     }, alpha, fx);
   }
-  function hinged(name: string, at: Vec, anchor: Vec, deg: number, scale: number, alpha = 1, fx?: { glow?: number }) {
+  /** A part on a hinge. halo: draws the light that falls past it instead of the part. */
+  function hinged(name: string, at: Vec, anchor: Vec, deg: number, scale: number, alpha = 1, fx?: { glow?: number; halo?: number }) {
     const t = TEX[name];
     if (!t) return;
-    rigidAt(name, at, (a, b) => rot(deg, (a * t.w - anchor[0]) * scale, (b * t.h - anchor[1]) * scale), alpha, fx);
+    const lit = fx?.halo ? { deg: bodyDeg + deg, k: R.k * scale } : undefined;
+    rigidAt(name, at, (a, b) => rot(deg, (a * t.w - anchor[0]) * scale, (b * t.h - anchor[1]) * scale), alpha, { glow: fx?.glow, lit, halo: fx?.halo });
   }
 
   /* ---------- springs ---------- */
@@ -907,8 +977,9 @@ void main(){
     F.sx = 1 + (1 - sy) * 0.85;
     const sp = (T - saltoAt) / 0.7;
     const salto = sp >= 0 && sp < 1 ? 360 * (sp < 0.5 ? 2 * sp * sp : 1 - (-2 * sp + 2) ** 2 / 2) : 0;
-    F.c = Math.cos((S.lean.x + salto) * RAD);
-    F.s = Math.sin((S.lean.x + salto) * RAD);
+    bodyDeg = S.lean.x + salto;
+    F.c = Math.cos(bodyDeg * RAD);
+    F.s = Math.sin(bodyDeg * RAD);
     F.gx = 300;
     F.gy = 280 + shiftY + floatY + hopY + S.low.x * 20;
     ghostY = F.gy;
@@ -952,14 +1023,32 @@ void main(){
       gl.uniform1f(loc.uTime, T);
       gl.uniform1f(loc.uDim, sleepy);
       gl.uniform3f(loc.uFill, glowRgb[0], glowRgb[1], glowRgb[2]);
+      // the light of the scene, a touch stronger as the chest fills with breath
+      light = lightOn() ? (indoors ? NEUTRAL_LIGHT : sceneLight()) : null;
+      const pulse = reduce ? 1 : 1 + 0.07 * Math.sin(T * 2.3);
+      const lk = light?.key ?? [0, 0, 0],
+        lu = light?.under ?? [0, 0, 0],
+        lt = light?.tint ?? [1, 1, 1];
+      gl.uniform3f(loc.uKey, lk[0] * pulse, lk[1] * pulse, lk[2] * pulse);
+      gl.uniform3f(loc.uUnder, lu[0] * pulse, lu[1] * pulse, lu[2] * pulse);
+      gl.uniform3f(loc.uTint, lt[0], lt[1], lt[2]);
     } else if (ctx2d) {
       ctx2d.setTransform(1, 0, 0, 1, 0, 0);
       ctx2d.clearRect(0, 0, canvas.width, canvas.height);
     }
     const flash = T < flashUntil ? 0.9 : 0;
-    if (R.tuft) hinged('tuft', R.tuft.at, R.tuft.anchor, R.tuft.rest + S.tuft.x, 1, 1, { glow: clamp(lv * 0.9 + flash, 0, 1.2) });
     const body = TEX.body;
-    drawGrid('body', 30, 34, (s, qq) => D(s * body.w, qq * body.h), 1, { level: lv, glow: clamp((S.glow.x - lv * 0.6) * 0.6, 0, 1), boost: focus });
+    const onBody = (s: number, qq: number) => D(s * body.w, qq * body.h);
+    const bodyLit: Lit = { hem: [(R.cy + R.flow[0]) / body.h, R.flow[1] / body.h], deg: bodyDeg, k: R.k };
+    if (light) {
+      // first the light that falls past the figure; every part is drawn over it afterwards
+      if (R.tuft) hinged('tuft', R.tuft.at, R.tuft.anchor, R.tuft.rest + S.tuft.x, 1, 1, { halo: 1 });
+      drawGrid('body', 30, 34, onBody, 1, { lit: bodyLit, halo: 1 });
+      hinged('arm_L', R.armL.at, R.armL.anchor, S.armL.x, R.armL.s, 1, { halo: 1 });
+      hinged('arm_R', R.armR.at, R.armR.anchor, S.armR.x, R.armR.s, 1, { halo: 1 });
+    }
+    if (R.tuft) hinged('tuft', R.tuft.at, R.tuft.anchor, R.tuft.rest + S.tuft.x, 1, 1, { glow: clamp(lv * 0.9 + flash, 0, 1.2) });
+    drawGrid('body', 30, 34, onBody, 1, { level: lv, glow: clamp((S.glow.x - lv * 0.6) * 0.6, 0, 1), boost: focus, lit: bodyLit });
 
     const u = R.u,
       fs = R.fs;

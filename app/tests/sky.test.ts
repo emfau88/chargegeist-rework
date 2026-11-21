@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SKY_PHASES, moonPhase, moonPlace, orbAlpha, skyOpacities, skyWeights, starAlpha, sunPlace } from '../src/logic/sky';
+import { SKY_PHASES, moonPhase, moonPlace, orbAlpha, skyLight, skyOpacities, skyWeights, starAlpha, sunPlace } from '../src/logic/sky';
 import type { SkyWeights } from '../src/logic/sky';
 
 const main = (w: SkyWeights) => SKY_PHASES.reduce((a, b) => (w[b] > w[a] ? b : a));
@@ -88,6 +88,49 @@ describe('sun and moon', () => {
     for (const ms of [0, Date.UTC(1990, 5, 1), Date.UTC(2040, 1, 1)]) {
       expect(moonPhase(ms)).toBeGreaterThanOrEqual(0);
       expect(moonPhase(ms)).toBeLessThan(1);
+    }
+  });
+});
+
+describe('the light the ghosts pick up from the sky', () => {
+  it('comes from the side of the sun: left in the morning, right in the evening', () => {
+    expect(skyLight(8).dir[0]).toBeLessThan(-0.5);
+    expect(skyLight(18).dir[0]).toBeGreaterThan(0.5);
+    expect(Math.abs(skyLight(13).dir[0])).toBeLessThan(0.5);
+  });
+
+  it('always has a direction of length 1 and never comes from below', () => {
+    for (let h = 0; h < 24; h += 0.25) {
+      const [x, y] = skyLight(h).dir;
+      expect(Math.hypot(x, y)).toBeCloseTo(1, 5);
+      expect(y).toBeLessThan(-0.2);
+    }
+  });
+
+  it('is warm in the evening and cool at night', () => {
+    const eve = skyLight(19).key,
+      night = skyLight(1).key;
+    expect(eve[0]).toBeGreaterThan(eve[2]);
+    expect(night[2]).toBeGreaterThan(night[0]);
+  });
+
+  it('only tints a ghost slightly, so it keeps its own colour', () => {
+    for (let h = 0; h < 24; h += 0.5) {
+      const l = skyLight(h);
+      for (const v of l.tint) {
+        expect(v).toBeGreaterThanOrEqual(0.96);
+        expect(v).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it('changes smoothly through the day', () => {
+    for (let h = 0; h < 24; h += 1 / 30) {
+      const a = skyLight(h),
+        b = skyLight(h + 1 / 30);
+      expect(Math.abs(a.key[2] - b.key[2])).toBeLessThan(0.02);
+      // at dawn and dusk the light swings from one to the other, over the top, within about half an hour
+      expect(Math.hypot(a.dir[0] - b.dir[0], a.dir[1] - b.dir[1])).toBeLessThan(0.3);
     }
   });
 });

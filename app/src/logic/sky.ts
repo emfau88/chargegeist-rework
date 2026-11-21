@@ -102,6 +102,57 @@ export function moonPhase(ms: number): number {
   return p < 0 ? p + 1 : p;
 }
 
+type Rgb = [number, number, number];
+
+/** The light a ghost picks up from the scene. Colours are r, g, b from 0 to 1. */
+export interface SceneLight {
+  /** Towards the light on screen: x to the right, y down, length 1. */
+  dir: [number, number];
+  /** The colour of the rim light from the sun or moon. */
+  key: Rgb;
+  /** The colour of the glow that rises from the valley below. */
+  under: Rgb;
+  /** Laid over the whole figure, close to 1. */
+  tint: Rgb;
+}
+
+/** Rim light, glow from below and tint of each phase. The glow follows the colours of the valley. */
+const LIGHT: Record<SkyPhase, { key: Rgb; under: Rgb; tint: Rgb }> = {
+  morning: { key: [1, 0.8, 0.66], under: [1, 0.62, 0.77], tint: [1, 0.99, 0.98] },
+  day: { key: [1, 0.95, 0.8], under: [0.69, 0.83, 1], tint: [1, 1, 1] },
+  evening: { key: [1, 0.62, 0.36], under: [1, 0.59, 0.33], tint: [1, 0.985, 0.965] },
+  night: { key: [0.7, 0.78, 1], under: [0.49, 0.42, 0.94], tint: [0.975, 0.98, 1] },
+};
+
+/** Where a ghost floats, as a share of the sky, and the shape of a phone screen: the light comes from where the sun or moon stands as seen from there. */
+const GHOST_AT = [0.5, 0.34];
+const SCREEN = [390, 844];
+
+/** The light of the default sky at an hour. It always falls from above the horizontal, also when the sun is low. */
+export function skyLight(hour: number): SceneLight {
+  const w = skyWeights(hour);
+  const mix = (k: 'key' | 'under' | 'tint'): Rgb => [0, 1, 2].map((i) => SKY_PHASES.reduce((a, p) => a + w[p] * LIGHT[p][k][i], 0)) as Rgb;
+  const sun = sunPlace(hour);
+  const moon = moonPlace(hour);
+  const ws = sun ? orbAlpha(sun.alt) : 0;
+  const wm = moon ? orbAlpha(moon.alt) * (1 - ws) : 0;
+  let x = 0,
+    y = 0;
+  for (const [orb, wt] of [
+    [sun, ws],
+    [moon, wm],
+  ] as const) {
+    if (!orb || wt <= 0) continue;
+    const dx = (orb.x - GHOST_AT[0]) * SCREEN[0],
+      dy = Math.min((orb.y - GHOST_AT[1]) * SCREEN[1], -0.35 * Math.abs((orb.x - GHOST_AT[0]) * SCREEN[0]));
+    const len = Math.hypot(dx, dy) || 1;
+    x += (wt * dx) / len;
+    y += (wt * dy) / len;
+  }
+  const len = Math.hypot(x, y);
+  return { dir: len > 1e-6 ? [x / len, y / len] : [0, -1], key: mix('key'), under: mix('under'), tint: mix('tint') };
+}
+
 /** How visible the stars are: all at night, some in the morning and evening, few by day. */
 export function starAlpha(w: SkyWeights): number {
   return Math.min(1, w.night + 0.55 * w.evening + 0.45 * w.morning + 0.18 * w.day);
