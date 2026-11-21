@@ -52,15 +52,46 @@ RIGS = {
 #   fs, ms    scale of eyes and mouth on the body, measured against the painted face
 #   arm_l, arm_r, arm_s   shoulder points and arm scale; left out where the figure holds its arms up
 #             already or the kit has none
+#   limbs     parts that are painted into the figure and bend at a joint instead of being loose pictures:
+#             L and R stand for the arms (cactus arms, wings, fins, ears), top for what a tuft would be.
+#             at: the joint. shape: the outline of the part, what lies inside turns with it. ramp: how far
+#             from the joint the turn begins and where it is complete. gain: degrees of turn per degree of
+#             the arm (or tuft) it stands for; negative turns it the other way. max: the most it turns
+#             either way. lift: a smaller limit for turning upwards, where a part would run into what is
+#             painted above it. All in figure pixels.
 # The blush is painted on the figure and is not drawn again.
+def limb(at, shape, ramp, gain=0.3, most=24, lift=None):
+    return dict(at=at, shape=shape, ramp=ramp, gain=gain, max=most, **({} if lift is None else dict(lift=lift)))
+
+
+# An outline is drawn with room to spare where the part borders on nothing (there it may lie outside the
+# picture), and close where it borders on the rest of the figure.
 NEW = {
-    "phoenix": dict(up=1.6, height=395, cx=218, eye_y=190, eye_dx=37.5, mouth=(221, 209), fs=1.0, ms=0.83),
-    "moondeer": dict(up=1.6, height=395, cx=192.5, eye_y=191, eye_dx=33.5, mouth=(199, 210), fs=0.92, ms=0.76),
+    # The wings flap. They beat downwards where an arm would rise: above them the flames of the hair lie
+    # close, and a wing turned up into them tears the picture.
+    "phoenix": dict(up=1.6, height=395, cx=218, eye_y=190, eye_dx=37.5, mouth=(221, 209), fs=1.0, ms=0.83, limbs=dict(
+        # the lower edge of each outline keeps close to the wing: right below it the flames of the tail begin
+        L=limb((142, 268), [(138, 206), (70, 192), (-20, 205), (-25, 282), (16, 310), (70, 326), (138, 324)], (15, 70), -0.2, 17, 8),
+        R=limb((264, 284), [(266, 240), (300, 224), (360, 228), (370, 296), (338, 330), (300, 332), (266, 326)], (18, 55), -0.2, 17, 8))),
+    # no arms and no wings: the ears move
+    "moondeer": dict(up=1.6, height=395, cx=192.5, eye_y=191, eye_dx=33.5, mouth=(199, 210), fs=0.92, ms=0.76, limbs=dict(
+        L=limb((112, 205), [(120, 176), (70, 166), (48, 188), (-10, 196), (-10, 240), (60, 250), (112, 238), (124, 210)], (8, 45), 0.35),
+        R=limb((252, 203), [(248, 180), (275, 170), (298, 186), (345, 192), (345, 232), (270, 240), (246, 224)], (6, 34), 0.35))),
     "cloud": dict(up=1.3, height=385, cx=260.5, eye_y=254, eye_dx=55.5, mouth=(266, 285), fs=1.08, ms=0.83,
                   arm_l=(58, 415), arm_r=(392, 415), arm_s=1.0),
-    "cactus": dict(up=1.3, height=385, cx=254, eye_y=260, eye_dx=54, mouth=(260, 290), fs=1.1, ms=0.79),
-    "dragon": dict(up=1.0, height=385, cx=228.5, eye_y=197, eye_dx=65, mouth=(218.5, 236), fs=0.58, ms=0.58),
-    "jellyfish": dict(up=1.0, height=385, cx=266.5, eye_y=323, eye_dx=78.5, mouth=(267, 364), fs=0.74, ms=0.70),
+    # the cactus arms it holds up
+    "cactus": dict(up=1.3, height=385, cx=254, eye_y=260, eye_dx=54, mouth=(260, 290), fs=1.1, ms=0.79, limbs=dict(
+        L=limb((118, 330), [(100, 252), (55, 232), (5, 238), (-20, 325), (5, 402), (75, 404), (118, 376), (122, 350), (142, 332), (142, 302), (114, 296), (108, 272)], (16, 62)),
+        R=limb((372, 318), [(374, 262), (392, 238), (442, 230), (478, 280), (480, 328), (458, 372), (405, 386), (374, 362), (364, 332), (368, 290)], (12, 50)))),
+    # the wings flap; the paws lie in front of the cape and stay
+    "dragon": dict(up=1.0, height=385, cx=228.5, eye_y=197, eye_dx=65, mouth=(218.5, 236), fs=0.58, ms=0.58, limbs=dict(
+        L=limb((118, 292), [(128, 232), (85, 210), (-15, 285), (-15, 350), (60, 380), (102, 356), (118, 330), (122, 300)], (12, 60)),
+        R=limb((392, 312), [(402, 262), (425, 236), (480, 245), (548, 325), (545, 375), (445, 410), (388, 376), (378, 340), (382, 300)], (12, 62)))),
+    # the fins wave, and the lantern sways on its stalk as a tuft does
+    "jellyfish": dict(up=1.0, height=385, cx=266.5, eye_y=323, eye_dx=78.5, mouth=(267, 364), fs=0.74, ms=0.70, limbs=dict(
+        L=limb((120, 318), [(124, 250), (60, 236), (-15, 258), (-10, 335), (36, 372), (62, 385), (122, 376)], (10, 55), 0.35),
+        R=limb((406, 322), [(402, 250), (470, 236), (548, 258), (540, 335), (492, 382), (460, 393), (402, 382)], (10, 55), 0.35),
+        top=limb((266, 148), [(228, 152), (220, 110), (255, 20), (340, -15), (450, -10), (575, 70), (575, 215), (475, 250), (410, 202), (395, 165), (330, 132), (300, 152)], (12, 80), 0.6, 14))),
 }
 
 

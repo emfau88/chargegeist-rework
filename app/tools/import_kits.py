@@ -174,6 +174,14 @@ for gid, R in NEW.items():
         top=y0,
         baked=["blush"] if arms else ["arms", "blush"],
     )
+    if "limbs" in R:
+        # parts of the figure that bend at a joint: their points go from figure pixels to pixels of the body picture
+        rig["limbs"] = {
+            key: dict(at=[round(l["at"][0] * f, 1), round(l["at"][1] * f, 1)], shape=[round(v * f, 1) for p in l["shape"] for v in p],
+                      ramp=[round(l["ramp"][0] * f, 1), round(l["ramp"][1] * f, 1)], gain=l["gain"], max=l["max"],
+                      **({"lift": l["lift"]} if "lift" in l else {}))
+            for key, l in R["limbs"].items()
+        }
     rigs[gid] = rig
 
 NL = chr(10)

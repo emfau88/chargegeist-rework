@@ -19,7 +19,7 @@ import { GLINT_FOLLOW, eyePose, lids, pupilShift } from './gaze';
 import { GestureTracker } from './gestures';
 import type { Gesture } from './gestures';
 import { RIGS } from '../data/rigs.gen';
-import type { RigConfig, Vec } from '../data/rigTypes';
+import type { Limb, RigConfig, Vec } from '../data/rigTypes';
 import { AuraSim, SvgAura } from '../fx/aura';
 import type { AuraBox } from '../fx/aura';
 import { NEUTRAL_LIGHT, lightOn, sceneLight } from '../fx/light';
@@ -108,6 +108,29 @@ const smooth = (a: number, b: number, v: number) => {
   const x = clamp((v - a) / (b - a), 0, 1);
   return x * x * (3 - 2 * x);
 };
+/** Whether a point lies inside an outline given as x and y of each corner in turn. */
+function inShape(shape: number[], x: number, y: number): boolean {
+  let inside = false;
+  for (let a = 0, b = shape.length - 2; a < shape.length; b = a, a += 2) {
+    const ax = shape[a],
+      ay = shape[a + 1],
+      bx = shape[b],
+      by = shape[b + 1];
+    if (ay > y !== by > y && x < ((bx - ax) * (y - ay)) / (by - ay) + ax) inside = !inside;
+  }
+  return inside;
+}
+/** How far a point is from an outline (from its nearest edge). */
+function toShape(shape: number[], x: number, y: number): number {
+  let best = Infinity;
+  for (let a = 0, b = shape.length - 2; a < shape.length; b = a, a += 2) {
+    const ex = shape[a] - shape[b],
+      ey = shape[a + 1] - shape[b + 1];
+    const t = Math.max(0, Math.min(1, ((x - shape[b]) * ex + (y - shape[b + 1]) * ey) / (ex * ex + ey * ey || 1)));
+    best = Math.min(best, Math.hypot(x - shape[b] - t * ex, y - shape[b + 1] - t * ey));
+  }
+  return best;
+}
 const rot = (deg: number, x: number, y: number): Vec => {
   const c = Math.cos(deg * RAD),
     s = Math.sin(deg * RAD);
@@ -318,7 +341,7 @@ export function createRig(host: HTMLElement, look: Look, opts: RigOptions = {}):
   const loc: Record<string, WebGLUniformLocation | null> = {};
   const ibos = new Map<string, WebGLBuffer>();
   let TEX: Record<string, Tex> = {};
-  const VERTS = new Float32Array(4 * 41 * 41);
+  const VERTS = new Float32Array(4 * 61 * 69);
 
   function initGL() {
     const g = canvas.getContext('webgl2', { premultipliedAlpha: true, antialias: true, alpha: true });
@@ -460,6 +483,31 @@ void main(){
   let bodyDeg = 0;
   /** A twirl shows him from behind for a moment: the body is mirrored and the face (everything skin() draws) is gone. */
   let faceK = 1;
+  /** The mesh of the body: finer where parts of the picture bend at a joint, so a small part still has enough points. */
+  const bodyGrid = (): [number, number] => (R.limbs ? [60, 68] : [30, 34]);
+  /** For each bending part, how much of its turn every point of the body mesh takes (0: none, 1: all). */
+  let limbW: { L?: Float32Array; R?: Float32Array; top?: Float32Array } = {};
+  function prepareLimbs() {
+    limbW = {};
+    const body = TEX.body;
+    if (!R.limbs || !body) return;
+    const [gx, gy] = bodyGrid();
+    const soft = (body.w / gx) * 2.5;
+    for (const key of ['L', 'R', 'top'] as const) {
+      const l = R.limbs[key];
+      if (!l) continue;
+      const w = new Float32Array((gx + 1) * (gy + 1));
+      for (let j = 0; j <= gy; j++)
+        for (let i = 0; i <= gx; i++) {
+          const x = (i / gx) * body.w,
+            y = (j / gy) * body.h;
+          // all of the turn inside the outline; just outside it fades, so what borders on the part gives a little instead of tearing
+          const edge = inShape(l.shape, x, y) ? 1 : 1 - smooth(0, soft, toShape(l.shape, x, y));
+          if (edge > 0) w[j * (gx + 1) + i] = edge * smooth(l.ramp[0], l.ramp[1], Math.hypot(x - l.at[0], y - l.at[1]));
+        }
+      limbW[key] = w;
+    }
+  }
   /** hem: for the body, where its hem starts and how long it is (share of the texture height); it is a little sheer. lid: the lids over a layer of an eye. */
   function drawGrid(name: string, nx: number, ny: number, map: (s: number, t: number) => Vec, alpha: number, fx?: { level?: number; glow?: number; boost?: number; hem?: Vec; lid?: Lid }) {
     const tx = TEX[name];
@@ -1148,10 +1196,36 @@ void main(){
     }
     const flash = T < flashUntil ? 0.9 : 0;
     const body = TEX.body;
-    const onBody = (s: number, qq: number) => D(s * body.w, qq * body.h);
+    const [gx, gy] = bodyGrid();
+    // parts of the picture that bend: how far each one is turned right now
+    const bent: [Float32Array, Limb, number][] = [];
+    // at rest an arm on a hinge sways by a few degrees; a bending part takes only a share of that, so it gets a sway of its own
+    const sway = reduce || mode !== 'idle' ? 0 : 2.2 * (1 - sleepy);
+    for (const [key, deg, own] of [['L', S.armL.x, Math.sin(T * 1.7) * sway], ['R', S.armR.x, -Math.sin(T * 1.7 + 0.9) * sway], ['top', S.tuft.x, 0]] as const) {
+      const l = R.limbs?.[key],
+        w = limbW[key];
+      if (!l || !w) continue;
+      // a positive turn raises the left part and lowers the right one
+      const up = l.lift ?? l.max;
+      bent.push([w, l, key === 'R' ? clamp(deg * l.gain + own, -up, l.max) : clamp(deg * l.gain + own, -l.max, key === 'L' ? up : l.max)]);
+    }
+    const onBody = (s: number, qq: number) => {
+      let x = s * body.w,
+        y = qq * body.h;
+      if (bent.length) {
+        const i = Math.round(qq * gy) * (gx + 1) + Math.round(s * gx);
+        for (const [w, l, deg] of bent) {
+          if (w[i] <= 0) continue;
+          const p = rot(deg * w[i], x - l.at[0], y - l.at[1]);
+          x = l.at[0] + p[0];
+          y = l.at[1] + p[1];
+        }
+      }
+      return D(x, y);
+    };
     const hem: Vec = [(R.cy + R.flow[0]) / body.h, R.flow[1] / body.h];
     if (R.tuft) hinged('tuft', R.tuft.at, R.tuft.anchor, R.tuft.rest + S.tuft.x, 1, 1, { glow: clamp(lv * 0.9 + flash, 0, 1.2) });
-    drawGrid('body', 30, 34, onBody, 1, { level: lv, glow: clamp((S.glow.x - lv * 0.6) * 0.6, 0, 1), boost: focus, hem });
+    drawGrid('body', gx, gy, onBody, 1, { level: lv, glow: clamp((S.glow.x - lv * 0.6) * 0.6, 0, 1), boost: focus, hem });
 
     const u = R.u,
       fs = R.fs;
@@ -1317,6 +1391,7 @@ void main(){
       for (const [k, im] of Object.entries(imgs)) next[k] = makeTex(im);
       TEX = next;
       R = RIGS[l.ghost];
+      prepareLimbs();
     }
     shimmer = l.style?.shimmer;
     glowRgb = shimmerRgb(shimmer, ghost(l.ghost).glow, T);

@@ -43,6 +43,31 @@ describe('ghost parts', () => {
     expect(partNames('phoenix')).not.toContain('arm_L');
   });
 
+  it('a figure ghost whose arms are painted on has parts that bend instead', () => {
+    for (const id of FIGURES) {
+      const r = RIGS[id];
+      // every ghost can wave: with arms on a hinge, or with a part of its picture that bends at a joint
+      expect(!r.baked?.includes('arms') || (!!r.limbs?.L && !!r.limbs?.R), id).toBe(true);
+      for (const [key, l] of Object.entries(r.limbs ?? {})) {
+        const where = `${id}/${key}`;
+        expect(l.shape.length % 2, where).toBe(0);
+        expect(l.shape.length, where).toBeGreaterThanOrEqual(6);
+        // the turn fades in from the joint outwards, and stays small: the picture is bent, not cut
+        expect(l.ramp[0], where).toBeGreaterThanOrEqual(0);
+        expect(l.ramp[1], where).toBeGreaterThan(l.ramp[0]);
+        expect(Math.abs(l.gain), where).toBeGreaterThan(0);
+        expect(Math.abs(l.gain), where).toBeLessThanOrEqual(0.6);
+        expect(l.max, where).toBeGreaterThan(0);
+        expect(l.max, where).toBeLessThanOrEqual(26);
+        expect(l.lift ?? l.max, where).toBeLessThanOrEqual(l.max);
+        // the joint lies at the edge of the part: some of the outline is near it, some of it far out
+        const d = [];
+        for (let i = 0; i < l.shape.length; i += 2) d.push(Math.hypot(l.shape[i] - l.at[0], l.shape[i + 1] - l.at[1]));
+        expect(Math.max(...d), where).toBeGreaterThan(l.ramp[1]);
+      }
+    }
+  });
+
   it('the first generation still draws arms and blush', () => {
     for (const g of GHOSTS.filter((x) => !FIGURES.includes(x.id))) {
       expect(RIGS[g.id].baked, g.id).toBeUndefined();
