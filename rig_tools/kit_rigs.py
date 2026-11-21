@@ -44,6 +44,26 @@ RIGS = {
 }
 
 
+# Second-generation ghosts (rig_input/neu). Their body is the finished figure of the sheet, so the
+# landmarks are where the artist painted the face. In native pixels of rig_parts/kits/<id>/body.png.
+#   up        how much the parts are enlarged for the app
+#   height    how tall the figure stands on the stage, in stage units (the first generation: about 345)
+#   mouth     (x, y) of the smile; these figures look a little to the side, so it is off the centre line
+#   fs, ms    scale of eyes and mouth on the body, measured against the painted face
+#   arm_l, arm_r, arm_s   shoulder points and arm scale; left out where the figure holds its arms up
+#             already or the kit has none
+# The blush is painted on the figure and is not drawn again.
+NEW = {
+    "phoenix": dict(up=1.6, height=395, cx=218, eye_y=190, eye_dx=37.5, mouth=(221, 209), fs=1.0, ms=0.83),
+    "moondeer": dict(up=1.6, height=395, cx=192.5, eye_y=191, eye_dx=33.5, mouth=(199, 210), fs=0.92, ms=0.76),
+    "cloud": dict(up=1.3, height=385, cx=260.5, eye_y=254, eye_dx=55.5, mouth=(266, 285), fs=1.08, ms=0.83,
+                  arm_l=(58, 415), arm_r=(392, 415), arm_s=1.0),
+    "cactus": dict(up=1.3, height=385, cx=254, eye_y=260, eye_dx=54, mouth=(260, 290), fs=1.1, ms=0.79),
+    "dragon": dict(up=1.0, height=385, cx=228.5, eye_y=197, eye_dx=65, mouth=(218.5, 236), fs=0.58, ms=0.58),
+    "jellyfish": dict(up=1.0, height=385, cx=266.5, eye_y=323, eye_dx=78.5, mouth=(267, 364), fs=0.74, ms=0.70),
+}
+
+
 # Wardrobe items worn by the plain ghosts. Placement on the plain body (native px):
 #   slot, anchor (fraction of the item image), at (body point), scale, rotation (deg)
 # Slots, back to front: halo, back, tail | body | neck | face | brow, eyes, mouth | head | hand | arms

@@ -21,3 +21,8 @@ shots/
 .idea/
 .DS_Store
 Thumbs.db
+
+# working files of the part cutter (rebuilt from rig_input by rig_tools/extract_new.py and build_new.py)
+rig_parts/kits/*/_raw/
+rig_parts/kits/*/_raw_contact.png
+rig_parts/kits/*/_face_out.png

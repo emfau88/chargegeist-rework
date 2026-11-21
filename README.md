@@ -26,7 +26,7 @@ Der Spielstand liegt nur im Browser (localStorage).
 
 - **Fokus-Timer:** 5 bis 180 Minuten, Pause, Tags, ruhige Hintergrundgeräusche, Pausenvorschlag danach. Das Ergebnis baut sich nach der Sitzung Zeile für Zeile auf, ein erreichtes Tagesziel bekommt eine eigene Zeile, und ein Tipp überspringt den Ablauf.
 - **6 Begleiter:** Volti, Ember oder Luna begleiten dich von Anfang an. Die anderen fünf kommen nach 3, 8, 15, 25 und 40 Fokusstunden dazu.
-- **10 Kostümgeister**, zum Beispiel Kürbis-Pip, Ronin, Hazel und Kitsu. Sie kommen komplett mit Kostüm, sobald sie genug Geisterfunken haben (2 bis 5, je nach Seltenheit). Du wählst selbst, welchen Geist du gerade auflädst.
+- **16 Kostümgeister**, zum Beispiel Kürbis-Pip, Ronin, Hazel und Kitsu, dazu Gewitterwolke Nimbus, Kaktus Piks, Drache Jade, Laternenqualle Nori, Phönix Fenix und Mondhirsch Elara. Sie kommen komplett mit Kostüm, sobald sie genug Geisterfunken haben (3 oder 5, je nach Seltenheit). Du wählst selbst, welchen Geist du gerade auflädst.
 - **Stil statt Verkleidung:** 10 Auren (Partikel um den Geist), 9 Schimmer (die Farbe von Leuchten, Ladung und Funken) und 10 Talismane (ein kleiner Glücksbringer, der neben dem Geist schwebt). Jeder Geist trägt pro Art einen Stil, und die Form der Geister bleibt immer unverändert.
 - **Tagesdrop:** 3 Stilkarten aufdecken, 1 behalten, dazu ein Geisterfunke. Rahmen und Fußband jeder Karte zeigen ihre Seltenheit, und bei einer epischen oder mythischen Karte dunkelt der Bildschirm ab. Auf hohen Bildschirmen steht die gewählte Karte danach groß über den beiden anderen. Die Chancen stehen offen in der App, und nach spätestens 10 Drops kommt etwas Episches oder Besseres. Doppelte Stile und Funken für schon volle Geister werden zu Wunschenergie.
 - **Wunsch:** Jede Fokusminute bringt Wunschenergie. Damit holst du dir gezielt einen Stil.
@@ -63,13 +63,19 @@ Jeder Push auf `main` baut die App und veröffentlicht sie über GitHub Actions 
 | `app/src/logic/` | Drops, Fortschritt, Boss, Erfolge, Bindung, Tageszeit des Himmels |
 | `app/tools/` | Import der Bausätze und Talismane, Trennen der Augen in Ebenen, App-Icon, Screenshot-Skripte |
 | `docs/` | Bilder für dieses README |
-| `rig_input/` | Die Bausatz-Bögen als Vorlage |
+| `rig_input/` | Die Bausatz-Bögen als Vorlage, die zweite Generation in `rig_input/neu/` |
 | `rig_parts/` | Die daraus geschnittenen Einzelteile |
 | `rig_tools/` | Python-Werkzeuge zum Schneiden und Prüfen der Teile |
+
+Es gibt zwei Generationen von Bausätzen. Die erste zeigt den Körper mit Kostüm, aber ohne Gesicht; Arme, Augen, Münder und Wangen liegen einzeln daneben. Die zweite (Wolke, Kaktus, Drache, Qualle, Phönix, Mondhirsch) zeigt die fertige Figur mit gemaltem Gesicht. Bei ihr ist die fertige Figur der Körper: `build_new.py` rechnet Augen und Mund wieder heraus, die Wangen und schon erhobene Arme bleiben im Bild. So sehen diese Geister genau aus wie auf ihrem Bogen. Der Preis dafür: Bisher bewegen sich nur bei Nimbus die Arme einzeln. Bei Kaktus und Drache gehören sie zum Körperbild, bei der Qualle ebenso Laterne und Flossen, und Phönix und Mondhirsch haben keine.
 
 Neue Bausätze übernehmen (aus dem Ordner `chargegeist_rework`):
 
 ```bash
+# nur für Bögen der zweiten Generation: Teile schneiden, dann die Körper bauen
+python -I rig_tools/extract_new.py rig_input/neu rig_parts/kits
+python -I rig_tools/build_new.py rig_parts/kits
+# alle Bausätze in die App bringen (Maße stehen in rig_tools/kit_rigs.py)
 python -I app/tools/import_kits.py rig_parts/kits rig_tools rig_parts app
 # danach die Augen in Ebenen trennen (Hintergrund, Iris, Rand, Glanz)
 python -I app/tools/split_eyes.py app all

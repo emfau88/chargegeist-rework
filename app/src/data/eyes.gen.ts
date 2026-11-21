@@ -11,12 +11,18 @@ export interface EyeKit {
 
 export const EYES: Record<string, EyeKit> = {
   "aviator": {"shift": 6.5, "rim": 9, "ink": [0.006, 0.012, 0.014]},
+  "cactus": {"shift": 3.5, "rim": 6, "ink": [0.01, 0.025, 0.08]},
+  "cloud": {"shift": 4.5, "rim": 7, "ink": [0.008, 0.031, 0.118]},
+  "dragon": {"shift": 7.5, "rim": 10, "ink": [0.006, 0.057, 0.125]},
   "ember": {"shift": 8.5, "rim": 11, "ink": [0.014, 0.02, 0.176]},
   "forest": {"shift": 6.5, "rim": 9, "ink": [0.006, 0.016, 0.002]},
+  "jellyfish": {"shift": 5.5, "rim": 8, "ink": [0.0, 0.008, 0.135]},
   "kitsune": {"shift": 6.5, "rim": 9, "ink": [0.02, 0.008, 0.008]},
   "luna": {"shift": 9.5, "rim": 12, "ink": [0.014, 0.02, 0.2]},
   "mochi": {"shift": 8.5, "rim": 11, "ink": [0.02, 0.018, 0.173]},
+  "moondeer": {"shift": 2.5, "rim": 5, "ink": [0.004, 0.008, 0.149]},
   "owl": {"shift": 6.5, "rim": 9, "ink": [0.014, 0.008, 0.022]},
+  "phoenix": {"shift": 3.5, "rim": 6, "ink": [0.025, 0.01, 0.024]},
   "pirate": {"shift": 6.5, "rim": 9, "ink": [0.02, 0.008, 0.002]},
   "pumpkin": {"shift": 7.5, "rim": 10, "ink": [0.016, 0.008, 0.043]},
   "reaper": {"shift": 6.5, "rim": 9, "ink": [0.014, 0.004, 0.024]},

@@ -1,7 +1,7 @@
 /**
  * Everything you can collect.
  *  - 6 companions: they charge while you focus and join with focus hours.
- *  - 10 costume ghosts: every drop brings a ghost spark; enough sparks (or a calmed weekly boss) bring one.
+ *  - 16 costume ghosts: every drop brings a ghost spark; enough sparks (or a calmed weekly boss) bring one.
  *    Ghosts always look exactly like their kit.
  *  - Style (auras, shimmers, charms): it comes from drops and wishes and never changes a ghost's shape.
  */
@@ -71,6 +71,12 @@ export const GHOSTS: GhostDef[] = [
   K('reaper', 'Grim', 'Grimmi', 'mythic', '#c48bff', 'I only reap distractions.', 'Ich ernte nur Ablenkungen.'),
   K('starmage', 'Stella', 'Stella', 'mythic', '#ffd85b', 'Small steps, big constellations.', 'Kleine Schritte, große Sternbilder.'),
   K('forest', 'Moss', 'Moos', 'mythic', '#7dffa8', 'Grow slowly. Grow anyway.', 'Langsam wachsen. Aber wachsen.'),
+  K('cloud', 'Nimbus', 'Nimbus', 'epic', '#8fa8ff', 'Brainstorm first, lightning after.', 'Erst der Gedankensturm, dann der Geistesblitz.'),
+  K('cactus', 'Prickles', 'Piks', 'epic', '#b4e66a', 'Stay sharp. Drink water.', 'Bleib spitze. Trink Wasser.'),
+  K('dragon', 'Jade', 'Jade', 'epic', '#5fe0c0', 'I hoard finished tasks.', 'Ich horte erledigte Aufgaben.'),
+  K('jellyfish', 'Nori', 'Nori', 'epic', '#4fc3ff', 'Deep work? I live down here.', 'Deep Work? Ich wohne hier unten.'),
+  K('phoenix', 'Fenix', 'Fenix', 'mythic', '#ff8a3c', 'Burnt out? Rise again tomorrow.', 'Ausgebrannt? Morgen steigst du neu auf.'),
+  K('moondeer', 'Elara', 'Elara', 'mythic', '#a9b8ff', 'Even the moon takes it one phase at a time.', 'Auch der Mond nimmt eine Phase nach der anderen.'),
 ];
 
 export const COMPANIONS = GHOSTS.filter((g) => g.kind === 'companion');

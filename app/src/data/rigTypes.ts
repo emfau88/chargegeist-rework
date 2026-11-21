@@ -45,4 +45,9 @@ export interface RigConfig {
   /** u0, u1, v0, v1 of the curl that wiggles. */
   tail: [number, number, number, number];
   top: number;
+  /**
+   * Parts that are painted on the body already and so are not drawn again (ghosts whose body is the
+   * finished figure of their sheet). Without arms to draw, armL and armR still say where they would hang.
+   */
+  baked?: ('arms' | 'blush')[];
 }

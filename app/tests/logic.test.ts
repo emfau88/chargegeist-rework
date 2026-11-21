@@ -8,10 +8,11 @@ import type { SessionRec } from '../src/logic/progress';
 import { addDays, dayKey, fmtClock, fmtMinutes, weekDays, weekKey } from '../src/logic/time';
 
 describe('catalog', () => {
-  it('has 6 companions and 10 costume ghosts, each with a rig', () => {
+  it('has 6 companions and 16 costume ghosts, each with a rig', () => {
     expect(COMPANIONS).toHaveLength(6);
-    expect(COSTUME_GHOSTS).toHaveLength(10);
-    expect(GHOSTS).toHaveLength(16);
+    expect(COSTUME_GHOSTS).toHaveLength(16);
+    expect(GHOSTS).toHaveLength(22);
+    expect(new Set(GHOSTS.map((g) => g.id)).size).toBe(22);
     expect(COMPANIONS.filter((c) => c.starter).map((c) => c.id)).toEqual(['volti', 'ember', 'luna']);
     for (const g of GHOSTS) expect(RIGS[g.id]).toBeTruthy();
   });

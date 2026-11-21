@@ -165,7 +165,9 @@ const FACE_PARTS = [
 /** The layers of an open eye, from back to front (see tools/split_eyes.py). Only the live rig draws them; a still portrait takes the flat eye. */
 const EYE_LAYERS = ['back', 'iris', 'ring', 'glint'];
 export function partNames(id: string, live = false): string[] {
-  const parts = RIGS[id].tuft ? [...FACE_PARTS, 'tuft'] : FACE_PARTS;
+  const baked = RIGS[id].baked ?? [];
+  const own = FACE_PARTS.filter((p) => !(baked.includes('arms') && p.startsWith('arm_')) && !(baked.includes('blush') && p.startsWith('blush_')));
+  const parts = RIGS[id].tuft ? [...own, 'tuft'] : own;
   if (!live || !EYES[id]) return parts;
   return [...parts, ...['L', 'R'].filter((side) => RIGS[id].eyes.includes(side)).flatMap((side) => EYE_LAYERS.map((n) => `eye_${n}_${side}`))];
 }
@@ -952,7 +954,8 @@ void main(){
       startAct(queued);
       queued = null;
     } else if (T >= nextAct && mayAct({ mode, busy, off: reduce || opts.idleActs === false })) {
-      const name = pickAct({ sky: !indoors && lightOn(), charm: charmOn, tired: !!opts.tired }, lastAct, Math.random());
+      // without an arm to draw there is no hand to nudge the charm with
+      const name = pickAct({ sky: !indoors && lightOn(), charm: charmOn && !R.baked?.includes('arms'), tired: !!opts.tired }, lastAct, Math.random());
       if (name) startAct(name);
       nextAct = T + actGap(Math.random());
     } else if (eagerActs() && nextAct - T > 6) {
