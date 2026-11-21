@@ -13,6 +13,8 @@
 import { charmImg, ghost, partUrl } from '../data/catalog';
 import { CHARMS } from '../data/charms.gen';
 import { EYES } from '../data/eyes.gen';
+import { ACT_SECONDS, CHARM_PUSH_AT, IDLE_ACTS, PROUD_SPARKLE_AT, actPose, mayAct, onPlayAct, pickAct } from './acts';
+import type { ActName } from './acts';
 import { GLINT_FOLLOW, eyePose, lids, pupilShift } from './gaze';
 import { GestureTracker } from './gestures';
 import type { Gesture } from './gestures';
@@ -54,6 +56,10 @@ export interface RigOptions {
   onWake?: () => void;
   /** He hugs you (bond stage Friend and up, after a long stroke). */
   onHug?: () => void;
+  /** His little acts at rest (see acts.ts). Off on the focus and break screens, where he stays calm. */
+  idleActs?: boolean;
+  /** It is late: now and then he yawns. */
+  tired?: boolean;
 }
 
 export interface RigApi {
@@ -68,6 +74,8 @@ export interface RigApi {
   greet(): void;
   /** Looks at a point of the screen for a moment (client coordinates), unless something holds his eyes already. */
   glance(clientX: number, clientY: number, seconds?: number): void;
+  /** A reaction (a nod, pride): it starts as soon as he is free. */
+  act(name: ActName): void;
   /** The bond stage with this ghost (0..4): 2 hugs after a long stroke, 3 turns holding into a high five. */
   setBond(level: number): void;
   destroy(): void;
@@ -475,6 +483,9 @@ void main(){
   let light: SceneLight | null = null;
   /** How far the body is turned right now (lean and somersault), in degrees. */
   let bodyDeg = 0;
+  /** A twirl shows him from behind for a moment: the body is mirrored and the face (everything skin() draws) is gone. */
+  let mirror = false,
+    faceK = 1;
   /** halo: draws the light that falls past the part instead of the part itself (0..1). lid: the lids over a layer of an eye. */
   function drawGrid(name: string, nx: number, ny: number, map: (s: number, t: number) => Vec, alpha: number, fx?: { level?: number; glow?: number; boost?: number; lit?: Lit; halo?: number; lid?: Lid }) {
     const tx = TEX[name];
@@ -503,7 +514,7 @@ void main(){
       gl.uniform1f(loc.uBoost, fx?.boost ?? 0);
       if (lit && light) {
         // the light direction in the part's own texture space
-        const d = rot(-lit.deg, light.dir[0], light.dir[1]);
+        const d = rot(-lit.deg, mirror ? -light.dir[0] : light.dir[0], light.dir[1]);
         const hem = lit.hem;
         gl.uniform3f(loc.uLit, halo, halo && hem ? 1 : 0, !halo && hem ? SHEER : 0);
         gl.uniform2f(loc.uLDir, d[0], d[1]);
@@ -554,7 +565,7 @@ void main(){
   function skin(name: string, cx: number, cy: number, sx: number, sy: number, alpha: number, grid = 4, lid?: Lid) {
     const t = TEX[name];
     if (!t) return;
-    drawGrid(name, grid, grid, (s, qq) => D(cx + (s - 0.5) * t.w * sx, cy + (qq - 0.5) * t.h * sy), alpha, lid && { lid });
+    drawGrid(name, grid, grid, (s, qq) => D(cx + (s - 0.5) * t.w * sx, cy + (qq - 0.5) * t.h * sy), alpha * faceK, lid && { lid });
   }
   /** A rigid texture fixed at body point P; local() gives the body-space offset of texture point (a, b). */
   function rigidAt(name: string, P: Vec, local: (a: number, b: number) => Vec, alpha = 1, fx?: { glow?: number; lit?: Lit; halo?: number }) {
@@ -694,8 +705,11 @@ void main(){
     const ring = clamp(S.ring.x, 0, 1);
     const ringX = Math.max(left, 300 - 192),
       ringY = Math.max(top, 300 - 192);
-    S.charmX.t = sideX + (ringX - sideX) * ring;
-    S.charmY.t = sideY + (ringY - sideY) * ring;
+    // while he twirls his shoulder passes through the middle; the charm waits where it was
+    if (!(turn > 0.001 && turn < 0.999)) {
+      S.charmX.t = sideX + (ringX - sideX) * ring;
+      S.charmY.t = sideY + (ringY - sideY) * ring;
+    }
     if (charmFresh) {
       S.charmX.x = S.charmX.t;
       S.charmY.x = S.charmY.t;
@@ -716,6 +730,14 @@ void main(){
   let hopY = 0, hopV = 0, jumpAt = -1, jumpV = 0;
   let nextBlink = 1.4, blinkEnd = -1, nextLook = 0.8, nextFidget = 4 + Math.random() * 3, waveUntil = 0;
   let happyUntil = 0, wideUntil = 0, flashUntil = 0, zNext = 0, sparkNext = 0;
+  // acts (see acts.ts): what he does on his own at rest, and reactions that wait until he is free.
+  // frozen: the preview tools hold an act at a moment
+  let act: { name: ActName; t0: number; fired: boolean; frozen?: number } | null = null;
+  let nextAct = 9 + Math.random() * 8, lastAct: ActName | null = null, queued: ActName | null = null;
+  // what the running act asks of the face and the body, read when the frame is drawn
+  let actShut = 0, actSmile = false, actMouth = 1, turn = 0;
+  let fullSparkNext = 0;
+  let tuftAt: Vec = [300, 120];
   const pointer = { x: 300, y: 300, last: -10 };
   // a glance at something on the screen, and the small jumps the eyes make on their own
   const glanceAt = { x: 300, y: 300, until: 0 };
@@ -742,7 +764,25 @@ void main(){
     opts.onWake?.();
     return true;
   }
+  function startAct(name: ActName) {
+    if (reduce) return;
+    act = { name, t0: T, fired: false };
+    if (IDLE_ACTS.includes(name)) lastAct = name;
+    if (name === 'twirl') {
+      jump(280);
+      spinAt = T;
+    }
+    if (name === 'nod') S.squash.v -= 1.2;
+    // no z rises while he still yawns
+    if (name === 'yawn') zNext = Math.max(zNext, T + ACT_SECONDS.yawn);
+  }
+  function endAct() {
+    if (!act) return;
+    act = null;
+    if (!holding) S.squash.t = 1;
+  }
   function celebrate(big = true) {
+    endAct();
     wakeUp();
     aura.burst(auraBox(), big ? 10 : 6);
     spinAt = T + 0.1;
@@ -840,6 +880,8 @@ void main(){
     }
   }
   function onGesture(g: Gesture) {
+    // a touch ends whatever he was doing on his own
+    endAct();
     if (g.kind === 'tap') poke();
     else if (g.kind === 'tickle') tickle();
     else if (g.kind === 'holdStart') holdStart();
@@ -904,8 +946,43 @@ void main(){
       S.lookY.t = center ? 0 : Math.random() * 1.0 - 0.45;
       nextLook = T + 1.2 + Math.random() * 2.8;
     }
+    // now and then, at rest, he does something of his own; a reaction waits until he is free
+    const busy = !!act || holding || stroking || T < happyUntil || T - hugAt < HUG_S || T - pointer.last < 3 || T < glanceAt.until || T < waveUntil || !!eyePose();
+    if (queued && !act && !holding && !stroking && T >= happyUntil) {
+      startAct(queued);
+      queued = null;
+    } else if (T >= nextAct && mayAct({ mode, busy, off: reduce || opts.idleActs === false })) {
+      const name = pickAct({ sky: !indoors && lightOn(), charm: charmOn, tired: !!opts.tired }, lastAct, Math.random());
+      if (name) startAct(name);
+      nextAct = T + 14 + Math.random() * 12;
+    }
+    const actAt = act ? (act.frozen ?? T - act.t0) : 0;
+    const pose = act ? actPose(act.name, actAt, indoors ? null : sceneLight().dir) : null;
+    if (act && !pose) endAct();
+    if (pose?.look) {
+      S.lookX.t = pose.look[0];
+      S.lookY.t = pose.look[1];
+    }
+    actShut = pose?.shut ?? 0;
+    actSmile = !!pose?.smile;
+    actMouth = pose?.mouthScale ?? 1;
+    turn = pose?.turn ?? 0;
+    if (pose) S.squash.t = pose.squash ?? 1;
+    if (act && pose && !act.fired) {
+      if (act.name === 'charm' && actAt >= CHARM_PUSH_AT) {
+        // the push: the charm swings away and spins once
+        act.fired = true;
+        S.charmX.v -= 250;
+        S.charmY.v -= 130;
+        spinAt = T;
+      } else if (act.name === 'proud' && actAt >= PROUD_SPARKLE_AT) {
+        act.fired = true;
+        flashUntil = T + 0.4;
+        for (let i = 0; i < 4; i++) spawn('star', 300 + (i - 1.5) * 74, ghostY - 150 - (i % 2) * 34, (i - 1.5) * 26, -70 - Math.random() * 40, 1.1, 0.6 + Math.random() * 0.3, { g: 120, rot: Math.random() * 90, vr: 220 });
+      }
+    }
     // at rest the eyes make small jumps of their own; they hold still while they follow something
-    const resting = mode === 'idle' && !reduce && T - pointer.last >= 2.5 && T >= glanceAt.until;
+    const resting = mode === 'idle' && !act && !reduce && T - pointer.last >= 2.5 && T >= glanceAt.until;
     if (!resting) dartX = dartY = 0;
     else if (T >= nextDart) {
       dartX = (Math.random() - 0.5) * 0.5;
@@ -920,7 +997,7 @@ void main(){
     S.gazeX.t = clamp(S.lookX.t * 1.2 + (fixed ? 0 : dartX), -1, 1);
     S.gazeY.t = clamp(S.lookY.t * 1.2 + (fixed ? 0 : dartY), -1, 1);
 
-    if (mode === 'idle' && T >= nextFidget && !reduce && !eyePose()) {
+    if (mode === 'idle' && T >= nextFidget && !reduce && !eyePose() && !act) {
       const r = Math.random();
       if (r < 0.4) waveUntil = T + 1.3;
       else if (r < 0.7) S.lean.v += (Math.random() < 0.5 ? -1 : 1) * 70;
@@ -930,12 +1007,12 @@ void main(){
 
     const happy = T < happyUntil;
     S.happy.t = happy ? 1 : 0;
-    S.wide.t = T < wideUntil ? 1 : 0;
+    S.wide.t = T < wideUntil || pose?.wide ? 1 : 0;
     S.focus.t = mode === 'focus' ? 1 : 0;
     S.sleepy.t = mode === 'sleep' ? 1 : 0;
     S.low.t = mode === 'sleep' ? 1 : 0;
-    S.lean.t = mode === 'idle' ? S.lookX.x * 5 : 0;
-    const want = happy ? 'laugh' : T < wideUntil ? 'o' : mode === 'focus' ? 'line' : mode === 'sleep' ? (T < sleepSmileUntil ? 'smile' : 'o') : 'smile';
+    S.lean.t = (mode === 'idle' ? S.lookX.x * 5 : 0) + (pose?.lean ?? 0);
+    const want = happy ? 'laugh' : (pose?.mouth ?? (T < wideUntil ? 'o' : mode === 'focus' ? 'line' : mode === 'sleep' ? (T < sleepSmileUntil ? 'smile' : 'o') : 'smile'));
     if (want !== mouthNow) {
       mouthNow = want;
       S.pop.v += 5;
@@ -966,12 +1043,19 @@ void main(){
       aR = -112 + (reduce ? 0 : Math.sin(T * 7) * 5);
       aL = Math.min(aL, 10);
     }
+    if (pose?.armL !== undefined) aL = pose.armL;
+    if (pose?.armR !== undefined) aR = pose.armR;
     S.armL.t = aL;
     S.armR.t = aR;
 
     if (mode === 'focus' && T >= sparkNext && !reduce) {
       spawn('spark', 300 + (Math.random() - 0.5) * 250, 480 - Math.random() * 60, (Math.random() - 0.5) * 20, -90 - Math.random() * 90, 1.4 + Math.random() * 0.8, 5 + Math.random() * 5);
       sparkNext = T + 0.09;
+    }
+    // fully charged: small sparks rise from his tuft
+    if (mode === 'idle' && level >= 0.98 && T >= fullSparkNext && !reduce) {
+      spawn('spark', tuftAt[0] + (Math.random() - 0.5) * 26, tuftAt[1] + (Math.random() - 0.5) * 14, (Math.random() - 0.5) * 34, -34 - Math.random() * 46, 0.8 + Math.random() * 0.5, 3 + Math.random() * 3);
+      fullSparkNext = T + 0.3 + Math.random() * 0.5;
     }
     if (mode === 'sleep' && T >= zNext) {
       spawn('z', 395, ghostY - 120, 16, -30, 2.8, 1.35);
@@ -1032,7 +1116,12 @@ void main(){
     F.drag = clamp(velY * 0.035, -30, 30) / R.k;
     F.breath = reduce ? 0 : Math.sin(T * 2.3) * 0.014 * (1 + sleepy);
     F.sy = sy;
-    F.sx = 1 + (1 - sy) * 0.85;
+    // a twirl: he turns around his own axis, so his width goes through zero and comes back mirrored
+    let tc = Math.cos(turn * 2 * Math.PI);
+    if (Math.abs(tc) < 0.05) tc = tc < 0 ? -0.05 : 0.05;
+    mirror = tc < 0;
+    faceK = clamp(tc * 6, 0, 1);
+    F.sx = (1 + (1 - sy) * 0.85) * tc;
     const sp = (T - saltoAt) / 0.7;
     const salto = sp >= 0 && sp < 1 ? 360 * (sp < 0.5 ? 2 * sp * sp : 1 - (-2 * sp + 2) ** 2 / 2) : 0;
     bodyDeg = S.lean.x + salto;
@@ -1068,6 +1157,7 @@ void main(){
     el.ringHead.setAttribute('transform', `translate(${(300 + 205 * Math.cos(ra)).toFixed(1)},${(300 + shiftY + 205 * Math.sin(ra)).toFixed(1)})`);
     el.ringHead.setAttribute('opacity', rp > 0.004 ? '1' : '0');
     const tg = R.tuft ? D(R.tuft.at[0], R.tuft.at[1] - 80 * R.m) : D(R.cx, R.top + 30 * R.m);
+    tuftAt = tg;
     el.tuftGlow.setAttribute('cx', tg[0].toFixed(1));
     el.tuftGlow.setAttribute('cy', tg[1].toFixed(1));
     el.tuftGlow.setAttribute('opacity', clamp(lv * 1.1 + (T < flashUntil ? 0.8 : 0), 0, 1).toFixed(3));
@@ -1123,9 +1213,11 @@ void main(){
 
     const fixed = eyePose();
     const blinkC = 1 - clamp(S.eye.x, 0, 1);
-    const close = fixed ? clamp(fixed.shut, 0, 1) : Math.max(happy, sleepy, blinkC);
+    const own = Math.max(happy, sleepy, blinkC);
+    const close = fixed ? clamp(fixed.shut, 0, 1) : Math.max(own, actShut);
     const w = 1 + clamp(S.wide.x, 0, 1.2) * 0.14;
-    const happyArc = fixed ? !!fixed.smile : happy >= Math.max(sleepy, blinkC);
+    // an act that shuts the eyes further than he would himself also says how they close
+    const happyArc = fixed ? !!fixed.smile : actShut > own ? actSmile : happy >= Math.max(sleepy, blinkC);
     const ex = lx * 12 * u,
       ey = R.eyeY + fy + ly * 9 * u;
     // eyes in layers (WebGL only): lids close over them, the inside follows the gaze and the highlights nearly stay
@@ -1173,9 +1265,9 @@ void main(){
       mk = (ms / 0.8) * pop;
     const my = R.mouth[1] + fy + ly * 4 * u,
       mx = R.mouth[0] + lx * 30 * u;
-    skin('mouth_smile', mx, my, ms * pop, ms * pop, M.smile.x);
+    skin('mouth_smile', mx, my, ms * pop * actMouth, ms * pop * actMouth, M.smile.x);
     skin('mouth_line', mx, my + 4 * u, 0.7 * mk, 0.7 * mk, M.line.x);
-    const os = (0.75 - 0.25 * sleepy) * mk;
+    const os = (0.75 - 0.25 * sleepy) * mk * actMouth;
     const breathe = 1 + Math.sin(T * 1.6) * 0.14 * sleepy;
     skin('mouth_o', mx, my + 4 * u, os, os * breathe, M.o.x);
     const chatter = 1 + (reduce ? 0 : Math.sin(T * 17) * 0.07 * happy);
@@ -1228,6 +1320,13 @@ void main(){
     window.addEventListener('pointercancel', onCancel);
     el.hit.addEventListener('pointerdown', onDown);
   }
+
+  // the preview tools play an act on every ghost on screen, or hold it at a moment
+  const offPlay = onPlayAct((name, at) => {
+    if (name === null) endAct();
+    else if (at === undefined) startAct(name);
+    else act = { name, t0: T, fired: true, frozen: at };
+  });
 
   /* ---------- loop ---------- */
   layout();
@@ -1289,6 +1388,10 @@ void main(){
     setMode(m) {
       if (m === mode) return;
       if (mode === 'sleep' && m !== 'sleep') wideUntil = T + 0.6;
+      // what he did at rest ends when he starts to focus or to sleep
+      if (m !== 'idle') endAct();
+      // he yawns before he falls asleep, if he has been up for a moment
+      if (m === 'sleep' && mode === 'idle' && loaded && T > 2) startAct('yawn');
       mode = m;
     },
     setLevel(v, instant) {
@@ -1336,6 +1439,9 @@ void main(){
       glanceAt.y = p.y;
       glanceAt.until = T + seconds;
     },
+    act(name) {
+      queued = name;
+    },
     setBond(l) {
       bond = l;
     },
@@ -1343,6 +1449,7 @@ void main(){
       // a stroke or hold in progress ends with the stage (stops the purr)
       emit(gest.cancel(performance.now()));
       alive = false;
+      offPlay();
       cancelAnimationFrame(raf);
       ro.disconnect();
       window.removeEventListener('pointerdown', onSee);

@@ -25,6 +25,8 @@ export function Focus({ onDone, openPlus }: { onDone: (r: SessionResult | null) 
   const [endOpen, setEndOpen] = useState(false);
   const [soundOpen, setSoundOpen] = useState(false);
   const finished = useRef(false);
+  // a session that has just begun: he nods once (not when the app comes back to a running one)
+  const [fresh] = useState(() => (elapsedMin(a) / a.speed) * 60 < 3);
   const name = companionName(s);
 
   const el = elapsedMin(a);
@@ -117,6 +119,8 @@ export function Focus({ onDone, openPlus }: { onDone: (r: SessionResult | null) 
         overscan={{ top: 0.15, side: 0.1, bottom: 0.05 }}
         class="focus-stage"
         label={t('focus_charging', { name })}
+        acts={false}
+        react={{ act: 'nod', n: fresh ? 1 : 0 }}
       />
 
       <div class="focus-clock" aria-live="off">

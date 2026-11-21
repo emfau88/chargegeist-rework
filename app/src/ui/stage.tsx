@@ -5,6 +5,7 @@ import { createRig, renderPortrait } from '../rig/rig';
 import { bondLevel } from '../logic/bond';
 import { bondFromGesture, gestureFx, hugFx } from './gestureFx';
 import type { RigApi, RigMode, RigOptions, RigStyle } from '../rig/rig';
+import type { ActName } from '../rig/acts';
 import { bondOf, lookOf, useAppState } from '../state/store';
 
 interface StageProps {
@@ -21,8 +22,14 @@ interface StageProps {
   onPoke?: () => void;
   /** A touch woke the sleeping companion. */
   onWake?: () => void;
-  /** Things on the screen he looks at now and then (CSS selectors), such as the start button. */
+  /** Things on the screen he looks at now and then (CSS selectors), such as the start button. The first one matters most: he looks at it first and most often. */
   attend?: string[];
+  /** His little acts at rest; false where he should stay calm (focus, break). */
+  acts?: boolean;
+  /** It is late: now and then he yawns. */
+  tired?: boolean;
+  /** A reaction: change n to make him show it (a nod, pride). */
+  react?: { act: ActName; n: number };
   /** Change this value to make the companion cheer. */
   cheer?: number;
   cheerBig?: boolean;
@@ -65,6 +72,8 @@ export function CompanionStage(p: StageProps) {
           }
         : undefined,
       onHug: hugFx,
+      idleActs: p.acts,
+      tired: p.tired,
     });
     r.setBond(bond);
     rig.current = r;
@@ -91,22 +100,27 @@ export function CompanionStage(p: StageProps) {
   useEffect(() => {
     if (p.cheer) rig.current?.celebrate(p.cheerBig ?? true);
   }, [p.cheer]);
+  useEffect(() => {
+    if (p.react?.n) rig.current?.act(p.react.act);
+  }, [p.react?.n]);
   const attend = p.attend?.join('|') ?? '';
   useEffect(() => {
     if (!attend) return;
     let id = 0;
-    const plan = () => {
+    // the first look comes soon, so a waiting drop gets noticed; after that now and then
+    const plan = (wait: number) => {
       id = window.setTimeout(() => {
         const seen = attend
           .split('|')
           .map((q) => document.querySelector(q)?.getBoundingClientRect())
           .filter((r): r is DOMRect => !!r && r.width > 0 && r.bottom > 0 && r.top < window.innerHeight);
-        const r = seen[Math.floor(Math.random() * seen.length)];
+        // what matters most comes first in the list and draws most of his looks
+        const r = seen.length > 1 && Math.random() < 0.7 ? seen[0] : seen[Math.floor(Math.random() * seen.length)];
         if (r && !document.hidden) rig.current?.glance(r.left + r.width / 2, r.top + r.height / 2);
-        plan();
-      }, 6000 + Math.random() * 7000);
+        plan(6000 + Math.random() * 7000);
+      }, wait);
     };
-    plan();
+    plan(2400 + Math.random() * 1200);
     return () => clearTimeout(id);
   }, [attend]);
 

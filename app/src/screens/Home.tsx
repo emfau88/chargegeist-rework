@@ -161,6 +161,7 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
           cheer={cheer}
           cheerBig={false}
           attend={['.drop-card.top', '.start-btn']}
+          tired={new Date(now()).getHours() >= 21 || new Date(now()).getHours() < 6}
           onPoke={() => {
             sfx.poke();
             haptic.tap();
