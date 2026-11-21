@@ -4351,6 +4351,11 @@ button.spark-meter:active {
   inset: 0;
   will-change: opacity, transform;
 }
+/* three steps of the onboarding begin with lines of text right where sun and moon cross the sky around
+   noon and midnight: there they stay away */
+.app:has(.page.ob-tags, .page.ob-goal, .page.ob-pick) .sky-orbs {
+  opacity: 0 !important;
+}
 .sky-sun,
 .sky-moon {
   position: absolute;
