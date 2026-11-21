@@ -2,6 +2,8 @@
 
 **▶ Jetzt spielen: https://emfau88.github.io/chargegeist-rework/**
 
+![Start, Drop, Sammlung und Sitzungsabschluss](docs/screens.jpg)
+
 Am besten auf dem Handy öffnen oder im Desktop-Browser die Handy-Ansicht nutzen. Die App ist auf Englisch und Deutsch und richtet sich nach der Sprache des Browsers. Umstellen kannst du das unter *Einstellungen*.
 
 ChargeGeist ist ein Fokus-Timer mit Geist. Jede Fokusminute lädt deinen Begleiter auf. Jeden Tag gibt es einen Drop mit drei Stilkarten, von denen du eine behältst. Jeder Drop bringt außerdem einen Geisterfunken. Sind alle Funken da, kommt ein Kostümgeist zu dir, komplett so, wie sein Bausatz ihn zeigt. Keine Werbung, kein Konto, nichts verfällt.
@@ -54,11 +56,13 @@ Jeder Push auf `main` baut die App und veröffentlicht sie über GitHub Actions 
 | Ordner | Inhalt |
 | --- | --- |
 | `app/` | Die Web-App (Vite, Preact, TypeScript) |
-| `app/src/rig/` | Geister-Rig: WebGL-Renderer, Animation, Talisman, Gesten-Erkennung |
-| `app/src/fx/` | Auren (Partikel) und Schimmer (Farben) |
+| `app/src/rig/` | Geister-Rig: WebGL-Renderer, Animation, Talisman, Gesten-Erkennung, Blick und Lider (`gaze.ts`), Einlagen und Reaktionen (`acts.ts`) |
+| `app/src/fx/` | Auren (Partikel), Schimmer (Farben) und das Licht der Szene |
+| `app/src/screens/` | Die Screens, darunter das Entwicklermenü (`DevMenu.tsx`) |
 | `app/src/state/` | Spielstand und alle Aktionen |
 | `app/src/logic/` | Drops, Fortschritt, Boss, Erfolge, Bindung, Tageszeit des Himmels |
 | `app/tools/` | Import der Bausätze und Talismane, Trennen der Augen in Ebenen, App-Icon, Screenshot-Skripte |
+| `docs/` | Bilder für dieses README |
 | `rig_input/` | Die Bausatz-Bögen als Vorlage |
 | `rig_parts/` | Die daraus geschnittenen Einzelteile |
 | `rig_tools/` | Python-Werkzeuge zum Schneiden und Prüfen der Teile |
