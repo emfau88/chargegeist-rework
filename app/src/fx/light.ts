@@ -1,14 +1,13 @@
 /**
  * The light of the scene, shared by every ghost on screen. The sky sets it from the time of day;
- * each rig reads it every frame and draws it as a rim light, a glow from below and a slight tint.
+ * each rig reads it every frame: a slight tint over the figure, and the way to the sun or moon for
+ * the acts in which a ghost looks up at it.
  */
 import type { SceneLight } from '../logic/sky';
 
 /** For ghosts that are not in front of the sky (on a sheet, or over a theme picture): soft, cool, from the upper left. */
 export const NEUTRAL_LIGHT: SceneLight = {
   dir: [-0.5, -0.866],
-  key: [0.62, 0.66, 0.74],
-  under: [0, 0, 0],
   tint: [1, 1, 1],
 };
 

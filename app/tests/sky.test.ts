@@ -108,8 +108,8 @@ describe('the light the ghosts pick up from the sky', () => {
   });
 
   it('is warm in the evening and cool at night', () => {
-    const eve = skyLight(19).key,
-      night = skyLight(1).key;
+    const eve = skyLight(19).tint,
+      night = skyLight(1).tint;
     expect(eve[0]).toBeGreaterThan(eve[2]);
     expect(night[2]).toBeGreaterThan(night[0]);
   });
@@ -128,7 +128,7 @@ describe('the light the ghosts pick up from the sky', () => {
     for (let h = 0; h < 24; h += 1 / 30) {
       const a = skyLight(h),
         b = skyLight(h + 1 / 30);
-      expect(Math.abs(a.key[2] - b.key[2])).toBeLessThan(0.02);
+      expect(Math.abs(a.tint[2] - b.tint[2])).toBeLessThan(0.02);
       // at dawn and dusk the light swings from one to the other, over the top, within about half an hour
       expect(Math.hypot(a.dir[0] - b.dir[0], a.dir[1] - b.dir[1])).toBeLessThan(0.3);
     }

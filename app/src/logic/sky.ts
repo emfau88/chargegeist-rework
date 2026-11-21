@@ -104,24 +104,20 @@ export function moonPhase(ms: number): number {
 
 type Rgb = [number, number, number];
 
-/** The light a ghost picks up from the scene. Colours are r, g, b from 0 to 1. */
+/** The light a ghost picks up from the scene. */
 export interface SceneLight {
-  /** Towards the light on screen: x to the right, y down, length 1. */
+  /** Towards the sun or moon on screen: x to the right, y down, length 1. A ghost looks that way in some of its acts. */
   dir: [number, number];
-  /** The colour of the rim light from the sun or moon. */
-  key: Rgb;
-  /** The colour of the glow that rises from the valley below. */
-  under: Rgb;
-  /** Laid over the whole figure, close to 1. */
+  /** Laid over the whole figure: r, g, b, each close to 1. */
   tint: Rgb;
 }
 
-/** Rim light, glow from below and tint of each phase. The glow follows the colours of the valley. */
-const LIGHT: Record<SkyPhase, { key: Rgb; under: Rgb; tint: Rgb }> = {
-  morning: { key: [1, 0.8, 0.66], under: [1, 0.62, 0.77], tint: [1, 0.99, 0.98] },
-  day: { key: [1, 0.95, 0.8], under: [0.69, 0.83, 1], tint: [1, 1, 1] },
-  evening: { key: [1, 0.62, 0.36], under: [1, 0.59, 0.33], tint: [1, 0.985, 0.965] },
-  night: { key: [0.7, 0.78, 1], under: [0.49, 0.42, 0.94], tint: [0.975, 0.98, 1] },
+/** The tint of each phase: a touch warm in the morning and evening, a touch cool at night. */
+const TINT: Record<SkyPhase, Rgb> = {
+  morning: [1, 0.99, 0.98],
+  day: [1, 1, 1],
+  evening: [1, 0.985, 0.965],
+  night: [0.975, 0.98, 1],
 };
 
 /** Where a ghost floats, as a share of the sky, and the shape of a phone screen: the light comes from where the sun or moon stands as seen from there. */
@@ -131,7 +127,7 @@ const SCREEN = [390, 844];
 /** The light of the default sky at an hour. It always falls from above the horizontal, also when the sun is low. */
 export function skyLight(hour: number): SceneLight {
   const w = skyWeights(hour);
-  const mix = (k: 'key' | 'under' | 'tint'): Rgb => [0, 1, 2].map((i) => SKY_PHASES.reduce((a, p) => a + w[p] * LIGHT[p][k][i], 0)) as Rgb;
+  const tint = [0, 1, 2].map((i) => SKY_PHASES.reduce((a, p) => a + w[p] * TINT[p][i], 0)) as Rgb;
   const sun = sunPlace(hour);
   const moon = moonPlace(hour);
   const ws = sun ? orbAlpha(sun.alt) : 0;
@@ -150,7 +146,7 @@ export function skyLight(hour: number): SceneLight {
     y += (wt * dy) / len;
   }
   const len = Math.hypot(x, y);
-  return { dir: len > 1e-6 ? [x / len, y / len] : [0, -1], key: mix('key'), under: mix('under'), tint: mix('tint') };
+  return { dir: len > 1e-6 ? [x / len, y / len] : [0, -1], tint };
 }
 
 /** How visible the stars are: all at night, some in the morning and evening, few by day. */
