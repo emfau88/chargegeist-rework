@@ -4,7 +4,7 @@
  * session). Everything moves with CSS transform and opacity only; nothing moves when it is off.
  */
 import type { CSSProperties } from 'preact';
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { setSceneLight } from '../fx/light';
 import { moonPhase, moonPlace, orbAlpha, skyLight, skyOpacities, skyWeights, starAlpha, sunPlace } from '../logic/sky';
 import { now } from '../state/store';
@@ -76,13 +76,44 @@ function moonLit(phase: number, r: number): { d: string; flip: boolean } {
   return { d: `M0,${-r} A${r},${r} 0 0 1 0,${r} A${(Math.abs(k) * r).toFixed(2)},${r} 0 0 ${k > 0 ? 0 : 1} 0,${-r}Z`, flip: waning };
 }
 
-/** Sun and moon cross the sky with the hour; the moon shows the phase of the real one. */
+/** After this many pixels of scrolling, sun and moon are gone; on the way they rise a little. */
+const ORB_FADE_PX = 90;
+const ORB_RISE = 0.3;
+
+/**
+ * Sun and moon cross the sky with the hour; the moon shows the phase of the real one.
+ * The sky is fixed to the screen while the page scrolls over it. Left alone, sun and moon would
+ * stay put while the ghost and the headings move up, and end up behind a line of text. So they
+ * leave as the page scrolls and are back at the top.
+ */
 function Orbs({ hour }: { hour: number }) {
   const sun = sunPlace(hour);
   const moon = moonPlace(hour);
   const lit = useMemo(() => moonLit(moonPhase(now()), 26), []);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let raf = 0;
+    const place = () => {
+      raf = 0;
+      const el = box.current;
+      if (!el) return;
+      const y = Math.max(0, window.scrollY);
+      // opacity and transform only: the browser moves them without laying out the page again
+      el.style.opacity = String(Math.max(0, 1 - y / ORB_FADE_PX));
+      el.style.transform = `translate3d(0, ${(-Math.min(y, ORB_FADE_PX) * ORB_RISE).toFixed(1)}px, 0)`;
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(place);
+    };
+    place();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
   return (
-    <>
+    <div class="sky-orbs" ref={box}>
       {sun && <i class="sky-sun" style={{ left: `${sun.x * 100}%`, top: `${sun.y * 100}%`, opacity: orbAlpha(sun.alt), '--low': (1 - sun.alt).toFixed(3) } as CSSProperties} />}
       {moon && (
         <svg class="sky-moon" viewBox="-60 -60 120 120" style={{ left: `${moon.x * 100}%`, top: `${moon.y * 100}%`, opacity: orbAlpha(moon.alt) }}>
@@ -104,7 +135,7 @@ function Orbs({ hour }: { hour: number }) {
           </g>
         </svg>
       )}
-    </>
+    </div>
   );
 }
 

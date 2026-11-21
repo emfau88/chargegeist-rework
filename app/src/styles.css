@@ -4334,7 +4334,13 @@ button.spark-meter:active {
 .sky .stars {
   transition: opacity 4s ease;
 }
-/* sun and moon: they cross the sky with the hour and are faint near the horizon */
+/* sun and moon: they cross the sky with the hour and are faint near the horizon.
+   .sky-orbs holds both and fades them out as the page scrolls (see Orbs in ui/sky.tsx) */
+.sky-orbs {
+  position: absolute;
+  inset: 0;
+  will-change: opacity, transform;
+}
 .sky-sun,
 .sky-moon {
   position: absolute;
