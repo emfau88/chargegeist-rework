@@ -63,7 +63,6 @@ export interface ActiveSession {
   tag: TagId;
   pausedMs: number;
   pausedAt: number | null;
-  trial: boolean;
   /** Focus minutes per real minute (60 in demo speed). */
   speed: number;
 }
@@ -303,12 +302,55 @@ function load(): State {
 let state: State = load();
 const subs = new Set<() => void>();
 
+/** A counter next to the save. Every write raises it, whichever instance of the app wrote. */
+const REV_KEY = `${KEY}.rev`;
+function storedRev(): number {
+  try {
+    return Number(localStorage.getItem(REV_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+}
+/** The counter as this instance last saw it. */
+let rev = storedRev();
+
 function save() {
   try {
     localStorage.setItem(KEY, JSON.stringify(state));
+    // the save first, then the counter: an instance that sees the new counter finds the new save
+    rev = Math.max(rev, storedRev()) + 1;
+    localStorage.setItem(REV_KEY, String(rev));
   } catch {
     /* storage full or blocked: the session keeps working in memory */
   }
+}
+
+/**
+ * Two instances of the app can be open at once: two tabs, or a tab and the installed app. Each holds
+ * the save in memory and writes all of it, so an instance with an older copy would wipe out what the
+ * other one saved since. Before this instance changes anything, it takes over what was written since
+ * it last looked. Returns whether there was something to take over.
+ */
+function catchUp(): boolean {
+  const r = storedRev();
+  if (r === rev) return false;
+  rev = r;
+  try {
+    const raw = localStorage.getItem(KEY);
+    const s = raw ? (JSON.parse(raw) as State) : null;
+    if (!s || s.v !== 3) return false;
+    state = retire(fill(s));
+    return true;
+  } catch {
+    return false;
+  }
+}
+// the browser tells an instance when another one has written: it shows the new save at once
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('storage', (e) => {
+    if (e.key !== null && e.key !== KEY && e.key !== REV_KEY) return;
+    if (catchUp()) subs.forEach((f) => f());
+  });
 }
 
 export function getState(): State {
@@ -316,6 +358,7 @@ export function getState(): State {
 }
 
 export function mutate(fn: (s: State) => void) {
+  catchUp();
   const next = structuredClone(state);
   fn(next);
   state = next;
@@ -510,24 +553,27 @@ function addSpark(s: State): SparkResult {
 }
 
 /* ---------- onboarding ---------- */
-export function chooseCompanion(id: string, name: string) {
+/**
+ * The onboarding ends here: you start with this companion, the first drop waits as a welcome gift, and
+ * the app is open. Returns the id of that drop, or null if this save had its gift already.
+ */
+export function beginWith(id: string): string | null {
   mutate((s) => {
+    // the other starters are not yours yet; ghosts that came another way stay
+    for (const [g, r] of Object.entries(s.ghosts)) if (r.via === 'start' && g !== id) delete s.ghosts[g];
+    s.ghosts[id] ??= { at: now(), via: 'start', seen: true };
     s.companion = id;
     s.firstCompanion = id;
-    s.ghosts = { [id]: { at: now(), via: 'start', seen: true } };
-    s.names[id] = name.trim() || companionName(s, id);
-  });
-}
-
-export function finishOnboarding() {
-  mutate((s) => {
+    s.active = null;
+    if (!Object.keys(s.styles).length && !s.pending.some((p) => p.kind === 'first')) s.pending.push({ id: rid(), kind: 'first', at: now(), cards: null });
     s.onboarded = true;
     ensureBoss(s);
   });
+  return state.pending.find((p) => p.kind === 'first')?.id ?? null;
 }
 
 /* ---------- sessions ---------- */
-export function startSession(planned: number, tag: TagId, trial = false) {
+export function startSession(planned: number, tag: TagId) {
   mutate((s) => {
     s.active = {
       id: rid(),
@@ -536,13 +582,10 @@ export function startSession(planned: number, tag: TagId, trial = false) {
       tag,
       pausedMs: 0,
       pausedAt: null,
-      trial,
       speed: s.dev.speed ? 60 : 1,
     };
-    if (!trial) {
-      s.lastDuration = planned;
-      s.lastTag = tag;
-    }
+    s.lastDuration = planned;
+    s.lastTag = tag;
   });
 }
 
@@ -569,7 +612,6 @@ export interface SessionResult {
   minutes: number;
   planned: number;
   completed: boolean;
-  trial: boolean;
   tag: TagId;
   todayBefore: number;
   todayAfter: number;
@@ -577,7 +619,6 @@ export interface SessionResult {
   goalReachedNow: boolean;
   dailyDrop: boolean;
   weekDrop: boolean;
-  firstDrop: boolean;
   weekCount: number;
   weekDoneNow: boolean;
   /** sparkRefund: wish energy for sparks the boss ghost already had. */
@@ -589,7 +630,7 @@ export interface SessionResult {
   companionsUnlocked: string[];
 }
 
-function credit(s: State, min: number, planned: number, tag: TagId, completed: boolean, trial: boolean, at: number): SessionResult {
+function credit(s: State, min: number, planned: number, tag: TagId, completed: boolean, at: number): SessionResult {
   ensureBoss(s);
   const t = now();
   const today = dayKey(t);
@@ -600,7 +641,9 @@ function credit(s: State, min: number, planned: number, tag: TagId, completed: b
   const boss = s.boss!;
   const bossBefore = weekBefore.minutes;
 
-  s.sessions.push({ id: rid(), at, day: dayKey(at), min, planned, tag, done: completed });
+  // A session counts for the day on which it ends, like everything it is checked against below
+  // (today's minutes, the daily drop, the goal). One that runs past midnight belongs to the new day.
+  s.sessions.push({ id: rid(), at, day: today, min, planned, tag, done: completed });
   s.wish.energy += min;
   const bg = addFocus(bondOf(s, s.companion), min);
   s.bonds[s.companion] = bg.bond;
@@ -609,18 +652,14 @@ function credit(s: State, min: number, planned: number, tag: TagId, completed: b
   const todayAfter = byDay.get(today) ?? 0;
   const week = chargeWeek(byDay, t);
 
-  let firstDrop = false,
-    dailyDrop = false,
+  let dailyDrop = false,
     weekDrop = false;
-  if (trial) {
-    s.pending.push({ id: rid(), kind: 'first', at: t, cards: null });
-    firstDrop = true;
-  } else if (todayAfter >= CHARGE_DAY_MIN && s.dailyDropDay !== today) {
+  if (todayAfter >= CHARGE_DAY_MIN && s.dailyDropDay !== today) {
     s.pending.push({ id: rid(), kind: 'daily', at: t, cards: null });
     s.dailyDropDay = today;
     dailyDrop = true;
   }
-  const goalReachedNow = !trial && todayBefore < s.goal && todayAfter >= s.goal;
+  const goalReachedNow = todayBefore < s.goal && todayAfter >= s.goal;
   if (goalReachedNow && !s.goalDays.includes(today)) s.goalDays.push(today);
   const weekDoneNow = week.done && !s.weekDropWeeks.includes(week.key);
   if (weekDoneNow) {
@@ -643,7 +682,6 @@ function credit(s: State, min: number, planned: number, tag: TagId, completed: b
     minutes: min,
     planned,
     completed,
-    trial,
     tag,
     todayBefore,
     todayAfter,
@@ -651,7 +689,6 @@ function credit(s: State, min: number, planned: number, tag: TagId, completed: b
     goalReachedNow,
     dailyDrop,
     weekDrop,
-    firstDrop,
     weekCount: week.count,
     weekDoneNow,
     boss: { ghost: boss.ghost, before: bossBefore, after: week.minutes, goal: boss.goal, calmedNow, wasOwned, sparkRefund },
@@ -671,21 +708,13 @@ export function finishSession(): SessionResult | null {
   const min = completed ? a.planned : Math.floor(el);
   let res: SessionResult | null = null;
   mutate((s) => {
+    // another instance of the app may have ended this session already
+    if (s.active?.id !== a.id) return;
     s.active = null;
-    if (min < 1 && !(a.trial && completed)) return;
-    res = credit(s, Math.max(min, 1), a.planned, a.tag, completed, a.trial, a.startedAt);
+    if (min < 1) return;
+    res = credit(s, min, a.planned, a.tag, completed, a.startedAt);
   });
   return res;
-}
-
-/** Skipping the trial session still opens the first drop. Returns its id. */
-export function skipTrial(): string {
-  const id = rid();
-  mutate((s) => {
-    s.active = null;
-    if (!s.pending.some((p) => p.kind === 'first')) s.pending.push({ id, kind: 'first', at: now(), cards: null });
-  });
-  return state.pending.find((p) => p.kind === 'first')!.id;
 }
 
 export function discardSession() {
@@ -859,11 +888,6 @@ export function setPlus(v: boolean) {
     s.plus = v;
   });
 }
-export function markPlusOfferSeen() {
-  mutate((s) => {
-    s.plusOfferSeen = true;
-  });
-}
 
 /* ---------- prototype tools ---------- */
 export const dev = {
@@ -875,7 +899,7 @@ export const dev = {
   addMinutes(n: number): SessionResult {
     let res!: SessionResult;
     mutate((s) => {
-      res = credit(s, n, n, s.lastTag, true, false, now());
+      res = credit(s, n, n, s.lastTag, true, now());
     });
     return res;
   },

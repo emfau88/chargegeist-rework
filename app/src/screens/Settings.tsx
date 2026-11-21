@@ -1,7 +1,7 @@
 import { useState } from 'preact/hooks';
 import { GHOSTS } from '../data/catalog';
 import { t } from '../i18n';
-import { askNotifications } from '../platform/device';
+import { askNotifications, dailyReminderSupported } from '../platform/device';
 import { stopAmbient } from '../platform/audio';
 import {
   TAGS,
@@ -47,7 +47,8 @@ export function Settings({ openPlus }: { openPlus: () => void }) {
       <div class="group">
         <Row icon="bolt" label={t('set_goal')} value={`${s.goal} ${t('min')}`} onClick={() => setSheet('goal')} />
         <Row icon="tag" label={t('set_tags')} value={s.tags.map((x) => t(`tag_${x}`)).join(', ')} onClick={() => setSheet('tags')} />
-        <Row icon="bell" label={t('set_reminder')} hint={s.settings.reminder ? s.settings.reminderTime : t('set_reminder_hint')} onClick={() => setSheet('reminder')} />
+        {/* only where a reminder can really be delivered (see dailyReminderSupported) */}
+        {dailyReminderSupported() && <Row icon="bell" label={t('set_reminder')} hint={s.settings.reminder ? s.settings.reminderTime : t('set_reminder_hint')} onClick={() => setSheet('reminder')} />}
       </div>
 
       <div class="group">
@@ -122,13 +123,13 @@ export function Settings({ openPlus }: { openPlus: () => void }) {
       </Sheet>
 
       <Sheet open={sheet === 'reminder'} onClose={close} title={t('set_reminder')}>
-        <p class="muted">{t('ob_remind_body')}</p>
+        <p class="muted">{t('set_reminder_body')}</p>
         <Row icon="bell" label={t('set_reminder')}>
           <Toggle
             on={s.settings.reminder}
             onChange={async (v) => {
-              if (v) await askNotifications();
-              setSetting('reminder', v);
+              // on only with the permission: a switch that is on must mean a reminder comes
+              setSetting('reminder', v && (await askNotifications()));
             }}
             label={t('set_reminder')}
           />

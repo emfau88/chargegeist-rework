@@ -55,6 +55,14 @@ export const haptic = {
 export function notificationsAllowed(): boolean {
   return 'Notification' in window && Notification.permission === 'granted';
 }
+/**
+ * Whether this build can deliver a reminder every day. A web page cannot: nothing wakes it at the
+ * chosen time unless a server pushes to it, and this app has no server. The Android app will plan
+ * local notifications and answer true here. Until then the setting is not shown.
+ */
+export function dailyReminderSupported(): boolean {
+  return false;
+}
 export async function askNotifications(): Promise<boolean> {
   if (!('Notification' in window)) return false;
   if (Notification.permission === 'granted') return true;

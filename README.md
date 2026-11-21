@@ -24,7 +24,7 @@ Der Spielstand liegt nur im Browser (localStorage).
 
 ## Was drin ist
 
-- **Titelbild:** Beim ersten Start steht der Name der App über der Lichtung, und die drei Startgeister stehen lebendig darauf. Das Bild öffnet mit einem kurzen Auftritt: Die Lichtung liegt dunkel, die Laterne geht an, Skye schwebt herein, die beiden anderen kommen dazu, dann folgen Name und Knopf. Ein Tipp überspringt ihn, und bei „Bewegung reduzieren“ steht das fertige Bild sofort da.
+- **Einstieg in einem Schritt:** Beim ersten Start steht der Name der App über der Lichtung, und die drei Startgeister stehen lebendig darauf. Der Geist vorn ist deine Wahl; ein Tipp auf einen der beiden anderen oder auf die Pfeile neben dem Namen holt ihn nach vorn. Mit „Mit Skye zur Lichtung“ ist der Einstieg fertig: Der erste Drop öffnet sich als Willkommensgeschenk, sein Stil geht direkt an, danach gehört dir die App. Themen und Tagesziel haben Startwerte und stehen in den Einstellungen. Das Titelbild öffnet mit einem kurzen Auftritt: Die Lichtung liegt dunkel, die Laterne geht an, die Geister kommen dazu, dann folgen Name und Knopf. Ein Tipp überspringt ihn, und bei „Bewegung reduzieren“ steht das fertige Bild sofort da.
 - **Fokus-Timer:** 5 bis 180 Minuten, Pause, Tags, ruhige Hintergrundgeräusche, Pausenvorschlag danach. Das Ergebnis baut sich nach der Sitzung Zeile für Zeile auf, ein erreichtes Tagesziel bekommt eine eigene Zeile, und ein Tipp überspringt den Ablauf.
 - **6 Begleiter:** Skye, Kürbis-Pip oder Hazel begleiten dich von Anfang an. Die anderen fünf kommen nach 3, 8, 15, 25 und 40 Fokusstunden dazu. Die Startgeister der ersten Fassung (Volti, Ember, Luna) sind vorerst abgeschaltet; wer sie in einem alten Spielstand hatte, bekommt Skye an ihre Stelle, und ihre Bindung bleibt für später aufgehoben.
 - **13 Kostümgeister**, zum Beispiel Ronin, Professor Huhu und Kitsu, dazu Gewitterwolke Nimbus, Kaktus Piks, Drache Jade, Laternenqualle Nori, Phönix Fenix und Mondhirsch Elara. Sie kommen komplett mit Kostüm, sobald sie genug Geisterfunken haben (3 oder 5, je nach Seltenheit). Du wählst selbst, welchen Geist du gerade auflädst.
@@ -46,9 +46,18 @@ Die Geister sind animierte Rigs aus Einzelteilen und werden mit WebGL gerendert.
 cd app
 npm install
 npm run dev        # http://localhost:5173
-npx vitest run     # Tests
+npm test           # Tests der Rechenregeln und des Spielstands
+npm run flow       # ein Durchlauf durch die App mit Prüfungen (der Dev-Server muss laufen)
 npm run build      # Produktions-Build nach app/dist
 ```
+
+`npm run flow` geht den Weg eines Nutzers: Geist wählen, Geschenk öffnen oder liegen lassen, Sitzung starten, pausieren, neu laden, abschließen, Drop vertagen. Dazu prüft er zwei gleichzeitig offene Instanzen und einen Spielstand aus der Zeit vor den neuen Startgeistern.
+
+Drei Regeln, auf die sich der Spielstand verlässt:
+
+- **Eine Sitzung zählt für den Tag, an dem sie endet.** Minuten, Tagesziel und Drop sehen denselben Tag, auch über Mitternacht.
+- **Zwei offene Instanzen überschreiben sich nicht.** Jede Instanz übernimmt, was eine andere seither gespeichert hat, bevor sie selbst etwas ändert.
+- **Die tägliche Erinnerung gibt es in der Webfassung nicht.** Eine Webseite kann ohne eigenen Server nicht täglich zu einer Uhrzeit melden; der Schalter erscheint erst in der Android-App (`dailyReminderSupported` in `app/src/platform/device.ts`).
 
 Jeder Push auf `main` baut die App und veröffentlicht sie über GitHub Actions auf GitHub Pages (`.github/workflows/pages.yml`).
 

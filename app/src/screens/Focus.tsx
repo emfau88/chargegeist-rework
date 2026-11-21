@@ -96,7 +96,8 @@ export function Focus({ onDone, openPlus }: { onDone: (r: SessionResult | null) 
     return () => window.removeEventListener('keydown', k);
   }, [paused, endOpen, soundOpen]);
 
-  const tip = progress < 0.15 ? t('focus_tip_1', { name }) : progress < 0.45 ? t('focus_tip_2') : progress < 0.8 ? t('focus_tip_3', { name }) : t('focus_tip_4');
+  // while it is paused, a tip about putting the phone away would be beside the point
+  const tip = paused ? t('focus_tip_paused') : progress < 0.15 ? t('focus_tip_1', { name }) : progress < 0.45 ? t('focus_tip_2') : progress < 0.8 ? t('focus_tip_3', { name }) : t('focus_tip_4');
   const whole = Math.floor(el);
 
   return (

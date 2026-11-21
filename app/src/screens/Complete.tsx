@@ -78,7 +78,6 @@ export function Complete({ res, onDrop, onBreak, onClose }: { res: SessionResult
     if (res.boss.calmedNow) o.push('news:boss');
     for (const id of res.companionsUnlocked) o.push(`news:ghost:${id}`);
     for (const id of res.achievements) o.push(`news:ach:${id}`);
-    if (res.trial) return o;
     o.push('today');
     if (res.goalReachedNow) o.push('goal');
     o.push('wish');
@@ -173,80 +172,78 @@ export function Complete({ res, onDrop, onBreak, onClose }: { res: SessionResult
         </div>
       )}
 
-      {!res.trial && (
-        <div class="card results">
-          <div class={line('today', 'res-group')}>
-            <div class="res-row">
-              <span class="res-label">
-                <Icon name="bolt" size={15} /> {t('done_today', { n: Math.round(today), goal: res.goal })}
-              </span>
-            </div>
-            <Bar value={(on('today') ? res.todayAfter : res.todayBefore) / res.goal} color="var(--charge)" />
+      <div class="card results">
+        <div class={line('today', 'res-group')}>
+          <div class="res-row">
+            <span class="res-label">
+              <Icon name="bolt" size={15} /> {t('done_today', { n: Math.round(today), goal: res.goal })}
+            </span>
           </div>
-          {res.goalReachedNow && (
-            <div class={line('goal', 'goal-row')}>
-              <span class="goal-check">
-                <Icon name="check" size={15} />
-              </span>
-              <b>{t('done_goal_hit')}</b>
-              <Icon name="sparkle" size={17} />
-            </div>
-          )}
-          <div class={line('wish', 'res-group')}>
-            <div class="res-row">
-              <span class="res-label">
-                <Icon name="star" size={15} /> {t('done_wish')}
-              </span>
-              <span class="res-val">
-                +{res.minutes}
-                {wish ? ` · ${Math.min(Math.round(wishNow), wishCost)}/${wishCost}` : ''}
-              </span>
-            </div>
-            {wish && (
-              <div class="wish-line">
-                <StyleBadge id={wish.id} size={30} />
-                <Bar value={(on('wish') ? res.wish.after : res.wish.before) / wishCost} color={RARITY_COLOR[wish.rarity]} />
-              </div>
-            )}
+          <Bar value={(on('today') ? res.todayAfter : res.todayBefore) / res.goal} color="var(--charge)" />
+        </div>
+        {res.goalReachedNow && (
+          <div class={line('goal', 'goal-row')}>
+            <span class="goal-check">
+              <Icon name="check" size={15} />
+            </span>
+            <b>{t('done_goal_hit')}</b>
+            <Icon name="sparkle" size={17} />
           </div>
-          {res.bond.gained > 0 && (
-            <div class={line('bond', 'res-group')}>
-              <div class="res-row">
-                <span class="res-label">
-                  <Icon name="heart" size={15} /> {t('done_hearts', { name: companionName(s, res.bond.ghost) })}
-                </span>
-                <span class="res-val">
-                  {res.bond.after > res.bond.before && <span class="ok-chip heart-chip">{t('done_bond_up', { stage: t(`bond_${res.bond.after}` as Key) })}</span>} +{res.bond.gained}
-                </span>
-              </div>
-              <Bar value={on('bond') ? bondProgress(bond).frac : bondFrom} color="var(--heart)" />
-            </div>
-          )}
-          <div class={line('boss', 'res-group')}>
-            <div class="res-row">
-              <span class="res-label">
-                <Icon name="flame" size={15} /> {t('done_boss')} · {nameOf(ghost(res.boss.ghost))}
-              </span>
-              <span class="res-val">
-                {fmtMinutes(Math.min(bossNow, res.boss.goal), true)} / {fmtMinutes(res.boss.goal, true)}
-              </span>
-            </div>
-            <Bar value={(on('boss') ? res.boss.after : res.boss.before) / res.boss.goal} color="var(--season)" />
+        )}
+        <div class={line('wish', 'res-group')}>
+          <div class="res-row">
+            <span class="res-label">
+              <Icon name="star" size={15} /> {t('done_wish')}
+            </span>
+            <span class="res-val">
+              +{res.minutes}
+              {wish ? ` · ${Math.min(Math.round(wishNow), wishCost)}/${wishCost}` : ''}
+            </span>
           </div>
-          {s.settings.showWeek && (
-            <div class={line('week', 'res-row week-res')}>
-              <span class="res-label week-label-2">
-                <Icon name="calendar" size={15} />
-                <span>
-                  {t('done_week')}
-                  <small>{t('home_week_count', { n: res.weekCount, target: WEEK_TARGET })}</small>
-                </span>
-              </span>
-              <WeekDots compact />
+          {wish && (
+            <div class="wish-line">
+              <StyleBadge id={wish.id} size={30} />
+              <Bar value={(on('wish') ? res.wish.after : res.wish.before) / wishCost} color={RARITY_COLOR[wish.rarity]} />
             </div>
           )}
         </div>
-      )}
+        {res.bond.gained > 0 && (
+          <div class={line('bond', 'res-group')}>
+            <div class="res-row">
+              <span class="res-label">
+                <Icon name="heart" size={15} /> {t('done_hearts', { name: companionName(s, res.bond.ghost) })}
+              </span>
+              <span class="res-val">
+                {res.bond.after > res.bond.before && <span class="ok-chip heart-chip">{t('done_bond_up', { stage: t(`bond_${res.bond.after}` as Key) })}</span>} +{res.bond.gained}
+              </span>
+            </div>
+            <Bar value={on('bond') ? bondProgress(bond).frac : bondFrom} color="var(--heart)" />
+          </div>
+        )}
+        <div class={line('boss', 'res-group')}>
+          <div class="res-row">
+            <span class="res-label">
+              <Icon name="flame" size={15} /> {t('done_boss')} · {nameOf(ghost(res.boss.ghost))}
+            </span>
+            <span class="res-val">
+              {fmtMinutes(Math.min(bossNow, res.boss.goal), true)} / {fmtMinutes(res.boss.goal, true)}
+            </span>
+          </div>
+          <Bar value={(on('boss') ? res.boss.after : res.boss.before) / res.boss.goal} color="var(--season)" />
+        </div>
+        {s.settings.showWeek && (
+          <div class={line('week', 'res-row week-res')}>
+            <span class="res-label week-label-2">
+              <Icon name="calendar" size={15} />
+              <span>
+                {t('done_week')}
+                <small>{t('home_week_count', { n: res.weekCount, target: WEEK_TARGET })}</small>
+              </span>
+            </span>
+            <WeekDots compact />
+          </div>
+        )}
+      </div>
 
       <div class="stack bottom-actions">
         {drop ? (

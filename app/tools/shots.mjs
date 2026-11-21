@@ -91,43 +91,22 @@ async function shot(page, name, wait = 900) {
   console.log('shot', name);
 }
 
-// 1. onboarding
+// 1. onboarding: the title with the pick, the welcome gift, the clearing
 {
   const p = await fresh();
-  await shot(p, 'ob1-welcome', 5200); // after the entrance of the title screen
-  await tap(p, T('Let’s begin', 'Los geht’s'));
-  await tap(p, T('Work', 'Arbeit'));
-  await shot(p, 'ob2-tags');
-  await tap(p, T('Continue', 'Weiter'));
-  await shot(p, 'ob3-goal');
-  await tap(p, T('Continue', 'Weiter'));
-  await sleep(500);
-  await tap(p, 'Hazel');
-  await shot(p, 'ob4-pick', 1400);
-  await tap(p, 'Skye');
-  await tap(p, T('Continue', 'Weiter'));
-  await shot(p, 'ob5-trial', 1200);
-  await p.evaluate(() => window.__cg.dev.setSpeed(true));
-  await tap(p, T('Start 1-minute', '1 Minute aufladen'));
-  await shot(p, 'ob6-trial-running', 400);
-  await sleep(1600);
-  await shot(p, 'ob7-trial-done', 1800);
-  await tap(p, T('Open your first drop', 'Ersten Drop öffnen'));
-  await shot(p, 'ob8-drop', 1000);
+  await shot(p, 'ob1-title', 5200); // after the entrance of the title screen
+  await p.locator('.title-pick.right').click();
+  await shot(p, 'ob2-title-pick', 1600);
+  await p.locator('.title-pick.right').click(); // the first ghost stands on the right now: back to it
+  await sleep(900);
+  await p.locator('.title-foot .btn').click();
+  await shot(p, 'ob3-gift', 1000);
   await tap(p, T('Reveal all', 'Alle aufdecken'));
-  await shot(p, 'ob9-revealed', 2200);
+  await shot(p, 'ob4-revealed', 2200);
   await p.locator('.bottom-actions .btn-warm').click();
-  await shot(p, 'ob10-kept', 1400);
-  await p.locator('.bottom-actions .btn-warm').click();
-  await shot(p, 'ob10b-worn', 1600);
+  await shot(p, 'ob5-kept', 2400); // the first style goes on by itself
   await tap(p, T('Continue', 'Weiter'));
-  await shot(p, 'ob11-style', 1600);
-  await tap(p, T('Continue', 'Weiter'));
-  await shot(p, 'ob12-remind');
-  await tap(p, T('Not now', 'Jetzt nicht'));
-  await shot(p, 'ob13-plus', 1200);
-  await tap(p, T('Not now', 'Jetzt nicht'));
-  await shot(p, 'ob14-home-first', 1200);
+  await shot(p, 'ob6-home-first', 1400);
   await p.close();
 }
 

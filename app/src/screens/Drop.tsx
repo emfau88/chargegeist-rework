@@ -119,6 +119,12 @@ function Kept({ kept, onClose }: { kept: KeepResult; onClose: () => void }) {
     haptic.success();
     setCheer((c) => c + 1);
   };
+  // the very first style goes straight on: there is nothing it could take the place of
+  useEffect(() => {
+    if (kept.dupe || wearing || Object.keys(s.styles).length !== 1) return;
+    const tm = setTimeout(wear, 700);
+    return () => clearTimeout(tm);
+  }, []);
 
   return (
     <div class="page drop kept" style={{ '--rc': RARITY_COLOR[x.rarity], '--tint': ghost(who).glow } as CSSProperties}>
@@ -302,7 +308,7 @@ export function Drop({ id, onClose }: { id: string; onClose: () => void }) {
                       <span class="dcard-rim" />
                       <span class="dcard-face">
                         <span class="dcard-shine" />
-                        {flipped[i] ? <StylePreview id={c} ghostId={null} size={110} /> : <span class="dcard-art-ph" />}
+                        {flipped[i] ? <StylePreview id={c} ghostId={s.companion} size={110} /> : <span class="dcard-art-ph" />}
                         <b class={nameSize(name)}>{name}</b>
                         <KindTag id={c} />
                         <RarityTag r={x.rarity} />

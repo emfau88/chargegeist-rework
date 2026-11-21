@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BOSS_DUPE_ENERGY, COSTUME_GHOSTS, DUPE_ENERGY, SPARK_ENERGY, WISH_COST, style } from '../src/data/catalog';
 import { ACHIEVEMENTS } from '../src/logic/progress';
 import {
-  chooseCompanion,
+  beginWith,
   claimWish,
   defaultState,
   dev,
@@ -105,21 +105,31 @@ describe('daily loop', () => {
     expect(getState().wish.energy).toBe(before + k.energy);
     expect(k.spark.have).toBe(1);
   });
-  it('the trial session opens a first drop with a rare or better', () => {
+  it('the welcome gift is a first drop: three auras, one of them rare or better', () => {
     dev.replace(defaultState());
-    chooseCompanion('pumpkin', 'Funke');
-    startSession(1, 'study', true);
-    vi.advanceTimersByTime(60_000);
-    const r = finishSession()!;
-    expect(r.firstDrop).toBe(true);
-    expect(r.achievements).toContain('first');
-    const p = getState().pending[0];
+    const id = beginWith('pumpkin')!;
+    const st = getState();
+    expect(st.onboarded).toBe(true);
+    expect(st.companion).toBe('pumpkin');
+    expect(st.firstCompanion).toBe('pumpkin');
+    expect(Object.keys(st.ghosts)).toEqual(['pumpkin']);
+    const p = st.pending[0];
+    expect(p.id).toBe(id);
     expect(p.kind).toBe('first');
     const cards = revealDrop(p.id);
     expect(cards.some((c) => style(c).rarity !== 'common')).toBe(true);
     for (const c of cards) expect(style(c).kind).toBe('aura');
-    expect(getState().names.pumpkin).toBe('Funke');
-    expect(Object.keys(getState().ghosts)).toEqual(['pumpkin']);
+  });
+  it('the welcome gift comes once, and ghosts that came another way stay', () => {
+    dev.replace({ ...defaultState(), ghosts: { aviator: { at: 0, via: 'start', seen: true }, owl: { at: 0, via: 'spark', seen: true } } });
+    const id = beginWith('witch');
+    expect(Object.keys(getState().ghosts).sort()).toEqual(['owl', 'witch']);
+    // the same step again (the onboarding shown once more) brings no second gift
+    expect(beginWith('witch')).toBe(id);
+    expect(getState().pending.filter((p) => p.kind === 'first')).toHaveLength(1);
+    // and none once a style is there
+    dev.replace({ ...getState(), pending: [], styles: { aura_snow: { at: 0, via: 'drop', seen: true } } });
+    expect(beginWith('witch')).toBeNull();
   });
   it('enough sparks bring the costume ghost you charge', () => {
     setSparkTarget('owl');
@@ -284,7 +294,7 @@ describe('week, boss, goal, wish', () => {
     expect(claimWish()).toBeNull();
   });
   it('unlocks the next companion at 3 hours', () => {
-    chooseCompanion('aviator', 'Skye');
+    beginWith('aviator');
     const r = focus(180);
     expect(r.companionsUnlocked).toEqual(['pumpkin']);
   });

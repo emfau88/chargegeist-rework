@@ -2,22 +2,25 @@ import { useEffect, useState } from 'preact/hooks';
 import { GHOSTS, ghost } from '../data/catalog';
 import { fmtDate, fmtNum, nameOf, t } from '../i18n';
 import type { Key } from '../i18n';
-import { ACHIEVEMENTS, WEEK_TARGET, achievementValue, chargeWeek, dayRun, minutesByDay, totalMinutes } from '../logic/progress';
+import { ACHIEVEMENTS, CHARGE_DAY_MIN, WEEK_TARGET, achievementValue, chargeWeek, dayRun, minutesByDay, totalMinutes } from '../logic/progress';
 import { DAY, dayKey, fmtMinutes, monthDays, parseDay, weekKey } from '../logic/time';
 import { shareImage } from '../platform/device';
-import { TAGS, counters, currentBoss, now, useAppState } from '../state/store';
+import { TAGS, counters, currentBoss, now, todayMinutes, useAppState } from '../state/store';
 import type { State } from '../state/store';
 import { Bar, Btn, Icon, Sheet } from '../ui/kit';
 import { Portrait } from '../ui/stage';
 import { monthStats, renderRecap } from '../ui/recap';
-import { WeekDots } from './Home';
 
-function WeekChart({ s }: { s: State }) {
+/**
+ * The week in one picture: for each day a bar of its minutes and its name, and with `marks` the bolt of
+ * a charged day right under it. One row of days, so a bar and its bolt cannot be read apart.
+ */
+function WeekChart({ s, marks }: { s: State; marks: boolean }) {
   const wk = chargeWeek(minutesByDay(s.sessions), now());
   const max = Math.max(s.goal, ...wk.days.map((d) => d.minutes)) * 1.15;
   const letters = t('wd').split(',');
   const W = 320,
-    H = 150,
+    H = marks ? 178 : 150,
     base = 122,
     bw = 26;
   const gy = base - (s.goal / max) * 100;
@@ -41,6 +44,12 @@ function WeekChart({ s }: { s: State }) {
             <text x={x + bw / 2} y={base + 20} text-anchor="middle" class={`chart-lbl ${d.today ? 'today' : ''}`}>
               {letters[i]}
             </text>
+            {marks && (
+              <g class={`chart-mark ${d.charged ? 'on' : ''} ${d.today ? 'today' : ''} ${d.future ? 'future' : ''}`} transform={`translate(${x + bw / 2} ${base + 41})`}>
+                <circle r="10.5" />
+                {d.charged && <path d="M13.2 2.5 4.8 13.6h6.4l-1 7.9 8.5-11.4h-6.5l1-7.6z" transform="translate(-6.9 -6.9) scale(0.575)" />}
+              </g>
+            )}
           </g>
         );
       })}
@@ -171,6 +180,8 @@ export function Progress({ openPlus }: { openPlus: () => void }) {
   const total = totalMinutes(s.sessions);
   const best = Math.max(0, ...by.values());
   const run = dayRun(by, now());
+  // a day counts from five minutes on: say how far today still is from that
+  const toCount = Math.max(0, CHARGE_DAY_MIN - Math.floor(todayMinutes(s)));
   const wk = chargeWeek(by, now());
   const boss = currentBoss(s);
   const ghostsOwned = Object.keys(s.ghosts).length;
@@ -206,6 +217,7 @@ export function Progress({ openPlus }: { openPlus: () => void }) {
           <Icon name="calendar" size={18} />
           <b>{run}</b>
           <small>{t('prog_run')}</small>
+          {toCount > 0 && <small class="stat-note">{t('prog_run_today', { n: toCount })}</small>}
         </div>
       </div>
 
@@ -214,10 +226,9 @@ export function Progress({ openPlus }: { openPlus: () => void }) {
           <h2>{t('prog_week')}</h2>
           <span class="muted small">{fmtMinutes(wk.minutes, true)}</span>
         </header>
-        <WeekChart s={s} />
+        <WeekChart s={s} marks={s.settings.showWeek} />
         {s.settings.showWeek && (
           <div class="week-foot">
-            <WeekDots />
             <div>
               <b>{wk.done ? t('home_week_done') : t('home_week_count', { n: wk.count, target: WEEK_TARGET })}</b>
               <small class="muted">{t('prog_week_hint')}</small>

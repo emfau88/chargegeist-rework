@@ -49,7 +49,6 @@ export function App() {
   const th = theme(s.plus || !theme(s.settings.theme).plus ? s.settings.theme : 'night');
   const openPlus = () => setPlusOpen(true);
   const openDrop = (id: string) => setOv({ k: 'drop', id });
-  const firstPending = s.pending.find((p) => p.kind === 'first');
 
   let key: string;
   let content;
@@ -69,9 +68,6 @@ export function App() {
   } else if (ov?.k === 'break') {
     key = 'break';
     content = <Break onClose={() => setOv(null)} />;
-  } else if (!s.onboarded && firstPending) {
-    key = `drop-${firstPending.id}`;
-    content = <Drop id={firstPending.id} onClose={() => setOv(null)} />;
   } else if (!s.onboarded) {
     key = 'onboarding';
     content = <Onboarding openDrop={openDrop} />;

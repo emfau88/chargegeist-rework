@@ -192,10 +192,11 @@ img {
   min-height: 100dvh;
   animation: screen-in 0.38s var(--ease-out);
 }
+/* A screen fades in where it belongs. It does not slide: texts and buttons are at their place at once,
+   and a ghost can tell the painted land where its ground is while the screen still appears. */
 @keyframes screen-in {
   from {
     opacity: 0;
-    transform: translateY(10px);
   }
 }
 .page {
@@ -380,9 +381,7 @@ img {
   border: 1px solid var(--line);
   flex: none;
 }
-.icon-btn-space {
-  width: 42px;
-}
+
 .link-btn {
   color: var(--muted);
   font-weight: 700;
@@ -434,11 +433,7 @@ img {
 .chip-lock {
   opacity: 0.7;
 }
-.big-chips .chip {
-  min-height: 48px;
-  padding: 0 20px;
-  font-size: 16px;
-}
+
 .toggle {
   width: 50px;
   height: 30px;
@@ -985,8 +980,10 @@ button.row:active {
   align-items: center;
   gap: 8px;
 }
+/* The ghost's room grows with the height of the screen in one smooth line, without steps: a browser bar
+   that slides in or out changes the height by a few pixels, and a step would make the ghost jump. */
 .hero-stage {
-  height: clamp(250px, 36dvh, 330px);
+  height: clamp(180px, calc(54.9dvh - 159px), 330px);
 }
 .hero-name {
   display: inline-flex;
@@ -1134,22 +1131,10 @@ button.row:active {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* With a drop waiting above it the ghost gives up height, more quickly on a short screen: from 700 pixels
+   of height on, the start button stays above the tab bar. */
 .home.has-drop .hero-stage {
-  height: clamp(220px, 30dvh, 280px);
-}
-/* short screens: the ghost gives up some height, so the start button stays above the tab bar */
-@media (max-height: 780px) {
-  .home.has-drop .hero-stage {
-    height: clamp(180px, 27dvh, 240px);
-  }
-}
-@media (max-height: 700px) {
-  .hero-stage {
-    height: clamp(180px, 30dvh, 250px);
-  }
-  .home.has-drop .hero-stage {
-    height: clamp(160px, 25dvh, 220px);
-  }
+  height: clamp(160px, calc(66.6dvh - 309px), 280px);
 }
 
 /* the bond with the companion, in words: the stage and the way to the next one */
@@ -2609,7 +2594,6 @@ input[type='range'] {
   gap: 8px;
 }
 .rename input,
-.name-field input,
 .time-field input {
   flex: 1;
   min-height: 48px;
@@ -2623,7 +2607,6 @@ input[type='range'] {
   min-width: 0;
 }
 .rename input:focus,
-.name-field input:focus,
 .time-field input:focus {
   border-color: var(--charge);
 }
@@ -2633,18 +2616,7 @@ input[type='range'] {
   gap: 12px;
   font-weight: 800;
 }
-.time-field.big {
-  justify-content: center;
-  color: var(--charge);
-}
-.time-field.big input {
-  flex: none;
-  width: 150px;
-  text-align: center;
-  font-family: var(--display);
-  font-size: 26px;
-  color-scheme: dark;
-}
+
 .dur-big {
   display: flex;
   align-items: center;
@@ -2699,6 +2671,11 @@ input[type='range'] {
   font-weight: 700;
   font-size: 12.5px;
 }
+.stat small.stat-note {
+  color: var(--charge);
+  font-size: 12px;
+  line-height: 1.25;
+}
 .chart {
   width: 100%;
   height: auto;
@@ -2739,6 +2716,30 @@ input[type='range'] {
 }
 .chart-lbl.today {
   fill: var(--charge);
+}
+/* the bolt of a charged day, under the day's name */
+.chart-mark circle {
+  fill: rgba(255, 255, 255, 0.06);
+  stroke: var(--line);
+  stroke-width: 1.5;
+}
+.chart-mark path {
+  fill: #04222c;
+}
+.chart-mark.on circle {
+  fill: var(--charge);
+  stroke: none;
+}
+.chart-mark.today circle {
+  stroke: var(--charge);
+  stroke-dasharray: 3 2.6;
+}
+.chart-mark.today.on circle {
+  stroke: #c8f7ff;
+  stroke-dasharray: none;
+}
+.chart-mark.future {
+  opacity: 0.5;
 }
 .week-foot {
   display: flex;
@@ -3054,26 +3055,7 @@ input[type='range'] {
 .onboarding {
   gap: 0;
 }
-.ob-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-.ob-dots {
-  display: flex;
-  gap: 6px;
-}
-.ob-dots i {
-  width: 22px;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--line-2);
-  transition: background 0.3s, width 0.3s var(--ease-out);
-}
-.ob-dots i.on {
-  background: var(--charge);
-}
+
 .ob-body {
   flex: 1;
   display: flex;
@@ -3081,24 +3063,11 @@ input[type='range'] {
   gap: 14px;
   animation: screen-in 0.45s var(--ease-out);
 }
-.ob-title {
-  font-size: 30px;
-  text-align: center;
-  margin-top: 6px;
-}
-.ob-text {
-  text-align: center;
-  color: #d9d5f3;
-  max-width: 34ch;
-  align-self: center;
-  font-size: 15.5px;
-}
+
 .ob-stage {
   height: clamp(260px, 40dvh, 360px);
 }
-.ob-stage.small {
-  height: clamp(200px, 28dvh, 260px);
-}
+
 /* ---------------- the title screen: the first step of the onboarding ----------------
    The name over the clearing, the three starters on it, one button. Title in screens/Onboarding.tsx. */
 .ob-body.title {
@@ -3160,8 +3129,102 @@ input[type='range'] {
   display: none;
 }
 .app:has(.ob-body.title) .scene-prop.stand {
-  --px: 846 !important;
-  --py: 1052 !important;
+  --px: 922 !important;
+  --py: 1056 !important;
+}
+/* a tap on one of the two friends brings that ghost forward: a field over each, beside the ghost in front */
+.title-pick {
+  position: absolute;
+  z-index: 1;
+  top: 20%;
+  width: 26%;
+  height: 62%;
+  padding: 0;
+  border: 0;
+  border-radius: 40%;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.title-pick.left {
+  left: -4%;
+}
+.title-pick.right {
+  right: -4%;
+}
+.title-pick:focus-visible,
+.title-arrow:focus-visible {
+  outline: 2px solid var(--charge);
+  outline-offset: 2px;
+}
+/* the pick in words, on the meadow under the ghost in front: its name between two arrows, and what it says */
+.title-plate {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: calc(85% + 14px);
+  width: 214px;
+  margin-left: -107px;
+  text-align: center;
+}
+.title-plate small {
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #d3cdf5;
+  text-shadow: 0 1px 8px rgba(20, 13, 56, 0.7);
+}
+.title-plate-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 3px;
+}
+.title-plate-row b {
+  min-width: 122px;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 25px;
+  line-height: 1.15;
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--cg) 70%, #fff);
+  text-shadow: 0 2px 10px rgba(20, 13, 56, 0.75);
+  animation: title-swap 0.35s var(--ease-spring);
+}
+.title-arrow {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1.5px solid rgba(255, 255, 255, 0.24);
+  border-radius: 50%;
+  background: rgba(20, 13, 56, 0.5);
+  color: #fff;
+  cursor: pointer;
+}
+.title-arrow:active {
+  transform: scale(0.92);
+}
+.title-quote {
+  margin-top: 6px;
+  font-size: 13px;
+  font-style: italic;
+  line-height: 1.3;
+  color: #dcd8f6;
+  text-wrap: balance;
+  text-shadow: 0 1px 8px rgba(20, 13, 56, 0.75);
+  animation: title-fade 0.4s ease;
+}
+@keyframes title-swap {
+  from {
+    opacity: 0;
+    transform: scale(0.86);
+  }
 }
 /* the meadow in front of them: plants at the edges and fireflies. Its top edge is the ground line of the first ghost */
 .title-meadow {
@@ -3184,9 +3247,9 @@ input[type='range'] {
   width: 104px;
 }
 .title-meadow .m-right {
-  right: -22px;
-  top: 58px;
-  width: 78px;
+  right: -24px;
+  top: 92px;
+  width: 72px;
 }
 /* the plants glow: their light lies on the grass around them */
 .title-meadow::before,
@@ -3204,10 +3267,10 @@ input[type='range'] {
   background: radial-gradient(closest-side, rgba(255, 188, 108, 0.3), transparent);
 }
 .title-meadow::after {
-  right: -64px;
-  top: 92px;
-  width: 164px;
-  height: 72px;
+  right: -70px;
+  top: 120px;
+  width: 160px;
+  height: 68px;
   background: radial-gradient(closest-side, rgba(255, 150, 190, 0.22), transparent);
 }
 .title-meadow .fly {
@@ -3262,7 +3325,8 @@ input[type='range'] {
   .title-meadow img,
   .title-meadow .fly.low,
   .title-meadow::before,
-  .title-meadow::after {
+  .title-meadow::after,
+  .title-quote {
     display: none;
   }
 }
@@ -3271,13 +3335,6 @@ input[type='range'] {
   .title-meadow {
     left: 16px;
     right: 16px;
-  }
-  /* there the flowers would stand right under the lantern */
-  .title-meadow .m-right {
-    top: 104px;
-  }
-  .title-meadow::after {
-    top: 138px;
   }
 }
 /* Sun and moon do not cross this sky: on their path they would end up behind the name or a ghost's head.
@@ -3316,8 +3373,13 @@ input[type='range'] {
 .title.wait .title-foot {
   opacity: 0;
 }
+/* until the picture stands, a tap ends the entrance and nothing else: it must not also pick a ghost or go on */
 .title.wait .title-foot,
-.title.enter .title-foot {
+.title.enter .title-foot,
+.title.wait .title-pick,
+.title.enter .title-pick,
+.title.wait .title-plate,
+.title.enter .title-plate {
   pointer-events: none;
 }
 .title.enter .title-hero > .rig-layer {
@@ -3354,7 +3416,8 @@ input[type='range'] {
     filter: blur(7px);
   }
 }
-.title.enter .title-claim {
+.title.enter .title-claim,
+.title.enter .title-plate {
   animation: title-fade 0.6s ease 2.25s both;
 }
 .title.enter .title-foot {
@@ -3371,88 +3434,7 @@ input[type='range'] {
     transform: translateY(18px);
   }
 }
-.goal-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-top: 10px;
-}
-.goal-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 18px 10px;
-  border-radius: 22px;
-  border: 1.5px solid transparent;
-  background: var(--quiet);
-  transition: border-color 0.2s, background 0.2s, transform 0.2s var(--ease-spring);
-}
-.goal-card:active {
-  transform: scale(0.96);
-}
-.goal-card b {
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: 38px;
-  line-height: 1;
-}
-.goal-card span {
-  color: var(--muted);
-  font-weight: 800;
-  font-size: 13px;
-}
-.goal-card small {
-  margin-top: 6px;
-  font-weight: 800;
-  font-size: 13px;
-}
-.goal-card.active {
-  border-color: var(--charge);
-  background: var(--charge-soft);
-}
-.goal-card.active b,
-.goal-card.active small {
-  color: var(--charge);
-}
-.pick-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-}
-.pick-comp {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 10px 4px;
-  border-radius: 20px;
-  border: 2px solid transparent;
-  background: var(--quiet);
-  transition: border-color 0.2s, transform 0.2s var(--ease-spring), box-shadow 0.3s;
-}
-.pick-comp b {
-  font-family: var(--display);
-  font-weight: 600;
-}
-.pick-comp.active {
-  border-color: var(--cg);
-  box-shadow: 0 0 22px -6px var(--cg);
-  transform: translateY(-3px);
-}
-.name-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-weight: 800;
-  font-size: 13px;
-  color: var(--muted);
-}
-.name-field input {
-  color: var(--text);
-  text-align: center;
-  font-family: var(--display);
-  font-size: 20px;
-}
+
 .gift-row {
   display: flex;
   justify-content: center;
@@ -3477,26 +3459,6 @@ input[type='range'] {
   font-size: 13px;
   font-weight: 800;
   line-height: 1.15;
-}
-.remind-art {
-  position: relative;
-  display: grid;
-  place-items: center;
-  margin-top: 30px;
-}
-.remind-bell {
-  position: absolute;
-  right: calc(50% - 100px);
-  top: 0;
-  width: 54px;
-  height: 54px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: var(--warm);
-  color: #2d1a00;
-  box-shadow: 0 0 24px rgba(255, 199, 107, 0.6);
-  animation: wiggle 2.4s ease-in-out infinite;
 }
 
 /* ---------------- motion and large screens ---------------- */
@@ -3525,8 +3487,7 @@ input[type='range'] {
     padding: 0 11px;
   }
   .home-head h1,
-  .page-head h1,
-  .ob-title {
+.page-head h1 {
     font-size: 26px;
   }
 }
@@ -4138,8 +4099,7 @@ button.spark-meter:active {
   letter-spacing: 0.05em;
   font-size: 11px;
 }
-.spark-card,
-.ob-spark {
+.spark-card {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -4554,11 +4514,7 @@ button.spark-meter:active {
   inset: 0;
   will-change: opacity, transform;
 }
-/* three steps of the onboarding begin with lines of text right where sun and moon cross the sky around
-   noon and midnight: there they stay away */
-.app:has(.page.ob-tags, .page.ob-goal, .page.ob-pick) .sky-orbs {
-  opacity: 0 !important;
-}
+
 .sky-sun,
 .sky-moon {
   position: absolute;
@@ -4626,7 +4582,7 @@ button.spark-meter:active {
 .scene.glide .scene-end,
 .scene.glide .scene-props,
 .scene.glide .scene-glow {
-  transition: top 0.7s cubic-bezier(0.3, 0.7, 0.2, 1);
+  transition: top 0.5s cubic-bezier(0.3, 0.7, 0.2, 1);
 }
 .scene-layer {
   height: calc(var(--sc-h) * var(--sc-s));
