@@ -126,7 +126,7 @@ export function Complete({ res, onDrop, onBreak, onClose }: { res: SessionResult
 
   return (
     <div class={`page complete ${all ? 'skip' : ''}`} onPointerDown={skip}>
-      <CompanionStage ghostId={s.companion} level={1} mode="idle" cheer={cheer} react={{ act: 'proud', n: proud }} zoom={1.15} overscan={{ top: 0.35, side: 0.15, bottom: 0.05 }} class="complete-stage" interactive onPoke={() => sfx.poke()} />
+      <CompanionStage ghostId={s.companion} level={1} mode="idle" cheer={cheer} react={{ act: 'proud', n: proud }} zoom={1.15} overscan={{ top: 0.35, side: 0.15, bottom: 0.05 }} class="complete-stage" interactive onPoke={() => sfx.poke()} ground />
       <div class="complete-head">
         <h1>{res.completed ? t('done_title') : t('done_title_early')}</h1>
         <p class="big-num">
@@ -300,7 +300,7 @@ export function Break({ onClose }: { onClose: () => void }) {
   }, [left <= 0]);
   return (
     <div class="page break">
-      <CompanionStage ghostId={s.companion} mode="sleep" level={0.2} zoom={1.1} class="focus-stage" ring={1 - left / total} acts={false} />
+      <CompanionStage ghostId={s.companion} mode="sleep" level={0.2} zoom={1.1} class="focus-stage" ring={1 - left / total} acts={false} ground />
       <div class="focus-clock">
         <span class="clock">{fmtClock(left)}</span>
         <p class="focus-sub">{t('break_title')}</p>

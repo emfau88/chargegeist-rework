@@ -4390,6 +4390,135 @@ button.spark-meter:active {
   bottom: 0;
   height: clamp(300px, 52vh, 520px);
 }
+/* The painted land (ui/sky.tsx, Scene). --sc-s: screen pixels per canvas pixel, --sc-top: where the canvas hangs,
+   both set from fx/ground.ts so that the clearing lies under the ghost's shadow. Each layer is one picture
+   as wide as the screen; on a wide screen it repeats sideways. */
+.scene {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  --sc-s: 0.38;
+  --sc-top: 60px;
+  --sc-gtop: 60px;
+}
+.scene.on {
+  opacity: 1;
+}
+.scene-move {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+.scene-layer,
+.scene-end,
+.scene-props,
+.scene-glow {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--sc-top);
+}
+.scene.glide .scene-layer,
+.scene.glide .scene-end,
+.scene.glide .scene-props,
+.scene.glide .scene-glow {
+  transition: top 0.7s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+.scene-layer {
+  height: calc(var(--sc-h) * var(--sc-s));
+  background-repeat: repeat-x;
+  background-position: center top;
+  background-size: calc(var(--sc-w) * var(--sc-s)) 100%;
+}
+/* at rest the bright far mountains step back: cards and buttons lie in front of them */
+.scene-far {
+  transition: opacity 0.7s ease;
+}
+.scene.rest .scene-far {
+  opacity: 0.5;
+}
+/* moonlight on the meadow below the clearing, so the ground under text and buttons is not one flat tone */
+.scene-props::after {
+  content: '';
+  position: absolute;
+  left: -20%;
+  right: -20%;
+  top: calc(930px * var(--sc-s));
+  height: calc(640px * var(--sc-s));
+  background: radial-gradient(58% 100% at 50% 0%, rgba(132, 116, 244, 0.2), rgba(132, 116, 244, 0.06) 55%, transparent 78%);
+  pointer-events: none;
+}
+/* the ground with its firs has a place of its own: at rest it lies below the screen */
+.scene-ground .scene-layer,
+.scene-ground .scene-props {
+  top: var(--sc-gtop);
+}
+/* below the picture the ground goes on in the colour it ends in, as far as the page scrolls */
+.scene-end {
+  top: calc(var(--sc-gtop) + var(--sc-h) * var(--sc-s) - 1px);
+  height: 400vh;
+  background: var(--sc-end);
+}
+/* the light in the valley, behind the far mountains: it takes the colour of the time of day */
+.scene-glow {
+  top: calc(var(--sc-top) + 470px * var(--sc-s));
+  height: calc(720px * var(--sc-s));
+}
+.scene-glow .hz-glow {
+  top: 0;
+  height: 100%;
+}
+/* things standing in the scene: a box as wide as one picture, in the middle of the screen */
+.scene-props {
+  left: 50%;
+  right: auto;
+  width: calc(var(--sc-w) * var(--sc-s));
+  height: calc(var(--sc-h) * var(--sc-s));
+  margin-left: calc(var(--sc-w) * var(--sc-s) / -2);
+}
+.scene-prop {
+  position: absolute;
+  left: calc((var(--px) - var(--pw) / 2) * var(--sc-s) * 1px);
+  top: calc((var(--py) - var(--ph)) * var(--sc-s) * 1px);
+  width: calc(var(--pw) * var(--sc-s) * 1px);
+  height: calc(var(--ph) * var(--sc-s) * 1px);
+}
+.scene-prop img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+/* a lantern lights up slowly; its light falls on what stands around it */
+.scene-prop .glowing,
+.scene-prop .pool {
+  opacity: 0;
+  transition: opacity 1.6s ease;
+}
+.scene-prop.lit .glowing,
+.scene-prop.lit .pool {
+  opacity: 1;
+}
+.scene-prop .pool {
+  position: absolute;
+  left: -90%;
+  right: -90%;
+  top: -40%;
+  bottom: -70%;
+  background: radial-gradient(closest-side, rgba(255, 199, 107, 0.34), rgba(255, 170, 90, 0.12) 55%, transparent);
+  mix-blend-mode: screen;
+}
+.sky.moving .scene-prop.lit .pool {
+  animation: lantern 5.5s ease-in-out infinite;
+}
+@keyframes lantern {
+  50% {
+    opacity: 0.78;
+    transform: scale(0.96);
+  }
+}
 .hz-glow {
   position: absolute;
   left: 0;

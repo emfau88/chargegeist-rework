@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { ghost } from './data/catalog';
 import { lang, t } from './i18n';
+import { sceneLit } from './fx/ground';
 import { setFx } from './platform/audio';
 import { setEagerActs } from './rig/acts';
 import { haptic } from './platform/device';
@@ -13,7 +14,7 @@ import { Onboarding } from './screens/Onboarding';
 import { Plus } from './screens/Plus';
 import { Progress } from './screens/Progress';
 import { Settings } from './screens/Settings';
-import { useAppState } from './state/store';
+import { todayMinutes, useAppState } from './state/store';
 import type { SessionResult } from './state/store';
 import { BondUpHost } from './ui/bond';
 import { Sky, useReducedMotion } from './ui/sky';
@@ -108,6 +109,7 @@ export function App() {
           glow={ghost(s.companion).glow}
           hour={s.dev.skyHour}
           orbs={!plusOpen && !s.active && (!tabs || tab === 'focus')}
+          lit={sceneLit(todayMinutes(s), s.goal)}
         />
       </div>
       <main class="shell">

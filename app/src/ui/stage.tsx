@@ -4,6 +4,7 @@ import { nameOf } from '../i18n';
 import { createRig, renderPortrait } from '../rig/rig';
 import { bondLevel } from '../logic/bond';
 import { bondFromGesture, gestureFx, hugFx } from './gestureFx';
+import { setGround } from '../fx/ground';
 import type { RigApi, RigMode, RigOptions, RigStyle } from '../rig/rig';
 import type { ActName } from '../rig/acts';
 import { bondOf, lookOf, useAppState } from '../state/store';
@@ -36,6 +37,8 @@ interface StageProps {
   class?: string;
   label?: string;
   apiRef?: { current: RigApi | null };
+  /** He floats in front of the open sky: the painted scene puts its clearing under his shadow. */
+  ground?: boolean;
 }
 
 const styleKey = (o: RigStyle) => `${o.aura ?? ''},${o.shimmer ?? ''},${o.charm ?? ''}`;
@@ -93,6 +96,26 @@ export function CompanionStage(p: StageProps) {
     shown.current = key;
     rig.current?.setLook({ ghost: p.ghostId, style: look });
   }, [key]);
+  useEffect(() => {
+    if (!p.ground) return;
+    const who = {};
+    const tell = () => {
+      const r = rig.current;
+      if (r && host.current?.isConnected) setGround(who, r.groundY() + window.scrollY);
+    };
+    tell();
+    // the stage moves when something above it comes or goes (a waiting drop), which no observer of its own size sees
+    const id = window.setInterval(tell, 400);
+    const ro = new ResizeObserver(tell);
+    ro.observe(host.current!);
+    window.addEventListener('resize', tell);
+    return () => {
+      clearInterval(id);
+      ro.disconnect();
+      window.removeEventListener('resize', tell);
+      setGround(who, null);
+    };
+  }, [p.ground]);
   useEffect(() => rig.current?.setMode(p.mode ?? 'idle'), [p.mode]);
   useEffect(() => rig.current?.setBond(bond), [bond]);
   useEffect(() => rig.current?.setLevel(p.level ?? 0), [p.level]);

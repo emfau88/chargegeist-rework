@@ -112,6 +112,7 @@ export function Focus({ onDone, openPlus }: { onDone: (r: SessionResult | null) 
       </header>
 
       <CompanionStage
+        ground
         ghostId={s.companion}
         mode={paused ? 'idle' : 'focus'}
         level={progress}

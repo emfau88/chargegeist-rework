@@ -78,6 +78,8 @@ export interface RigApi {
   act(name: ActName): void;
   /** The bond stage with this ghost (0..4): 2 hugs after a long stroke, 3 turns holding into a high five. */
   setBond(level: number): void;
+  /** Where his shadow lies on the screen right now (pixels from the top of the window). */
+  groundY(): number;
   destroy(): void;
   ready: Promise<void>;
 }
@@ -1450,6 +1452,18 @@ void main(){
     },
     setBond(l) {
       bond = l;
+    },
+    groundY() {
+      // from the stage's own box, not from the last layout: the stage may have moved or grown since
+      const r = host.getBoundingClientRect();
+      const W = Math.max(1, r.width),
+        H = Math.max(1, r.height);
+      const mw = 440 / zoom,
+        mh = 620 / zoom;
+      const wide = W / H >= mw / mh;
+      const vh = wide ? mh : (mw * H) / W;
+      const upp = (wide ? (mh * W) / H : mw) / W;
+      return r.top + (SHADOW_Y + shiftY - 310 + vh / 2) / upp;
     },
     destroy() {
       // a stroke or hold in progress ends with the stage (stops the purr)

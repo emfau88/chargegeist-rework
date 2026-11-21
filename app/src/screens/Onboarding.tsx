@@ -87,6 +87,7 @@ function PreSteps({ openDrop }: { openDrop: (id: string) => void }) {
               </span>
             ))}
           </div>
+          {/* no clearing here: the other ghosts float around him, and firs behind them would crowd the picture */}
           <CompanionStage ghostId="volti" level={0.55} interactive zoom={1.15} overscan={{ top: 0.25, side: 0.1, bottom: 0 }} class="ob-stage" cheer={cheer} onPoke={() => sfx.poke()} />
           <h1 class="ob-title">{t('ob_welcome_title')}</h1>
           <p class="ob-text">{t('ob_welcome_body')}</p>
@@ -180,7 +181,7 @@ function PreSteps({ openDrop }: { openDrop: (id: string) => void }) {
         <div class="ob-body" key="pick">
           <h1 class="ob-title">{t('ob_pick_title')}</h1>
           <p class="ob-text">{t('ob_pick_body')}</p>
-          <CompanionStage ghostId={pick} level={0.35} interactive zoom={1.2} overscan={{ top: 0.25, side: 0.1, bottom: 0 }} class="ob-stage small" cheer={cheer} onPoke={() => sfx.poke()} />
+          <CompanionStage ghostId={pick} level={0.35} interactive zoom={1.2} overscan={{ top: 0.25, side: 0.1, bottom: 0 }} class="ob-stage small" cheer={cheer} onPoke={() => sfx.poke()} ground />
           <div class="pick-row">
             {COMPANIONS.filter((c) => c.starter).map((c) => (
               <button
@@ -223,7 +224,7 @@ function PreSteps({ openDrop }: { openDrop: (id: string) => void }) {
 
       {step === 'trial' && (
         <div class="ob-body" key="trial">
-          <CompanionStage ghostId={s.companion} level={0} interactive zoom={1.15} overscan={{ top: 0.25, side: 0.1, bottom: 0 }} class="ob-stage" cheer={cheer} onPoke={() => sfx.poke()} />
+          <CompanionStage ghostId={s.companion} level={0} interactive zoom={1.15} overscan={{ top: 0.25, side: 0.1, bottom: 0 }} class="ob-stage" cheer={cheer} onPoke={() => sfx.poke()} ground />
           <h1 class="ob-title">{t('ob_trial_title', { name: s.names[s.companion] ?? name })}</h1>
           <p class="ob-text">{t('ob_trial_body', { name: s.names[s.companion] ?? name })}</p>
           <div class="stack bottom-actions">
@@ -281,7 +282,7 @@ function PostSteps() {
     <div class={`page onboarding ob-${step}`}>
       {step === 'style' && (
         <div class="ob-body" key="style">
-          <CompanionStage ghostId={who} level={0.4} interactive zoom={1.15} overscan={{ top: 0.25, side: 0.1, bottom: 0 }} class="ob-stage" cheer={cheer} onPoke={() => sfx.poke()} />
+          <CompanionStage ghostId={who} level={0.4} interactive zoom={1.15} overscan={{ top: 0.25, side: 0.1, bottom: 0 }} class="ob-stage" cheer={cheer} onPoke={() => sfx.poke()} ground />
           <h1 class="ob-title">{t('ob_style_title', { name: companionName(s, who) })}</h1>
           <p class="ob-text">{t('ob_style_body')}</p>
           {target && (

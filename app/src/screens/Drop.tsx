@@ -77,7 +77,7 @@ function SparkGain({ kept }: { kept: KeepResult }) {
   if (sp.joined) {
     return (
       <div class="unlock-card joined" style={{ '--rc': g.glow } as CSSProperties}>
-        <CompanionStage ghostId={g.id} level={0.6} zoom={1.3} class="joined-stage" cheer={1} />
+        <CompanionStage ghostId={g.id} level={0.6} zoom={1.3} class="joined-stage" cheer={1} ground />
         <span>
           <b>{t('drop_ghost_joined', { name: nameOf(g) })}</b>
           <small>“{quoteOf(g)}”</small>
@@ -125,7 +125,7 @@ function Kept({ kept, onClose }: { kept: KeepResult; onClose: () => void }) {
       <div class="kept-hero trying">
         <span class="rays" />
         <span class="kept-glow" />
-        <CompanionStage ghostId={who} look={{ ...current, [x.kind]: x.id }} level={0.5} interactive zoom={1.15} overscan={{ top: 0.2, side: 0.1, bottom: 0.02 }} cheer={cheer} class="kept-stage" onPoke={() => sfx.poke()} />
+        <CompanionStage ghostId={who} look={{ ...current, [x.kind]: x.id }} level={0.5} interactive zoom={1.15} overscan={{ top: 0.2, side: 0.1, bottom: 0.02 }} cheer={cheer} class="kept-stage" onPoke={() => sfx.poke()} ground />
         <Burst color={RARITY_COLOR[x.rarity]} big={rarityRank(x.rarity) >= 2} />
       </div>
       <div class="kept-info">

@@ -5,6 +5,9 @@
  */
 import type { CSSProperties } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { SCENE, SCENE_PROPS } from '../data/scene.gen';
+import { GROUND_LINE, SCROLL_RATE, groundY, onGround, scenePlace } from '../fx/ground';
+import type { SceneLit } from '../fx/ground';
 import { setSceneLight } from '../fx/light';
 import { moonPhase, moonPlace, orbAlpha, skyLight, skyOpacities, skyWeights, starAlpha, sunPlace } from '../logic/sky';
 import { now } from '../state/store';
@@ -173,6 +176,142 @@ function Horizon({ glow }: { glow: { morning: number; day: number; evening: numb
   );
 }
 
+const SCENE_URL = (name: string) => `${import.meta.env.BASE_URL}assets/scene/${name}.webp`;
+const LAYERS = ['far', 'mid', 'ground'] as const;
+/** Things that stand in the scene: where their foot is on the canvas (x of the middle, y of the lower edge) and how large they are drawn. */
+const LANTERNS = [
+  { off: 'lantern_hang_off', on: 'lantern_hang_on', x: 96, y: 742, k: 0.44, lit: 'first' },
+  { off: 'lantern_stand_off', on: 'lantern_stand_on', x: 884, y: GROUND_LINE + 14, k: 0.4, lit: 'goal' },
+] as const;
+
+let sceneLoad: Promise<boolean> | null = null;
+/** The pictures of the scene, loaded once. False when one of them does not come: then the drawn hills stay. */
+function loadScene(): Promise<boolean> {
+  sceneLoad ??= Promise.all(
+    [...LAYERS, ...LANTERNS.flatMap((l) => [l.off, l.on])].map(
+      (n) =>
+        new Promise<boolean>((res) => {
+          const im = new Image();
+          im.onload = () => res(true);
+          im.onerror = () => res(false);
+          im.src = SCENE_URL(n);
+        }),
+    ),
+  ).then((all) => all.every(Boolean));
+  return sceneLoad;
+}
+
+/**
+ * The painted land: far mountains, hills, and in front a clearing between firs. It hangs so that the
+ * clearing lies under the shadow of the ghost on the screen (see fx/ground.ts); without one it rests
+ * low. The ground goes along as the page scrolls, the land behind it lags a little. Two lanterns
+ * stand in it: the first burns once there was focus today, the second when the daily goal is reached.
+ */
+function Scene({ glow, lit }: { glow: { morning: number; day: number; evening: number }; lit: SceneLit }) {
+  const [state, setState] = useState<'wait' | 'ok' | 'none'>('wait');
+  const root = useRef<HTMLDivElement>(null);
+  const parts = useRef<Record<string, HTMLDivElement | null>>({});
+  useEffect(() => {
+    let live = true;
+    loadScene().then((ok) => live && setState(ok ? 'ok' : 'none'));
+    return () => {
+      live = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (state !== 'ok') return;
+    const el = root.current!;
+    let raf = 0;
+    let first = true;
+    const place = () => {
+      const p = scenePlace(window.innerWidth, window.innerHeight, groundY());
+      el.style.setProperty('--sc-s', p.scale.toFixed(5));
+      el.style.setProperty('--sc-top', `${p.top}px`);
+      el.style.setProperty('--sc-gtop', `${p.groundTop}px`);
+      el.classList.toggle('rest', groundY() === null);
+      onScroll();
+      if (first) {
+        // the first place is taken at once; from then on the land glides to where the next ghost stands
+        first = false;
+        requestAnimationFrame(() => el.classList.add('glide'));
+      }
+    };
+    const scroll = () => {
+      raf = 0;
+      // at rest the hills stand still behind the page, as a far horizon does
+      const y = groundY() === null ? 0 : Math.max(0, window.scrollY);
+      for (const n of LAYERS) {
+        const e = parts.current[n];
+        if (e) e.style.transform = `translate3d(0, ${(-y * SCROLL_RATE[n]).toFixed(1)}px, 0)`;
+      }
+    };
+    function onScroll() {
+      if (!raf) raf = requestAnimationFrame(scroll);
+    }
+    place();
+    scroll();
+    const off = onGround(place);
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      off();
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', onScroll);
+      cancelAnimationFrame(raf);
+    };
+  }, [state]);
+
+  if (state === 'none') return <Horizon glow={glow} />;
+  return (
+    <div class={`scene ${state === 'ok' ? 'on' : ''}`} ref={root} style={{ '--sc-w': `${SCENE.w}px`, '--sc-h': `${SCENE.h}px`, '--sc-end': SCENE.ground.bottom } as CSSProperties}>
+      <div class="scene-glow">
+        <i class="hz-glow night" />
+        <i class="hz-glow morning" style={{ opacity: glow.morning }} />
+        <i class="hz-glow day" style={{ opacity: glow.day }} />
+        <i class="hz-glow evening" style={{ opacity: glow.evening }} />
+      </div>
+      <div
+        class="scene-move scene-far"
+        ref={(e) => {
+          parts.current.far = e;
+        }}
+      >
+        <div class="scene-layer" style={{ backgroundImage: `url(${SCENE_URL('far')})` }} />
+      </div>
+      <div
+        class="scene-move"
+        ref={(e) => {
+          parts.current.mid = e;
+        }}
+      >
+        <div class="scene-layer" style={{ backgroundImage: `url(${SCENE_URL('mid')})` }} />
+      </div>
+      <div
+        class="scene-move scene-ground"
+        ref={(e) => {
+          parts.current.ground = e;
+        }}
+      >
+        <div class="scene-layer" style={{ backgroundImage: `url(${SCENE_URL('ground')})` }} />
+        <div class="scene-end" />
+        <div class="scene-props">
+          {LANTERNS.map((l) => {
+            const [w, h] = SCENE_PROPS[l.off];
+            const on = lit[l.lit];
+            return (
+              <div key={l.off} class={`scene-prop ${on ? 'lit' : ''}`} style={{ '--px': l.x, '--py': l.y, '--pw': w * l.k, '--ph': h * l.k } as CSSProperties}>
+                <i class="pool" />
+                <img src={SCENE_URL(l.off)} alt="" draggable={false} />
+                <img class="glowing" src={SCENE_URL(l.on)} alt="" draggable={false} />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** The fractional hour now, checked once a minute. */
 function useHour(fixed: number | null | undefined): number {
   const read = () => {
@@ -223,9 +362,13 @@ export interface SkyProps {
   hour?: number | null;
   /** Sun and moon show where the sky is the stage. Behind screens full of cards they would shine through, and a focus session stays calm. */
   orbs?: boolean;
+  /** What the day has lit in the painted scene (see fx/ground.ts). */
+  lit?: SceneLit;
 }
 
-export function Sky({ timeOfDay, stars, moving, mood, glow, hour, orbs = true }: SkyProps) {
+const DARK: SceneLit = { first: false, goal: false };
+
+export function Sky({ timeOfDay, stars, moving, mood, glow, hour, orbs = true, lit = DARK }: SkyProps) {
   const h = useHour(hour);
   const w = timeOfDay ? skyWeights(h) : { morning: 0, day: 0, evening: 0, night: 1 };
   const o = skyOpacities(w);
@@ -259,7 +402,7 @@ export function Sky({ timeOfDay, stars, moving, mood, glow, hour, orbs = true }:
         </>
       )}
       {star && <i class="shoot" key={star.key} style={{ left: `${star.x}%`, top: `${star.y}%`, '--a': `${star.a}deg` } as CSSProperties} />}
-      {timeOfDay && <Horizon glow={o} />}
+      {timeOfDay && <Scene glow={o} lit={lit} />}
       <div class={`sky-mood mood-${mood}`} />
       {mood === 'done' && moving && <SparkRain />}
     </div>

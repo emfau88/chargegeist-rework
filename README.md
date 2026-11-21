@@ -33,7 +33,7 @@ Der Spielstand liegt nur im Browser (localStorage).
 - **Ladewoche und Wochenboss:** 5 aktive Tage pro Woche bringen einen Bonus-Drop. Wer das Wochenziel schafft, beruhigt den Boss, und der kommt zu dir. Ein verpasster Tag setzt nichts zurück.
 - **Anfassen:** Tippen, Streicheln, Halten und Kitzeln. Gestreichelt schließt der Geist genießerisch die Augen und summt, gehalten wird er zusammengedrückt, gekitzelt kichert er und schlägt einen Salto. Senkrechtes Wischen scrollt weiter die Seite.
 - **Bindung pro Geist:** Gemeinsame Fokusminuten (1 Herz pro 5 Minuten) und die Gesten (je 1 Herz am Tag) füllen die Bindung. Bei 10, 40, 100 und 250 Herzen steigt sie: Vertraut (er begrüßt dich mit seinem Spruch), Freund (er umarmt dich nach langem Streicheln), Bester Freund (Halten wird zum High-Five) und Seelenverwandt (goldener Rahmen). Herzen und Stufen sinken nie.
-- **Lebendiger Himmel:** Der Standard-Himmel folgt der Tageszeit, Nebelschleier ziehen langsam, ab und zu fällt eine Sternschnuppe. Darunter liegt ein Tal zwischen Hügeln mit ein paar Tannen. Sonne und Mond gehen hinter den Hügeln auf und unter, und der Mond zeigt die Phase des echten. Scrollst du, ziehen sie sich zurück, damit sie nie hinter einer Textzeile liegen. Die Geister fangen dieses Licht: Ein feiner Lichtsaum liegt auf der Seite von Sonne oder Mond um ihre Silhouette, in der Farbe der Tageszeit. Im Fokus atmet ein Schein in der Farbe des Geists, ein wartender Drop schimmert golden, und nach einer Sitzung regnet es Funken. Die Bewegung ist abschaltbar und bei „Bewegung reduzieren“ aus.
+- **Lebendiger Himmel:** Der Standard-Himmel folgt der Tageszeit, Nebelschleier ziehen langsam, ab und zu fällt eine Sternschnuppe. Darunter liegt eine gemalte Landschaft in drei Ebenen: ferne Berge, Hügel und vorn eine Lichtung zwischen Tannen. Wo ein Geist vor dem offenen Himmel schwebt (Start, Fokus, Abschluss, Drop, Einstieg), liegt die Lichtung genau unter seinem Schatten; beim Scrollen geht sie mit, und die Hügel dahinter bleiben etwas zurück. Auf Screens ohne Geist sinkt die Lichtung weg, und nur die Hügel stehen ruhig hinter Karten und Knöpfen. Zwei Laternen zeigen den Tag: Die erste brennt, sobald du heute fokussiert hast, die zweite, wenn das Tagesziel erreicht ist. Sonne und Mond gehen hinter dem Land auf und unter, und der Mond zeigt die Phase des echten. Scrollst du, ziehen sie sich zurück, damit sie nie hinter einer Textzeile liegen. Die Geister fangen dieses Licht: Ein feiner Lichtsaum liegt auf der Seite von Sonne oder Mond um ihre Silhouette, in der Farbe der Tageszeit. Im Fokus atmet ein Schein in der Farbe des Geists, ein wartender Drop schimmert golden, und nach einer Sitzung regnet es Funken. Die Bewegung ist abschaltbar und bei „Bewegung reduzieren“ aus.
 - **Erfolge** mit Wunschenergie als Belohnung, dazu Statistiken und eine Monatskarte zum Teilen.
 - **Plus (einmalig):** Hintergründe, Klangwelten, ausführliche Statistiken und der Unterstützer-Schimmer Herzlicht. Plus verkauft keine Drops, Geister oder Tempo.
 
@@ -63,7 +63,7 @@ Jeder Push auf `main` baut die App und veröffentlicht sie über GitHub Actions 
 | `app/src/logic/` | Drops, Fortschritt, Boss, Erfolge, Bindung, Tageszeit des Himmels |
 | `app/tools/` | Import der Bausätze und Talismane, Trennen der Augen in Ebenen, App-Icon, Screenshot-Skripte |
 | `docs/` | Bilder für dieses README |
-| `rig_input/` | Die Bausatz-Bögen als Vorlage, die zweite Generation in `rig_input/neu/` |
+| `rig_input/` | Die Bausatz-Bögen als Vorlage, die zweite Generation in `rig_input/neu/`, die gemalte Szene in `rig_input/szene/` |
 | `rig_parts/` | Die daraus geschnittenen Einzelteile |
 | `rig_tools/` | Python-Werkzeuge zum Schneiden und Prüfen der Teile |
 
@@ -79,6 +79,12 @@ python -I rig_tools/build_new.py rig_parts/kits
 python -I app/tools/import_kits.py rig_parts/kits rig_tools rig_parts app
 # danach die Augen in Ebenen trennen (Hintergrund, Iris, Rand, Glanz)
 python -I app/tools/split_eyes.py app all
+```
+
+Die gemalte Szene neu einlesen (Ebenen `far`, `mid`, `ground` und der Requisiten-Bogen in `rig_input/szene/`, Vorlage mit den Zonen: `vorlage_szene.png`):
+
+```bash
+python -I rig_tools/build_scene.py rig_input/szene app
 ```
 
 Talismane neu schneiden (aus demselben Ordner):
