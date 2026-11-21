@@ -21,6 +21,8 @@ interface StageProps {
   onPoke?: () => void;
   /** A touch woke the sleeping companion. */
   onWake?: () => void;
+  /** Things on the screen he looks at now and then (CSS selectors), such as the start button. */
+  attend?: string[];
   /** Change this value to make the companion cheer. */
   cheer?: number;
   cheerBig?: boolean;
@@ -89,6 +91,24 @@ export function CompanionStage(p: StageProps) {
   useEffect(() => {
     if (p.cheer) rig.current?.celebrate(p.cheerBig ?? true);
   }, [p.cheer]);
+  const attend = p.attend?.join('|') ?? '';
+  useEffect(() => {
+    if (!attend) return;
+    let id = 0;
+    const plan = () => {
+      id = window.setTimeout(() => {
+        const seen = attend
+          .split('|')
+          .map((q) => document.querySelector(q)?.getBoundingClientRect())
+          .filter((r): r is DOMRect => !!r && r.width > 0 && r.bottom > 0 && r.top < window.innerHeight);
+        const r = seen[Math.floor(Math.random() * seen.length)];
+        if (r && !document.hidden) rig.current?.glance(r.left + r.width / 2, r.top + r.height / 2);
+        plan();
+      }, 6000 + Math.random() * 7000);
+    };
+    plan();
+    return () => clearTimeout(id);
+  }, [attend]);
 
   return <div class={`stage ${p.class ?? ''}`} ref={host} role={p.label ? 'img' : undefined} aria-label={p.label} />;
 }

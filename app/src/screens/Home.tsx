@@ -160,6 +160,7 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
           shiftY={10}
           cheer={cheer}
           cheerBig={false}
+          attend={['.drop-card.top', '.start-btn']}
           onPoke={() => {
             sfx.poke();
             haptic.tap();

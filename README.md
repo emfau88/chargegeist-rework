@@ -33,7 +33,7 @@ Der Spielstand liegt nur im Browser (localStorage).
 - **Erfolge** mit Wunschenergie als Belohnung, dazu Statistiken und eine Monatskarte zum Teilen.
 - **Plus (einmalig):** Hintergründe, Klangwelten, ausführliche Statistiken und der Unterstützer-Schimmer Herzlicht. Plus verkauft keine Drops, Geister oder Tempo.
 
-Die Geister sind animierte Rigs aus Einzelteilen und werden mit WebGL gerendert. Sie atmen, blinzeln, jubeln und reagieren auf Gesten. Töne entstehen im Browser, ohne Audiodateien. Auren laufen als leichte SVG-Partikel, der Talisman folgt dem Geist mit etwas Verzögerung und weicht im Fokus dem Ladering aus.
+Die Geister sind animierte Rigs aus Einzelteilen und werden mit WebGL gerendert. Sie atmen, blinzeln, jubeln und reagieren auf Gesten. Die Augen bestehen aus Ebenen: Die Iris wandert mit dem Blick im Auge, die Glanzpunkte bleiben fast stehen, und Lider schließen sich, statt das Auge zu stauchen. In Ruhe macht der Blick kleine Sprünge, folgt dem Finger und geht ab und zu zum Startknopf oder zum wartenden Drop. Töne entstehen im Browser, ohne Audiodateien. Auren laufen als leichte SVG-Partikel, der Talisman folgt dem Geist mit etwas Verzögerung und weicht im Fokus dem Ladering aus.
 
 ## Lokal starten
 
@@ -56,7 +56,7 @@ Jeder Push auf `main` baut die App und veröffentlicht sie über GitHub Actions 
 | `app/src/fx/` | Auren (Partikel) und Schimmer (Farben) |
 | `app/src/state/` | Spielstand und alle Aktionen |
 | `app/src/logic/` | Drops, Fortschritt, Boss, Erfolge, Bindung, Tageszeit des Himmels |
-| `app/tools/` | Import der Bausätze und Talismane, App-Icon, Screenshot-Skripte |
+| `app/tools/` | Import der Bausätze und Talismane, Trennen der Augen in Ebenen, App-Icon, Screenshot-Skripte |
 | `rig_input/` | Die Bausatz-Bögen als Vorlage |
 | `rig_parts/` | Die daraus geschnittenen Einzelteile |
 | `rig_tools/` | Python-Werkzeuge zum Schneiden und Prüfen der Teile |
@@ -65,6 +65,8 @@ Neue Bausätze übernehmen (aus dem Ordner `chargegeist_rework`):
 
 ```bash
 python -I app/tools/import_kits.py rig_parts/kits rig_tools rig_parts app
+# danach die Augen in Ebenen trennen (Hintergrund, Iris, Rand, Glanz)
+python -I app/tools/split_eyes.py app all
 ```
 
 Talismane neu schneiden (aus demselben Ordner):

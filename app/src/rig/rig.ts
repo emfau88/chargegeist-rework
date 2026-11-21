@@ -12,6 +12,8 @@
  */
 import { charmImg, ghost, partUrl } from '../data/catalog';
 import { CHARMS } from '../data/charms.gen';
+import { EYES } from '../data/eyes.gen';
+import { GLINT_FOLLOW, eyePose, lids, pupilShift } from './gaze';
 import { GestureTracker } from './gestures';
 import type { Gesture } from './gestures';
 import { RIGS } from '../data/rigs.gen';
@@ -64,6 +66,8 @@ export interface RigApi {
   wave(): void;
   /** Waves hello with a little hop (from the Familiar bond stage). */
   greet(): void;
+  /** Looks at a point of the screen for a moment (client coordinates), unless something holds his eyes already. */
+  glance(clientX: number, clientY: number, seconds?: number): void;
   /** The bond stage with this ghost (0..4): 2 hugs after a long stroke, 3 turns holding into a high five. */
   setBond(level: number): void;
   destroy(): void;
@@ -82,6 +86,15 @@ const RAD = Math.PI / 180;
 const RIM = [2.6, 4.6, 7.2, 10.5];
 const RIM_PAD = 16;
 const SHEER = 0.18;
+/** The lids over one layer of an eye: where they are (see gaze.ts), the width of the lid line and where the layer lies in the eye, all as shares of the eye part. */
+interface Lid {
+  top: number;
+  bot: number;
+  bow: number;
+  line: number;
+  ox: number;
+  oy: number;
+}
 /** What the light needs to know about a part. */
 interface Lit {
   /** The body only: where the hem starts and how long it is (share of the texture height). */
@@ -141,8 +154,12 @@ const FACE_PARTS = [
   'arm_L',
   'arm_R',
 ];
-export function partNames(id: string): string[] {
-  return RIGS[id].tuft ? [...FACE_PARTS, 'tuft'] : FACE_PARTS;
+/** The layers of an open eye, from back to front (see tools/split_eyes.py). Only the live rig draws them; a still portrait takes the flat eye. */
+const EYE_LAYERS = ['back', 'iris', 'ring', 'glint'];
+export function partNames(id: string, live = false): string[] {
+  const parts = RIGS[id].tuft ? [...FACE_PARTS, 'tuft'] : FACE_PARTS;
+  if (!live || !EYES[id]) return parts;
+  return [...parts, ...['L', 'R'].filter((side) => RIGS[id].eyes.includes(side)).flatMap((side) => EYE_LAYERS.map((n) => `eye_${n}_${side}`))];
 }
 
 const imgCache = new Map<string, Promise<HTMLImageElement>>();
@@ -160,8 +177,8 @@ export function loadImage(url: string): Promise<HTMLImageElement> {
   }
   return p;
 }
-export async function preloadLook(l: Pick<Look, 'ghost'>) {
-  const parts = partNames(l.ghost);
+export async function preloadLook(l: Pick<Look, 'ghost'>, live = false) {
+  const parts = partNames(l.ghost, live);
   const p = await Promise.all(parts.map((n) => loadImage(partUrl(l.ghost, n))));
   const map: Record<string, HTMLImageElement> = {};
   parts.forEach((n, k) => (map[n] = p[k]));
@@ -316,7 +333,10 @@ precision mediump float;
 in vec2 vUV; uniform sampler2D uTex; uniform float uAlpha, uLevel, uTime, uGlow, uDim, uBoost; uniform vec3 uFill;
 // the light of the scene. uLit: x the seam of light (its own pass, before the figure), y the glow under the hem in that pass,
 // z the sheer hem. uPx: one stage unit in texture space
-uniform vec3 uLit; uniform vec2 uLDir, uPx, uHem; uniform vec3 uKey, uUnder, uTint; out vec4 outColor;
+uniform vec3 uLit; uniform vec2 uLDir, uPx, uHem; uniform vec3 uKey, uUnder, uTint;
+// the lids of an eye. uLid: x upper edge, y lower edge (share of the eye's height), z how far the edges bow towards the
+// corners, w width of the lid line (0: no lids). uLidOff: where this layer lies in the eye. uInk: colour of the lid line
+uniform vec4 uLid; uniform vec2 uLidOff; uniform vec3 uInk; out vec4 outColor;
 // how solid the figure is a step away; a higher blur reads a coarser level of the texture, for a soft falloff
 float solid(vec2 uv, float blur){
   vec2 q = step(vec2(0.0), uv) * step(uv, vec2(1.0));
@@ -355,6 +375,15 @@ void main(){
     float hem = clamp((vUV.y - uHem.x) / uHem.y, 0.0, 1.0);
     a *= 1.0 - uLit.z * hem * hem * skin;
   }
+  if (uLid.w > 0.0) {
+    // behind the lids the eye is gone and the skin of the body shows; a line of ink runs along each lid
+    vec2 p = vUV + uLidOff;
+    float q = 2.0 * p.x - 1.0;
+    float bow = uLid.z * q * q;
+    float near = min(p.y - uLid.x - bow, uLid.y + bow - p.y);
+    rgb = mix(rgb, uInk, 1.0 - smoothstep(uLid.w * 0.55, uLid.w, near));
+    a *= smoothstep(-0.012, 0.012, near);
+  }
   rgb *= 1.0 - uDim * vec3(0.20, 0.14, 0.06);
   outColor = vec4(rgb * a, a) * uAlpha;
 }`;
@@ -371,7 +400,7 @@ void main(){
     g.linkProgram(prog);
     if (!g.getProgramParameter(prog, g.LINK_STATUS)) throw new Error(g.getProgramInfoLog(prog) ?? 'link');
     g.useProgram(prog);
-    for (const n of ['uView', 'uTex', 'uAlpha', 'uLevel', 'uTime', 'uGlow', 'uDim', 'uBoost', 'uFill', 'uLit', 'uLDir', 'uPx', 'uHem', 'uKey', 'uUnder', 'uTint']) loc[n] = g.getUniformLocation(prog, n);
+    for (const n of ['uView', 'uTex', 'uAlpha', 'uLevel', 'uTime', 'uGlow', 'uDim', 'uBoost', 'uFill', 'uLit', 'uLDir', 'uPx', 'uHem', 'uKey', 'uUnder', 'uTint', 'uLid', 'uLidOff', 'uInk']) loc[n] = g.getUniformLocation(prog, n);
     g.bindVertexArray(g.createVertexArray());
     const vbo = g.createBuffer();
     g.bindBuffer(g.ARRAY_BUFFER, vbo);
@@ -446,8 +475,8 @@ void main(){
   let light: SceneLight | null = null;
   /** How far the body is turned right now (lean and somersault), in degrees. */
   let bodyDeg = 0;
-  /** halo: draws the light that falls past the part instead of the part itself (0..1). */
-  function drawGrid(name: string, nx: number, ny: number, map: (s: number, t: number) => Vec, alpha: number, fx?: { level?: number; glow?: number; boost?: number; lit?: Lit; halo?: number }) {
+  /** halo: draws the light that falls past the part instead of the part itself (0..1). lid: the lids over a layer of an eye. */
+  function drawGrid(name: string, nx: number, ny: number, map: (s: number, t: number) => Vec, alpha: number, fx?: { level?: number; glow?: number; boost?: number; lit?: Lit; halo?: number; lid?: Lid }) {
     const tx = TEX[name];
     if (!tx || alpha <= 0.003) return;
     const lit = light ? fx?.lit : undefined;
@@ -481,6 +510,11 @@ void main(){
         gl.uniform2f(loc.uPx, 1 / (lit.k * tx.w), 1 / (lit.k * tx.h));
         gl.uniform2f(loc.uHem, hem ? hem[0] : 2, hem ? hem[1] : 1);
       } else gl.uniform3f(loc.uLit, 0, 0, 0);
+      const lid = fx?.lid;
+      if (lid) {
+        gl.uniform4f(loc.uLid, lid.top, lid.bot, lid.bow, lid.line);
+        gl.uniform2f(loc.uLidOff, lid.ox, lid.oy);
+      } else gl.uniform4f(loc.uLid, 0, 0, 0, 0);
       gl.drawElements(gl.TRIANGLES, nx * ny * 6, gl.UNSIGNED_SHORT, 0);
     } else if (ctx2d) {
       const p0 = map(0, 0),
@@ -517,10 +551,10 @@ void main(){
     return [(x * F.c - y * F.s) * R.k + F.gx, (x * F.s + y * F.c) * R.k + F.gy];
   }
   /** A texture painted onto the body mesh, centred on body point (cx, cy). */
-  function skin(name: string, cx: number, cy: number, sx: number, sy: number, alpha: number, grid = 4) {
+  function skin(name: string, cx: number, cy: number, sx: number, sy: number, alpha: number, grid = 4, lid?: Lid) {
     const t = TEX[name];
     if (!t) return;
-    drawGrid(name, grid, grid, (s, qq) => D(cx + (s - 0.5) * t.w * sx, cy + (qq - 0.5) * t.h * sy), alpha);
+    drawGrid(name, grid, grid, (s, qq) => D(cx + (s - 0.5) * t.w * sx, cy + (qq - 0.5) * t.h * sy), alpha, lid && { lid });
   }
   /** A rigid texture fixed at body point P; local() gives the body-space offset of texture point (a, b). */
   function rigidAt(name: string, P: Vec, local: (a: number, b: number) => Vec, alpha = 1, fx?: { glow?: number; lit?: Lit; halo?: number }) {
@@ -546,6 +580,8 @@ void main(){
   const S = {
     squash: new Spring(1, 230, 9), lean: new Spring(0, 70, 8),
     lookX: new Spring(0, 110, 15), lookY: new Spring(0, 110, 15),
+    // the eyes are quicker than the face: they dart to where the look is going
+    gazeX: new Spring(0, 900, 44), gazeY: new Spring(0, 900, 44),
     eye: new Spring(1, 1500, 58), wide: new Spring(0, 160, 14),
     happy: new Spring(0, 240, 28), sleepy: new Spring(0, 26, 10), focus: new Spring(0, 40, 12),
     armL: new Spring(0, 110, 8), armR: new Spring(0, 110, 8),
@@ -681,6 +717,9 @@ void main(){
   let nextBlink = 1.4, blinkEnd = -1, nextLook = 0.8, nextFidget = 4 + Math.random() * 3, waveUntil = 0;
   let happyUntil = 0, wideUntil = 0, flashUntil = 0, zNext = 0, sparkNext = 0;
   const pointer = { x: 300, y: 300, last: -10 };
+  // a glance at something on the screen, and the small jumps the eyes make on their own
+  const glanceAt = { x: 300, y: 300, until: 0 };
+  let nextDart = 1, dartX = 0, dartY = 0;
   // gestures: stroking, holding and tickling (a tap stays a poke)
   const gest = new GestureTracker();
   let gestId = -1;
@@ -855,14 +894,33 @@ void main(){
     } else if (T - pointer.last < 2.5) {
       S.lookX.t = clamp((pointer.x - 300) / 230, -1, 1);
       S.lookY.t = clamp((pointer.y - ghostY - 20) / 230, -1, 1);
+    } else if (T < glanceAt.until) {
+      S.lookX.t = clamp((glanceAt.x - 300) / 230, -1, 1);
+      S.lookY.t = clamp((glanceAt.y - ghostY - 20) / 230, -1, 1);
+      nextLook = Math.max(nextLook, glanceAt.until);
     } else if (T >= nextLook) {
       const center = Math.random() < 0.4;
       S.lookX.t = center ? 0 : Math.random() * 1.6 - 0.8;
       S.lookY.t = center ? 0 : Math.random() * 1.0 - 0.45;
       nextLook = T + 1.2 + Math.random() * 2.8;
     }
+    // at rest the eyes make small jumps of their own; they hold still while they follow something
+    const resting = mode === 'idle' && !reduce && T - pointer.last >= 2.5 && T >= glanceAt.until;
+    if (!resting) dartX = dartY = 0;
+    else if (T >= nextDart) {
+      dartX = (Math.random() - 0.5) * 0.5;
+      dartY = (Math.random() - 0.5) * 0.3;
+      nextDart = T + 0.5 + Math.random() * 1.7;
+    }
+    const fixed = eyePose();
+    if (fixed) {
+      S.lookX.t = fixed.x;
+      S.lookY.t = fixed.y;
+    }
+    S.gazeX.t = clamp(S.lookX.t * 1.2 + (fixed ? 0 : dartX), -1, 1);
+    S.gazeY.t = clamp(S.lookY.t * 1.2 + (fixed ? 0 : dartY), -1, 1);
 
-    if (mode === 'idle' && T >= nextFidget && !reduce) {
+    if (mode === 'idle' && T >= nextFidget && !reduce && !eyePose()) {
       const r = Math.random();
       if (r < 0.4) waveUntil = T + 1.3;
       else if (r < 0.7) S.lean.v += (Math.random() < 0.5 ? -1 : 1) * 70;
@@ -1032,6 +1090,8 @@ void main(){
       gl.uniform3f(loc.uKey, lk[0] * pulse, lk[1] * pulse, lk[2] * pulse);
       gl.uniform3f(loc.uUnder, lu[0] * pulse, lu[1] * pulse, lu[2] * pulse);
       gl.uniform3f(loc.uTint, lt[0], lt[1], lt[2]);
+      const ink = EYES[cur.ghost]?.ink ?? [0, 0, 0];
+      gl.uniform3f(loc.uInk, ink[0], ink[1], ink[2]);
     } else if (ctx2d) {
       ctx2d.setTransform(1, 0, 0, 1, 0, 0);
       ctx2d.clearRect(0, 0, canvas.width, canvas.height);
@@ -1061,22 +1121,50 @@ void main(){
     skin('blush_L', fx - R.blush[0], R.blush[1] + fy, bs, bs, ba);
     skin('blush_R', fx + R.blush[0], R.blush[1] + fy, bs, bs, ba);
 
+    const fixed = eyePose();
     const blinkC = 1 - clamp(S.eye.x, 0, 1);
-    const close = Math.max(happy, sleepy, blinkC);
+    const close = fixed ? clamp(fixed.shut, 0, 1) : Math.max(happy, sleepy, blinkC);
     const w = 1 + clamp(S.wide.x, 0, 1.2) * 0.14;
-    const eyeSy = w * (1 - 0.18 * focus) * (1 - close);
-    const openA = smooth(0.2, 0.3, eyeSy),
-      arcA = 1 - openA;
-    const happyArc = happy >= Math.max(sleepy, blinkC);
+    const happyArc = fixed ? !!fixed.smile : happy >= Math.max(sleepy, blinkC);
     const ex = lx * 12 * u,
       ey = R.eyeY + fy + ly * 9 * u;
-    for (const side of [-1, 1]) {
-      const tag = side < 0 ? 'L' : 'R';
-      if (!R.eyes.includes(tag)) continue;
-      const cx = fx + side * R.eyeDX + ex;
-      skin(`eye_open_${tag}`, cx, ey + 20 * u * (1 - eyeSy / w), w * fs, Math.max(0.05, eyeSy) * fs, openA);
-      if (happyArc) skin(`eye_happy_${tag}`, cx, ey - 4 * u, fs, fs, arcA);
-      else skin(`eye_sleep_${tag}`, cx, ey + 20 * u, fs, fs, arcA);
+    // eyes in layers (WebGL only): lids close over them, the inside follows the gaze and the highlights nearly stay
+    const kit = gl && !fixed?.flat && (TEX.eye_back_L || TEX.eye_back_R) ? EYES[cur.ghost] : undefined;
+    if (kit) {
+      const shut = clamp(1 - (1 - close) * (1 - 0.24 * focus), 0, 1);
+      const openA = 1 - smooth(0.8, 0.94, shut),
+        arcA = 1 - openA;
+      const L = lids(shut, happyArc);
+      const [px, py] = pupilShift(S.gazeX.x, S.gazeY.x, kit.shift);
+      const sc = w * fs;
+      for (const side of [-1, 1]) {
+        const tag = side < 0 ? 'L' : 'R';
+        const back = TEX[`eye_back_${tag}`];
+        if (!R.eyes.includes(tag) || !back) continue;
+        const cx = fx + side * R.eyeDX + ex;
+        // a layer of the eye, moved by (mx, my) pixels of the eye part
+        const part = (name: string, mx: number, my: number) =>
+          skin(`eye_${name}_${tag}`, cx + mx * sc, ey + my * sc, sc, sc, openA, 4, shut > 0.004 ? { ...L, line: (kit.rim * 0.9) / back.h, ox: mx / back.w, oy: my / back.h } : undefined);
+        part('back', 0, 0);
+        part('iris', px, py);
+        part('ring', 0, 0);
+        part('glint', px * GLINT_FOLLOW, py * GLINT_FOLLOW);
+        if (happyArc) skin(`eye_happy_${tag}`, cx, ey - 4 * u, fs, fs, arcA);
+        else skin(`eye_sleep_${tag}`, cx, ey + 20 * u, fs, fs, arcA);
+      }
+    } else {
+      // one flat picture per eye: it is squeezed shut
+      const eyeSy = w * (1 - 0.18 * focus) * (1 - close);
+      const openA = smooth(0.2, 0.3, eyeSy),
+        arcA = 1 - openA;
+      for (const side of [-1, 1]) {
+        const tag = side < 0 ? 'L' : 'R';
+        if (!R.eyes.includes(tag)) continue;
+        const cx = fx + side * R.eyeDX + ex;
+        skin(`eye_open_${tag}`, cx, ey + 20 * u * (1 - eyeSy / w), w * fs, Math.max(0.05, eyeSy) * fs, openA);
+        if (happyArc) skin(`eye_happy_${tag}`, cx, ey - 4 * u, fs, fs, arcA);
+        else skin(`eye_sleep_${tag}`, cx, ey + 20 * u, fs, fs, arcA);
+      }
     }
 
     // mouth shapes keep Volti's proportions to each other (smile 0.8, line 0.7, o 0.75)
@@ -1101,15 +1189,19 @@ void main(){
   }
 
   /* ---------- input ---------- */
-  function toStage(e: PointerEvent) {
+  function toStage(clientX: number, clientY: number) {
     const r = layer.getBoundingClientRect();
-    return { x: view.x + ((e.clientX - r.left) / r.width) * view.w, y: view.y + ((e.clientY - r.top) / r.height) * view.h };
+    return { x: view.x + ((clientX - r.left) / r.width) * view.w, y: view.y + ((clientY - r.top) / r.height) * view.h };
   }
-  const onMove = (e: PointerEvent) => {
-    const p = toStage(e);
+  /** A finger anywhere on the screen draws his eyes. */
+  const onSee = (e: PointerEvent) => {
+    const p = toStage(e.clientX, e.clientY);
     pointer.x = p.x;
     pointer.y = p.y;
     pointer.last = T;
+  };
+  const onMove = (e: PointerEvent) => {
+    onSee(e);
     if (e.pointerId === gestId) emit(gest.move(e.clientX, e.clientY, performance.now()));
   };
   const onDown = (e: PointerEvent) => {
@@ -1130,6 +1222,7 @@ void main(){
     emit(gest.cancel(performance.now()));
   };
   if (opts.interactive) {
+    window.addEventListener('pointerdown', onSee, { passive: true });
     window.addEventListener('pointermove', onMove, { passive: true });
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onCancel);
@@ -1166,7 +1259,7 @@ void main(){
     const my = ++req;
     const ghostChanged = cur.ghost !== l.ghost || !loaded;
     if (ghostChanged) {
-      const imgs = await preloadLook(l);
+      const imgs = await preloadLook(l, true);
       if (!alive || my !== req) return;
       const next: Record<string, Tex> = {};
       for (const [k, im] of Object.entries(imgs)) next[k] = makeTex(im);
@@ -1236,6 +1329,13 @@ void main(){
       wideUntil = T + 0.5;
       jump(300);
     },
+    glance(clientX, clientY, seconds = 1.6) {
+      if (mode !== 'idle') return;
+      const p = toStage(clientX, clientY);
+      glanceAt.x = p.x;
+      glanceAt.y = p.y;
+      glanceAt.until = T + seconds;
+    },
     setBond(l) {
       bond = l;
     },
@@ -1245,6 +1345,7 @@ void main(){
       alive = false;
       cancelAnimationFrame(raf);
       ro.disconnect();
+      window.removeEventListener('pointerdown', onSee);
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onCancel);
