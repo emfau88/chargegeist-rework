@@ -48,12 +48,11 @@ check('the entrance ends by itself', await until(() => has(page, '.ob-body.title
 const plate = () => page.locator('.pick-chip.on b').innerText();
 const chip = (name) => page.locator('.pick-chip', { hasText: name });
 check('three ghosts to choose from, the first starter picked', (await page.locator('.pick-chip').count()) === 3 && (await plate()) === 'Skye', await plate());
+// a check waits for what it expects instead of a fixed time: a slow first load must not fail it
 await chip('Hazel').click();
-await sleep(500);
-check('a tap on a portrait picks that ghost', (await plate()) === 'Hazel', await plate());
+check('a tap on a portrait picks that ghost', await until(async () => (await plate()) === 'Hazel'), await plate());
 await chip('Kürbis-Pip').click();
-await sleep(500);
-check('and another tap picks another', (await plate()) === 'Kürbis-Pip' && (await page.locator('.pick-chip.on').count()) === 1, await plate());
+check('and another tap picks another', await until(async () => (await plate()) === 'Kürbis-Pip' && (await page.locator('.pick-chip.on').count()) === 1), await plate());
 check('the button names the pick', (await page.locator('.title-foot .btn').innerText()).includes('Kürbis-Pip'));
 await page.locator('.title-foot .btn').click();
 check('the welcome gift opens', await until(() => has(page, '.page.drop')));
@@ -71,13 +70,14 @@ await until(() => has(page, '.page.drop'));
 s = await state(page);
 check('it waits with the same cards', JSON.stringify(s.pending[0].cards) === JSON.stringify(cards) && Array.isArray(cards), JSON.stringify(cards));
 await page.getByText('Alle aufdecken').click();
-await sleep(1900);
-await page.locator('.bottom-actions .btn-warm').click();
-await sleep(1700);
-s = await state(page);
+// the button keeps a card only once the cards are turned and one is chosen: tap it until the card is kept
+check('one card is kept and the drop is gone', await until(async () => {
+  if (!(await has(page, '.page.drop.kept'))) await page.locator('.bottom-actions .btn-warm').click({ timeout: 400 }).catch(() => {});
+  s = await state(page);
+  return Object.keys(s.styles).length === 1 && s.pending.length === 0;
+}));
 const first = Object.keys(s.styles)[0];
-check('one card is kept and the drop is gone', Object.keys(s.styles).length === 1 && s.pending.length === 0);
-check('the first style goes straight on', !!first && Object.values(s.looks.pumpkin ?? {}).includes(first), JSON.stringify(s.looks));
+check('the first style goes straight on', await until(async () => !!first && Object.values((await state(page)).looks.pumpkin ?? {}).includes(first)), JSON.stringify((await state(page)).looks));
 await page.getByText('Weiter', { exact: true }).click();
 check('then the clearing, with nothing waiting', await until(async () => (await has(page, '.page.home')) && !(await has(page, '.hero-drop'))));
 
@@ -135,8 +135,12 @@ await page.evaluate(() => window.__cg.mutate((x) => (x.goal = 45)));
 check('the other instance sees a change at once', await until(async () => (await state(page2)).goal === 45, 3000));
 // the case that lost data: one instance saves a session, the other one then changes something small
 await page.evaluate(() => window.__cg.dev.addMinutes(25));
+// The browser passes a write on to the other instance a moment later. A person is never faster than that,
+// two commands in a row are: wait until the other one can see it.
+await until(async () => (await stored(page2)).sessions.length === 2, 3000);
 await page2.evaluate(() => window.__cg.mutate((x) => (x.tags = ['read'])));
-const both = await stored(page);
+let both;
+await until(async () => (both = await stored(page)).tags.join() === 'read', 3000);
 check('a change in one instance does not wipe out a session the other one saved', both.sessions.length === 2 && both.tags.join() === 'read' && both.goal === 45, JSON.stringify({ sessions: both.sessions.length, tags: both.tags, goal: both.goal }));
 await page2.close();
 await ctx.close();

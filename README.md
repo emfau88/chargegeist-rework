@@ -48,6 +48,7 @@ npm install
 npm run dev        # http://localhost:5173
 npm test           # Tests der Rechenregeln und des Spielstands
 npm run flow       # ein Durchlauf durch die App mit Prüfungen (der Dev-Server muss laufen)
+npm run check      # alles vor einem Commit: Typprüfung, Tests, Durchlauf; bricht beim ersten Fehler ab
 npm run build      # Produktions-Build nach app/dist
 ```
 
