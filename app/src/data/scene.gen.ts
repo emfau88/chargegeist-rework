@@ -2,4 +2,4 @@
 /** The painted scene behind the ghost: canvas size, where each layer's land begins (top: highest point, mid: in the middle) and the colour it ends in. */
 export const SCENE = {"w": 1024, "h": 1536, "far": {"top": 726, "mid": 775, "bottom": "#181044"}, "mid": {"top": 638, "mid": 878, "bottom": "#180f48"}, "ground": {"top": 408, "mid": 864, "bottom": "#140d38"}} as const;
 /** Small things that stand in the scene: width and height in pixels of the scene's canvas. */
-export const SCENE_PROPS: Record<string, [number, number]> = {"lantern_hang_off": [333, 375], "lantern_hang_on": [333, 375], "lantern_stand_off": [338, 331], "lantern_stand_on": [336, 330], "flowers_open": [311, 282], "mushrooms_glow": [333, 252]};
+export const SCENE_PROPS: Record<string, [number, number]> = {"lantern_hang_off": [333, 375], "lantern_hang_on": [333, 375], "lantern_stand_off": [338, 331], "lantern_stand_on": [336, 330]};

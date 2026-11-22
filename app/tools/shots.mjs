@@ -91,13 +91,13 @@ async function shot(page, name, wait = 900) {
   console.log('shot', name);
 }
 
-// 1. onboarding: the title with the pick, the welcome gift, the clearing
+// 1. onboarding: the screen where you pick your ghost, the welcome gift, the clearing
 {
   const p = await fresh();
-  await shot(p, 'ob1-title', 5200); // after the entrance of the title screen
-  await p.locator('.title-pick.right').click();
+  await shot(p, 'ob1-title', 5200); // after the entrance of the first screen
+  await p.locator('.pick-chip', { hasText: 'Hazel' }).click();
   await shot(p, 'ob2-title-pick', 1600);
-  await p.locator('.title-pick.right').click(); // the first ghost stands on the right now: back to it
+  await p.locator('.pick-chip', { hasText: 'Skye' }).click();
   await sleep(900);
   await p.locator('.title-foot .btn').click();
   await shot(p, 'ob3-gift', 1000);

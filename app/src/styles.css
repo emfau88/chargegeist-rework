@@ -3049,8 +3049,9 @@ input[type='range'] {
   height: clamp(260px, 40dvh, 360px);
 }
 
-/* ---------------- the title screen: the first step of the onboarding ----------------
-   The name over the clearing, the three starters on it, one button. Title in screens/Onboarding.tsx. */
+/* ---------------- the first screen: pick the ghost you start with ----------------
+   One job: the name of the app, the question, the picked ghost large on the clearing, the three to choose
+   from under it, one button. Title in screens/Onboarding.tsx. */
 .ob-body.title {
   position: relative;
   gap: 0;
@@ -3061,277 +3062,174 @@ input[type='range'] {
   position: relative;
   z-index: 2;
   text-align: center;
-  margin-top: clamp(10px, 5.5dvh, 60px);
+  margin-top: clamp(4px, 3.2dvh, 28px);
 }
+/* the name of the app, as a small mark above the question */
 .wordmark {
+  font-family: var(--display);
   font-weight: 700;
-  font-size: clamp(42px, 13.4vw, 60px);
+  font-size: 25px;
   line-height: 1;
-  letter-spacing: -0.5px;
-  text-wrap: nowrap;
+  letter-spacing: -0.2px;
   text-shadow:
-    0 3px 0 rgba(20, 13, 56, 0.55),
-    0 0 34px color-mix(in srgb, var(--charge) 46%, transparent);
+    0 2px 0 rgba(20, 13, 56, 0.5),
+    0 0 20px color-mix(in srgb, var(--charge) 36%, transparent);
 }
 .wordmark b {
   font-weight: inherit;
   color: #7fe6ff;
 }
-.title-claim {
-  margin-top: 10px;
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: clamp(16.5px, 4.9vw, 20px);
-  color: #e9e5ff;
-  text-shadow: 0 2px 10px rgba(20, 13, 56, 0.6);
+.title-head h1 {
+  margin-top: clamp(10px, 2.4dvh, 20px);
+  font-size: clamp(25px, 7.7vw, 30px);
+  text-shadow: 0 2px 12px rgba(20, 13, 56, 0.6);
 }
-/* the free room is shared: sky above the ghosts, meadow below them */
-.title-cast {
-  position: relative;
-  margin-top: auto;
-}
-/* the two friends stand a step behind the first ghost: smaller, their shadows a little higher on the ground */
-.title-friend {
-  position: absolute;
-  top: 17%;
-  width: 46%;
-  height: 68%;
-  pointer-events: none;
-}
-.title-friend.left {
-  left: -10.5%;
-}
-.title-friend.right {
-  right: -10.5%;
-}
-/* The lanterns make room for the three. The standing one comes forward onto the meadow (its place is a
-   point of the scene's canvas, set inline in ui/sky.tsx); the hanging one would be behind the left friend. */
-.app:has(.ob-body.title) .scene-prop.hang {
-  display: none;
-}
-.app:has(.ob-body.title) .scene-prop.stand {
-  --px: 922 !important;
-  --py: 1056 !important;
-}
-/* a tap on one of the two friends brings that ghost forward: a field over each, beside the ghost in front */
-.title-pick {
-  position: absolute;
-  z-index: 1;
-  top: 20%;
-  width: 26%;
-  height: 62%;
-  padding: 0;
-  border: 0;
-  border-radius: 40%;
-  background: none;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.title-pick.left {
-  left: -4%;
-}
-.title-pick.right {
-  right: -4%;
-}
-.title-pick:focus-visible,
-.title-arrow:focus-visible {
-  outline: 2px solid var(--charge);
-  outline-offset: 2px;
-}
-/* the pick in words, on the meadow under the ghost in front: its name between two arrows, and what it says */
-.title-plate {
-  position: absolute;
-  z-index: 2;
-  left: 50%;
-  top: calc(85% + 14px);
-  width: 214px;
-  margin-left: -107px;
-  text-align: center;
-}
-.title-plate small {
-  display: block;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #d3cdf5;
+.title-sub {
+  margin-top: 7px;
+  font-size: 15.5px;
+  line-height: 1.35;
+  color: #dcd8f6;
+  text-wrap: balance;
   text-shadow: 0 1px 8px rgba(20, 13, 56, 0.7);
 }
-.title-plate-row {
+.title-hero {
+  margin-top: clamp(4px, 6dvh, 66px);
+  height: clamp(200px, 40dvh, 360px);
+}
+/* the three to choose from: round portraits on the meadow, right under the ghost's shadow */
+.pick-row {
+  position: relative;
+  z-index: 2;
   display: flex;
-  align-items: center;
   justify-content: center;
-  gap: 4px;
-  margin-top: 3px;
+  gap: clamp(12px, 6vw, 26px);
+  margin-top: -6px;
 }
-.title-plate-row b {
-  min-width: 122px;
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: 25px;
-  line-height: 1.15;
-  white-space: nowrap;
-  color: color-mix(in srgb, var(--cg) 70%, #fff);
-  text-shadow: 0 2px 10px rgba(20, 13, 56, 0.75);
-  animation: title-swap 0.35s var(--ease-spring);
-}
-.title-arrow {
-  flex: none;
-  width: 36px;
-  height: 36px;
-  display: grid;
-  place-items: center;
+.pick-chip {
+  width: 88px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
   padding: 0;
-  border: 1.5px solid rgba(255, 255, 255, 0.24);
-  border-radius: 50%;
-  background: rgba(20, 13, 56, 0.5);
+  border: 0;
+  background: none;
   color: #fff;
   cursor: pointer;
+  opacity: 0.62;
+  transition: opacity 0.25s ease;
+  -webkit-tap-highlight-color: transparent;
 }
-.title-arrow:active {
-  transform: scale(0.92);
+.pick-face {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1.5px solid rgba(255, 255, 255, 0.16);
+  transition:
+    transform 0.3s var(--ease-spring),
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
 }
-.title-quote {
-  margin-top: 6px;
-  font-size: 13px;
+.pick-face .portrait {
+  width: 118%;
+  height: 118%;
+  max-width: none;
+  transform: translateY(3px);
+}
+.pick-chip b {
+  font-size: 13.5px;
+  font-weight: 800;
+  white-space: nowrap;
+  text-shadow: 0 1px 8px rgba(20, 13, 56, 0.7);
+}
+.pick-chip.on {
+  opacity: 1;
+}
+.pick-chip.on .pick-face {
+  transform: scale(1.16);
+  border: 2.5px solid var(--cg);
+  background: color-mix(in srgb, var(--cg) 16%, rgba(255, 255, 255, 0.05));
+  box-shadow: 0 0 22px color-mix(in srgb, var(--cg) 55%, transparent);
+}
+.pick-chip.on b {
+  color: color-mix(in srgb, var(--cg) 70%, #fff);
+}
+.pick-chip:active .pick-face {
+  transform: scale(0.95);
+}
+.pick-chip:focus-visible .pick-face {
+  outline: 2px solid var(--charge);
+  outline-offset: 3px;
+}
+/* what the picked ghost says: it tells the three apart */
+.pick-quote {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 14.5px;
   font-style: italic;
   line-height: 1.3;
   color: #dcd8f6;
   text-wrap: balance;
   text-shadow: 0 1px 8px rgba(20, 13, 56, 0.75);
-  animation: title-fade 0.4s ease;
+  /* a name of its own: the entrance below must count as a new animation, not as this one going on */
+  animation: quote-in 0.35s ease;
 }
-@keyframes title-swap {
+@keyframes quote-in {
   from {
     opacity: 0;
-    transform: scale(0.86);
-  }
-}
-/* the meadow in front of them: plants at the edges and fireflies. Its top edge is the ground line of the first ghost */
-.title-meadow {
-  position: absolute;
-  left: -18px;
-  right: -18px;
-  top: 85%;
-  height: 0;
-  pointer-events: none;
-}
-.title-meadow img {
-  position: absolute;
-  display: block;
-  height: auto;
-  filter: drop-shadow(0 6px 8px rgba(8, 5, 30, 0.45));
-}
-.title-meadow .m-left {
-  left: -12px;
-  top: 30px;
-  width: 104px;
-}
-.title-meadow .m-right {
-  right: -24px;
-  top: 92px;
-  width: 72px;
-}
-/* the plants glow: their light lies on the grass around them */
-.title-meadow::before,
-.title-meadow::after {
-  content: '';
-  position: absolute;
-  border-radius: 50%;
-  mix-blend-mode: screen;
-}
-.title-meadow::before {
-  left: -56px;
-  top: 60px;
-  width: 196px;
-  height: 88px;
-  background: radial-gradient(closest-side, rgba(255, 188, 108, 0.3), transparent);
-}
-.title-meadow::after {
-  right: -70px;
-  top: 120px;
-  width: 160px;
-  height: 68px;
-  background: radial-gradient(closest-side, rgba(255, 150, 190, 0.22), transparent);
-}
-.title-meadow .fly {
-  position: absolute;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: #fff1bd;
-  box-shadow: 0 0 9px 3px rgba(255, 214, 120, 0.55);
-  opacity: 0;
-  animation: title-fly 5.5s ease-in-out infinite;
-}
-@keyframes title-fly {
-  0% {
-    opacity: 0;
-    transform: translate(0, 0);
-  }
-  25% {
-    opacity: 0.95;
-  }
-  50% {
-    transform: translate(12px, -16px);
-  }
-  75% {
-    opacity: 0.85;
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-8px, -30px);
   }
 }
 .title-foot {
   position: relative;
   z-index: 2;
+  gap: 10px;
 }
 .title-fair {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  margin-bottom: 4px;
+  gap: 6px;
   font-weight: 700;
-  font-size: 13.5px;
-  color: #dcd7fb;
+  font-size: 12.5px;
+  color: #cfc9f3;
   text-shadow: 0 1px 8px rgba(20, 13, 56, 0.7);
 }
 .title-fair .icon {
   color: var(--heart);
 }
-/* on a short screen the meadow has no room between the ghosts and the button */
-@media (max-height: 660px) {
-  .title-meadow img,
-  .title-meadow .fly.low,
-  .title-meadow::before,
-  .title-meadow::after,
-  .title-quote {
+/* a short screen has no room for everything: first the quote goes, then the line under the button */
+@media (max-height: 700px) {
+  .pick-quote {
     display: none;
   }
 }
-/* on a wide screen the page is a column in the middle: the plants stay inside it instead of being cut at its edge */
-@media (min-width: 700px) {
-  .title-meadow {
-    left: 16px;
-    right: 16px;
+@media (max-height: 600px) {
+  .title-fair {
+    display: none;
+  }
+  .title-hero {
+    margin-top: 2px;
+    height: clamp(180px, 35dvh, 360px);
   }
 }
-/* Sun and moon do not cross this sky: on their path they would end up behind the name or a ghost's head.
-   Each has its place in the open sky between the two; they still fade with the hour. */
+/* Sun and moon do not cross this sky: on their path they would end up behind the words or the ghost's head.
+   Each has its place in the open sky beside the ghost; they still fade with the hour. */
 .app:has(.ob-body.title) .sky-moon {
-  left: 78% !important;
-  top: 28% !important;
+  left: 80% !important;
+  top: max(27%, 200px) !important;
 }
 .app:has(.ob-body.title) .sky-sun {
-  left: 22% !important;
-  top: 28% !important;
+  left: 20% !important;
+  top: max(27%, 200px) !important;
 }
 
-/* The entrance. wait: the ghosts are loading, the clearing lies dark. enter: the lantern lights up (ENTER in
-   Onboarding.tsx), the first ghost floats in, its friends join, the name appears, the button comes last.
-   A ghost's layer moves, not its stage: the stage tells the scene where the ground is. */
+/* The entrance. wait: the ghost is loading, the clearing lies dark. enter: the lanterns light up (ENTER in
+   Onboarding.tsx), the ghost floats in, then the words, the choice and the button come.
+   The ghost's layer moves, not its stage: the stage tells the scene where the ground is. */
 .app:has(.title.wait) .bg::after,
 .app:has(.title.enter) .bg::after {
   content: '';
@@ -3342,7 +3240,7 @@ input[type='range'] {
   pointer-events: none;
 }
 .app:has(.title.enter) .bg::after {
-  animation: title-veil 2s ease-out both;
+  animation: title-veil 1.8s ease-out both;
 }
 @keyframes title-veil {
   to {
@@ -3350,17 +3248,17 @@ input[type='range'] {
   }
 }
 .title.wait .title-head,
-.title.wait .title-cast,
+.title.wait .title-hero,
+.title.wait .pick-row,
+.title.wait .pick-quote,
 .title.wait .title-foot {
   opacity: 0;
 }
 /* until the picture stands, a tap ends the entrance and nothing else: it must not also pick a ghost or go on */
+.title.wait .pick-row,
+.title.enter .pick-row,
 .title.wait .title-foot,
-.title.enter .title-foot,
-.title.wait .title-pick,
-.title.enter .title-pick,
-.title.wait .title-plate,
-.title.enter .title-plate {
+.title.enter .title-foot {
   pointer-events: none;
 }
 .title.enter .title-hero > .rig-layer {
@@ -3372,37 +3270,23 @@ input[type='range'] {
     transform: translateY(54px) scale(0.86);
   }
 }
-.title.enter .title-friend > .rig-layer {
-  animation: title-pop 0.6s var(--ease-spring) 1.15s both;
-}
-.title.enter .title-friend.right > .rig-layer {
-  animation-delay: 1.32s;
-}
-@keyframes title-pop {
-  from {
-    opacity: 0;
-    transform: translateY(26px) scale(0.72);
-  }
-}
-.title.enter .title-meadow {
-  animation: title-fade 0.9s ease 1.3s both;
-}
-.title.enter .wordmark {
-  animation: title-name 0.75s var(--ease-out) 1.9s both;
+.title.enter .title-head {
+  animation: title-name 0.7s var(--ease-out) 1.3s both;
 }
 @keyframes title-name {
   from {
     opacity: 0;
-    transform: translateY(-12px) scale(0.93);
-    filter: blur(7px);
+    transform: translateY(-10px);
   }
 }
-.title.enter .title-claim,
-.title.enter .title-plate {
-  animation: title-fade 0.6s ease 2.25s both;
+.title.enter .pick-row {
+  animation: title-up 0.55s var(--ease-out) 1.65s both;
+}
+.title.enter .pick-quote {
+  animation: title-fade 0.5s ease 1.9s both;
 }
 .title.enter .title-foot {
-  animation: title-up 0.6s var(--ease-out) 2.5s both;
+  animation: title-up 0.55s var(--ease-out) 2.05s both;
 }
 @keyframes title-fade {
   from {

@@ -38,21 +38,22 @@ async function until(fn, ms = 9000) {
   return false;
 }
 
-/* ---------- 1. the onboarding: pick a ghost on the title screen ---------- */
+/* ---------- 1. the onboarding: one screen, pick the ghost you start with ---------- */
 const ctx = await browser.newContext(CONTEXT);
 const page = await ctx.newPage();
 watch(page);
 await page.goto(URL);
-check('the title screen opens with its entrance', await has(page, '.ob-body.title.wait, .ob-body.title.enter'));
+check('the first screen opens with its entrance', await has(page, '.ob-body.title.wait, .ob-body.title.enter'));
 check('the entrance ends by itself', await until(() => has(page, '.ob-body.title.done')));
-const plate = () => page.locator('.title-plate-row b').innerText();
-check('the first starter is in front', (await plate()) === 'Skye', await plate());
-await page.locator('.title-pick.right').click();
+const plate = () => page.locator('.pick-chip.on b').innerText();
+const chip = (name) => page.locator('.pick-chip', { hasText: name });
+check('three ghosts to choose from, the first starter picked', (await page.locator('.pick-chip').count()) === 3 && (await plate()) === 'Skye', await plate());
+await chip('Hazel').click();
 await sleep(500);
-check('a tap on the ghost on the right brings it forward', (await plate()) === 'Hazel', await plate());
-await page.locator('.title-arrow').first().click();
+check('a tap on a portrait picks that ghost', (await plate()) === 'Hazel', await plate());
+await chip('Kürbis-Pip').click();
 await sleep(500);
-check('the arrow brings the ghost on the left forward', (await plate()) === 'Kürbis-Pip', await plate());
+check('and another tap picks another', (await plate()) === 'Kürbis-Pip' && (await page.locator('.pick-chip.on').count()) === 1, await plate());
 check('the button names the pick', (await page.locator('.title-foot .btn').innerText()).includes('Kürbis-Pip'));
 await page.locator('.title-foot .btn').click();
 check('the welcome gift opens', await until(() => has(page, '.page.drop')));
