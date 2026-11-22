@@ -67,7 +67,12 @@ export interface RigConfig {
   eyes: string;
   armL: ArmRig;
   armR: ArmRig;
-  tuft: { at: Vec; anchor: Vec; rest: number } | null;
+  /**
+   * What stands on the head and sways. gain, max and light are set for one that was cut out of the finished
+   * figure (a lantern on its stalk): the share of the sway it takes, the most it turns either way, and the
+   * point where its glow sits (body pixels, at rest).
+   */
+  tuft: { at: Vec; anchor: Vec; rest: number; gain?: number; max?: number; light?: Vec } | null;
   /** Parts of the body picture that bend: L and R move as the arms do, top as a tuft does. */
   limbs?: { L?: Limb; R?: Limb; top?: Limb };
   /** Where the skirt starts to sway (measured down from cy), and over which length. */

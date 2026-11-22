@@ -86,15 +86,16 @@ NEW = {
     "cactus": dict(up=1.3, height=385, cx=254, eye_y=260, eye_dx=54, mouth=(260, 290), fs=1.1, ms=0.79, arms=dict(
         L=dict(at=(122, 318), gain=0.4, up=42, down=12),
         R=dict(at=(383, 350), gain=0.16, up=16, down=0, back=True))),
-    # the wings flap; the paws lie in front of the cape and stay
-    "dragon": dict(up=1.0, height=385, cx=228.5, eye_y=197, eye_dx=65, mouth=(218.5, 236), fs=0.58, ms=0.58, limbs=dict(
-        L=limb((118, 292), [(128, 232), (85, 210), (-15, 285), (-15, 350), (60, 380), (102, 356), (118, 330), (122, 300)], (12, 60)),
-        R=limb((392, 312), [(402, 262), (425, 236), (480, 245), (548, 325), (545, 375), (445, 410), (388, 376), (378, 340), (382, 300)], (12, 62)))),
-    # the fins wave, and the lantern sways on its stalk as a tuft does
-    "jellyfish": dict(up=1.0, height=385, cx=266.5, eye_y=323, eye_dx=78.5, mouth=(267, 364), fs=0.74, ms=0.70, limbs=dict(
-        L=limb((120, 318), [(124, 250), (60, 236), (-15, 258), (-10, 335), (36, 372), (62, 385), (122, 376)], (10, 55), 0.35),
-        R=limb((406, 322), [(402, 250), (470, 236), (548, 258), (540, 335), (492, 382), (460, 393), (402, 382)], (10, 55), 0.35),
-        top=limb((266, 148), [(228, 152), (220, 110), (255, 20), (340, -15), (450, -10), (575, 70), (575, 215), (475, 250), (410, 202), (395, 165), (330, 132), (300, 152)], (12, 80), 0.6, 14))),
+    # The wings are cut out of the figure (see the cactus): they lie behind head, bow and paws, which stay.
+    "dragon": dict(up=1.0, height=385, cx=228.5, eye_y=197, eye_dx=65, mouth=(218.5, 236), fs=0.58, ms=0.58, arms=dict(
+        L=dict(at=(112, 300), gain=0.3, up=16, down=6, back=True),
+        R=dict(at=(380, 305), gain=0.3, up=16, down=6, back=True))),
+    # The fins are cut out and wave in front of the bell. The lantern on its stalk is the tuft: it sways behind the
+    # rim of the bell and glows with the charge. light: where its glow sits. max: the most it sways either way.
+    "jellyfish": dict(up=1.0, height=385, cx=266.5, eye_y=323, eye_dx=78.5, mouth=(267, 364), fs=0.74, ms=0.70, arms=dict(
+        L=dict(at=(104, 322), gain=0.4, up=26, down=14),
+        R=dict(at=(425, 322), gain=0.4, up=26, down=14),
+        top=dict(at=(266, 150), gain=0.6, max=9, light=(470, 165)))),
 }
 
 

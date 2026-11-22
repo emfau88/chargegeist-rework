@@ -135,6 +135,9 @@ for gid, R in NEW.items():
     f = R["up"]
     arms = "arm_l" in R or "arms" in R
     names = [p for p in PARTS if not p.startswith("blush") and (arms or not p.startswith("arm"))]
+    top = R.get("arms", {}).get("top")
+    if top:
+        names.append("tuft")
     ims = {}
     for p in names:
         im = up(Image.open(kits / gid / f"{p}.png").convert("RGBA"), f)
@@ -142,6 +145,14 @@ for gid, R in NEW.items():
         ims[p] = im
     body = ims["body"]
     x0, y0, x1, y1 = bbox(body)
+    if "arms" in R:
+        # parts cut out of the figure still count towards its size: measure the figure as it stood on the sheet
+        origin = json.loads((kits / gid / "arms.json").read_text())
+        for key, part in (("L", "arm_L"), ("R", "arm_R"), ("top", "tuft")):
+            if key in origin:
+                px0, py0, px1, py1 = bbox(ims[part])
+                ox, oy = round(origin[key][0] * f), round(origin[key][1] * f)
+                x0, y0, x1, y1 = min(x0, ox + px0), min(y0, oy + py0), max(x1, ox + px1), max(y1, oy + py1)
     W, H = x1 - x0, y1 - y0
     k = R["height"] / H
     m = 0.37 / k
@@ -150,7 +161,6 @@ for gid, R in NEW.items():
     mx, my = round(R["mouth"][0] * f, 1), round(R["mouth"][1] * f, 1)
     if "arms" in R:
         # arms cut out of the figure: each hangs where it was painted and turns by a share of what a loose arm does
-        origin = json.loads((kits / gid / "arms.json").read_text())
 
         def cut_arm(key):
             A, im = R["arms"][key], ims[f"arm_{key}"]
@@ -186,6 +196,11 @@ for gid, R in NEW.items():
         top=y0,
         baked=["blush"] if arms else ["arms", "blush"],
     )
+    if top:
+        # what stands on the head is cut out of the figure as well, and sways as a tuft does
+        pt = lambda v: [round((v[0] - origin["top"][0]) * f, 1), round((v[1] - origin["top"][1]) * f, 1)]
+        rig["tuft"] = dict(at=[round(top["at"][0] * f, 1), round(top["at"][1] * f, 1)], anchor=pt(top["at"]), rest=0,
+                           gain=top["gain"], max=top["max"], light=[round(top["light"][0] * f, 1), round(top["light"][1] * f, 1)])
     if "limbs" in R:
         # parts of the figure that bend at a joint: their points go from figure pixels to pixels of the body picture
         rig["limbs"] = {

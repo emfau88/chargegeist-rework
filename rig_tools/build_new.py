@@ -137,13 +137,21 @@ def build_figure(gid):
     both.convert("RGB").resize((1500, 500), Image.LANCZOS).save(kits / gid / "_face_out.png")
 
 
-# ---------- arms that are painted into the figure: cut out along their contour, each a picture of its own ----------
-# A part is found by its surface: the light areas inside the rough shape, as far as the dark contour encloses them.
-# The contour around them goes with the part.
+# ---------- parts that are painted into the figure: cut out, each a picture of its own ----------
+# L and R become arm_L and arm_R (cactus arms, wings, fins), top becomes the tuft (the lantern on its stalk).
+#   rough   a rough shape around the part.
+#   cut     "contour" (the usual case): the part is found by its surface, the light areas inside the rough shape
+#           as far as a dark contour encloses them; the contour around them goes with the part.
+#           "shape": the part has no contour towards the figure, it grows out of it. Then the rough shape itself
+#           is the part, and inside "root" it fades out over "feather" pixels.
 #   front   the part lies in front of the figure. All of it goes, and what it covered is painted in: "behind"
 #           lists, back to front, ("ink", polygon), ("fill", polygon, a point on the visible surface whose colours
-#           are carried in) and ("line", points of a contour that continues one that is visible).
+#           are carried in) and ("line", points of a contour that continues one that is visible, width).
 #   back    (front=False) the part lies behind the figure. The figure keeps its own contour along the cut.
+#           grow: the hidden base of the part is grown on under the figure by this many pixels, so nothing
+#           gapes when it turns.
+#   near    the contour goes with the part wherever the part's surface is nearer than the figure's (for contours
+#           wider than LINE). keep: the width of the contour the figure keeps along the cut of a part behind it.
 # All in pixels of _raw/figure.png.
 ARMS = {
     "cactus": dict(
@@ -152,14 +160,38 @@ ARMS = {
                    ("ink", [(128, 296), (152, 296), (152, 336), (128, 336)]),  # where the contours of face, hood and cloth meet
                    ("fill", [(76.5, 232), (77, 262), (82, 292), (94, 316), (114, 333), (146, 331), (133, 310), (129, 288), (131, 262), (131, 232)], (105, 245)),
                    ("fill", [(152, 331), (126, 332), (110, 337), (93, 353), (81, 372), (75, 392), (175, 392), (175, 331)], (165, 352)),
-                   ("line", [(76.5, 236), (77, 262), (82, 292), (94, 316), (114, 333)]),      # the side of the hood
-                   ("line", [(131, 262), (129, 288), (133, 310), (145, 329)]),               # the face
-                   ("line", [(152, 331), (126, 332), (110, 337), (93, 353), (81, 372), (75, 392)]),  # the shoulder of the cloth
+                   ("line", [(76.5, 236), (77, 262), (82, 292), (94, 316), (114, 333)], 7.5),      # the side of the hood
+                   ("line", [(131, 262), (129, 288), (133, 310), (145, 329)], 7.5),               # the face
+                   ("line", [(152, 331), (126, 332), (110, 337), (93, 353), (81, 372), (75, 392)], 7.5),  # the shoulder of the cloth
                ]),
         R=dict(rough=[(362, 268), (392, 250), (450, 225), (470, 290), (462, 345), (420, 380), (382, 372), (372, 340), (360, 300)],
                front=False),
     ),
+    # The wings lie behind head, bow and paws.
+    "dragon": dict(
+        L=dict(rough=[(5, 205), (60, 198), (104, 212), (130, 300), (122, 332), (95, 352), (40, 366), (5, 345)], front=False, grow=20, near=True, keep=9.5),
+        R=dict(rough=[(372, 252), (410, 238), (470, 252), (532, 330), (530, 368), (480, 388), (430, 398), (385, 374), (366, 336), (372, 300)],
+               front=False, grow=20, near=True, keep=9.5),
+    ),
+    # The fins grow out of the bell without a contour of their own; the lantern stands on it, behind its rim.
+    "jellyfish": dict(
+        L=dict(rough=[(0, 250), (84, 250), (92, 262), (104, 270), (97, 300), (90, 340), (84, 372), (66, 392), (50, 392), (0, 360)],
+               cut="shape", root=[(92, 262), (132, 272), (132, 372), (84, 372), (90, 340), (97, 300), (104, 270)], feather=26,
+               front=True, behind=[
+                   ("fill", [(88, 256), (81, 290), (74, 325), (66, 360), (60, 388), (140, 396), (140, 254)], (170, 300)),
+                   ("line", [(93, 246), (87, 262), (81, 290), (74, 325), (66, 360), (58, 390), (50, 401)], 12),
+               ]),
+        R=dict(rough=[(557, 250), (442, 250), (434, 262), (422, 270), (429, 300), (436, 340), (444, 372), (462, 392), (478, 392), (557, 360)],
+               cut="shape", root=[(434, 262), (394, 272), (394, 372), (444, 372), (436, 340), (429, 300), (422, 270)], feather=26,
+               front=True, behind=[
+                   ("fill", [(432, 256), (441, 290), (448, 325), (454, 360), (460, 388), (385, 396), (385, 254)], (370, 300)),
+                   ("line", [(427, 246), (433, 262), (441, 290), (448, 325), (454, 360), (462, 390), (470, 401)], 12),
+               ]),
+        top=dict(rough=[(214, 166), (214, 105), (250, 20), (340, -5), (450, 0), (557, 60), (557, 215), (480, 252), (405, 216), (395, 150), (330, 90), (312, 166)],
+                 front=False, near=True, keep=10),
+    ),
 }
+PART_FILE = dict(L="arm_L", R="arm_R", top="tuft")
 INK = np.array([13, 17, 38.0])
 LINE = 9      # how far the dark contour of a part reaches from its surface
 KEEP = 7.0    # the contour the figure keeps where a part lay behind it
@@ -192,9 +224,41 @@ def stroke(size, pts, width, ss=4):
     return np.asarray(m.resize((w, h), Image.LANCZOS)).astype(float) / 255
 
 
+def carry_in(a, region, source):
+    """Colours for a region from the surface next to it. Where the surface touches the region they flow in smoothly
+    (a harmonic fill, like airbrushed skin); where a contour lies between, each pixel takes the nearest colour."""
+    if not (ndi.binary_dilation(region) & source).any():
+        iy, ix = ndi.distance_transform_edt(~source, return_distances=False, return_indices=True)
+        return ndi.gaussian_filter(a[iy, ix, :3], (5, 5, 0))
+    h, w = region.shape
+    ys, xs = np.nonzero(region)
+    idx = -np.ones((h, w), int)
+    idx[ys, xs] = np.arange(len(ys))
+    A = lil_matrix((len(ys), len(ys)))
+    b = np.zeros((len(ys), 3))
+    for k, (y, x) in enumerate(zip(ys, xs)):
+        n = 0
+        for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            yy, xx = y + dy, x + dx
+            if not (0 <= yy < h and 0 <= xx < w):
+                continue
+            if region[yy, xx]:
+                A[k, idx[yy, xx]] = -1
+                n += 1
+            elif source[yy, xx]:
+                b[k] += a[yy, xx, :3]
+                n += 1
+        A[k, k] = max(n, 1)
+    A = A.tocsr()
+    out = a[..., :3].copy()
+    for c in range(3):
+        out[ys, xs, c] = spsolve(A, b[:, c])
+    return out
+
+
 def split_arms(gid):
-    """Take the arms out of body.png: arm_L.png and arm_R.png, and the body without them.
-    arms.json says where each arm picture lies in the figure (its top left corner)."""
+    """Take the parts out of body.png: arm_L.png, arm_R.png, tuft.png, and the body without them.
+    arms.json says where each picture lies in the figure (its top left corner)."""
     spec = ARMS[gid]
     fig = Image.open(kits / gid / "body.png").convert("RGBA")
     a = np.asarray(fig).astype(np.float64)
@@ -207,48 +271,82 @@ def split_arms(gid):
     inner = opaque & ~dark
     lab, n = ndi.label(inner)
     area = ndi.sum(inner, lab, range(1, n + 1))
+    by_contour = [k for k in spec if spec[k].get("cut", "contour") == "contour"]
 
-    # the surface of each arm
+    # the surface of each part that a contour encloses
     arm_in = {}
-    for k in "LR":
+    for k in by_contour:
         p = polygon(size, spec[k]["rough"])
         ids = [i for i in range(1, n + 1) if area[i - 1] > 3 and ((lab == i) & p).sum() / area[i - 1] > 0.9]
         arm_in[k] = np.isin(lab, ids)
-    # specks of light inside a contour are no surface of their own: next to an arm they go with the arm
-    for k in "LR":
+    taken = np.zeros((h, w), bool)
+    for k in by_contour:
+        taken |= arm_in[k]
+    # specks of light inside a contour are no surface of their own: next to a part they go with it
+    for k in by_contour:
         near = ndi.distance_transform_edt(~arm_in[k]) <= 16
         for i in range(1, n + 1):
-            if area[i - 1] < 60 and not arm_in["L"][lab == i].any() and not arm_in["R"][lab == i].any() and (near & (lab == i)).any():
+            if area[i - 1] < 60 and not taken[lab == i].any() and (near & (lab == i)).any():
                 arm_in[k] |= lab == i
-    body_in = inner & ~arm_in["L"] & ~arm_in["R"]
+                taken |= lab == i
+    body_in = inner & ~taken
     d_body = ndi.distance_transform_edt(~body_in)
 
-    # surface, contour and the soft rim towards nothing
+    # how much of each pixel belongs to a part (0..1)
+    share = {}
     arm = {}
-    for k in "LR":
+    for k in by_contour:
         d_arm = ndi.distance_transform_edt(~arm_in[k])
+        # surface, contour and the soft rim towards nothing
         arm[k] = arm_in[k] | (dark & (d_arm <= LINE)) | ((al > 0) & ~opaque & (d_arm <= LINE + 3))
-    # flecks of contour that would be left behind go with the arm next to them
-    rest = opaque & ~arm["L"] & ~arm["R"]
-    lb, m = ndi.label(rest)
-    main = lb == (np.argmax(ndi.sum(rest, lb, range(1, m + 1))) + 1)
-    loose = (al > 0) & ~arm["L"] & ~arm["R"] & (ndi.distance_transform_edt(~main) > 2)
-    for k in "LR":
-        arm[k] |= loose & (ndi.distance_transform_edt(~arm[k]) <= 30)
+        if spec[k].get("near"):
+            around = ndi.binary_dilation(polygon(size, spec[k]["rough"]), iterations=6)
+            arm[k] |= (al > 0) & ~inner & (d_arm < d_body) & (d_arm <= 3 * LINE) & around
+    if by_contour:
+        # flecks of contour that would be left behind go with the part next to them
+        mine = np.zeros((h, w), bool)
+        for k in by_contour:
+            mine |= arm[k]
+        rest = opaque & ~mine
+        lb, m = ndi.label(rest)
+        main = lb == (np.argmax(ndi.sum(rest, lb, range(1, m + 1))) + 1)
+        loose = (al > 0) & ~mine & (ndi.distance_transform_edt(~main) > 2)
+        # where the soft rim of the figure is wide, only what does not hang on to the figure is left over
+        lr, _ = ndi.label((al > 0) & ~mine)
+        apart = (al > 0) & ~mine & ~np.isin(lr, np.unique(lr[main]))
+        for k in by_contour:
+            arm[k] |= (apart if spec[k].get("near") else loose) & (ndi.distance_transform_edt(~arm[k]) <= 30)
+            if spec[k].get("near"):
+                # and what does not hang on to the part stays with the figure
+                lk, _ = ndi.label(arm[k])
+                arm[k] &= np.isin(lk, np.unique(lk[arm_in[k]]))
+    for k in spec:
+        if k in arm:
+            share[k] = arm[k].astype(float)
+        else:
+            solid = polygon(size, spec[k]["rough"], 4)
+            fade = np.clip(1 - ndi.distance_transform_edt(solid < 0.5) / spec[k]["feather"], 0, 1) * polygon(size, spec[k]["root"])
+            share[k] = np.maximum(solid, fade)
+    gone = np.zeros((h, w), bool)
+    for k in spec:
+        gone |= share[k] > 0
 
+    # the body without the parts
     body = a.copy()
-    origin = {}
-    for k in "LR":
-        m = arm[k]
-        part = a.copy()
-        part[~m, 3] = 0
-        ys, xs = np.nonzero(part[..., 3] > 0)
-        box = (max(0, xs.min() - 4), max(0, ys.min() - 4), min(w, xs.max() + 5), min(h, ys.max() + 5))
-        save(gid, f"arm_{k}", Image.fromarray(np.clip(part, 0, 255).astype(np.uint8)).crop(box))
-        origin[k] = [int(box[0]), int(box[1])]
+    between = {}
+    for k in spec:
+        m = share[k] > 0
         if not spec[k]["front"]:
             # the figure keeps a contour of even width along the cut
-            body[m, 3] = np.minimum(body[m, 3], 255 * np.clip(KEEP + 0.5 - d_body[m], 0, 1))
+            keep = spec[k].get("keep", KEEP)
+            stay = np.clip(keep + 0.5 - d_body, 0, 1)
+            stay[arm_in[k]] = 0   # the surface of the part never stays, however close it lies
+            if spec[k].get("grow"):
+                # and all of the contour that lies between its surface and the part's, away from the open edge:
+                # under it the part has no contour of its own (see the hidden base below)
+                between[k] = m & ~arm_in[k] & (d_body <= keep + 5) & (ndi.distance_transform_edt(al > 0) > 6)
+                stay = np.maximum(stay, ndi.gaussian_filter(between[k].astype(float), 0.7))
+            body[m, 3] = np.minimum(body[m, 3], 255 * stay[m])
             continue
         paint = np.zeros((h, w, 4))
 
@@ -261,15 +359,44 @@ def split_arms(gid):
             if step[0] == "ink":
                 lay(polygon(size, step[1], 4), INK)
             elif step[0] == "line":
-                lay(stroke(size, step[1], 7.5), INK)
+                lay(stroke(size, step[1], step[2]), INK)
             else:
-                # each pixel takes the colour of the nearest pixel of that surface; then the patch is smoothed
                 x, y = step[2]
-                source = lab == lab[int(y), int(x)]
-                iy, ix = ndi.distance_transform_edt(~source, return_distances=False, return_indices=True)
-                lay(polygon(size, step[1], 4), ndi.gaussian_filter(a[iy, ix, :3], (5, 5, 0)))
+                source = (lab == lab[int(y), int(x)]) & ~gone
+                lay(polygon(size, step[1], 4), carry_in(a, polygon(size, step[1]) & m, source))
         body = np.where(m[..., None], paint, body)
     save(gid, "body", Image.fromarray(np.clip(body, 0, 255).astype(np.uint8)))
+
+    # the parts
+    under = ndi.binary_erosion(body[..., 3] > 200, iterations=3)
+    origin = {}
+    for k in spec:
+        part = a.copy()
+        part[..., 3] = al * share[k]
+        g = spec[k].get("grow", 0)
+        if g:
+            # The hidden base. Along the figure the part has no contour of its own: there its surface runs on under
+            # the figure, in the colours of the surface next to it. Its free contour ends in a round tip.
+            m = share[k] > 0
+            keep = spec[k].get("keep", KEEP)
+            shared = between[k]
+            free = m & ~arm_in[k] & ~shared
+            reach = (ndi.distance_transform_edt(~m) <= g) & under & ~m
+            d_free = ndi.distance_transform_edt(~free) if free.any() else np.full((h, w), 1e9)
+            d_surf = ndi.distance_transform_edt(~arm_in[k])
+            core = ndi.binary_erosion(arm_in[k], iterations=3)
+            sy, sx = ndi.distance_transform_edt(~(core if core.any() else arm_in[k]), return_distances=False, return_indices=True)
+            surface = ndi.gaussian_filter(a[sy, sx, :3], (1.5, 1.5, 0))
+            # a pixel under the figure is surface if the part's surface is nearer than its free contour
+            on = (reach & (d_surf < d_free)) | shared | (m & (body[..., 3] > 128) & ~arm_in[k])
+            tip = reach & ~on & (d_free <= keep)
+            part[on, :3] = surface[on]
+            part[tip, :3] = INK
+            part[on | tip, 3] = 255
+        ys, xs = np.nonzero(part[..., 3] > 0)
+        box = (max(0, xs.min() - 4), max(0, ys.min() - 4), min(w, xs.max() + 5), min(h, ys.max() + 5))
+        save(gid, PART_FILE[k], Image.fromarray(np.clip(part, 0, 255).astype(np.uint8)).crop(box))
+        origin[k] = [int(box[0]), int(box[1])]
     (kits / gid / "arms.json").write_text(json.dumps(origin))
 
 
@@ -315,6 +442,7 @@ def build_cactus():
 def build_dragon():
     g = "dragon"
     build_figure(g)
+    split_arms(g)
     face(g, **{p: p for p in ["eye_open_L", "eye_open_R", "eye_happy_L", "eye_happy_R", "eye_sleep_L", "eye_sleep_R",
                                "mouth_smile", "mouth_laugh", "mouth_o", "mouth_line", "blush_L", "blush_R"]})
 
@@ -322,6 +450,7 @@ def build_dragon():
 def build_jellyfish():
     g = "jellyfish"
     build_figure(g)
+    split_arms(g)
     face(g, **{p: p for p in ["eye_open_L", "eye_open_R", "eye_happy_L", "eye_happy_R", "eye_sleep_L", "eye_sleep_R",
                                "mouth_smile", "mouth_laugh", "mouth_o", "mouth_line", "blush_L", "blush_R"]})
 

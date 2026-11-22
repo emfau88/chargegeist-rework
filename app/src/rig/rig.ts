@@ -607,6 +607,13 @@ void main(){
     rigidAt(name, at, (a, b) => rot(deg, (a * t.w - anchor[0]) * scale, (b * t.h - anchor[1]) * scale), alpha, fx);
   }
 
+  /** How far the tuft is turned: one cut out of the finished figure takes a share of the sway, within its limit. */
+  function tuftTurn(): number {
+    const t = R.tuft;
+    if (!t) return 0;
+    return t.rest + (t.gain === undefined ? S.tuft.x : clamp(S.tuft.x * t.gain, -(t.max ?? 180), t.max ?? 180));
+  }
+
   /* ---------- springs ---------- */
   const S = {
     squash: new Spring(1, 230, 9), lean: new Spring(0, 70, 8),
@@ -1179,7 +1186,9 @@ void main(){
     const ra = rp * Math.PI * 2;
     el.ringHead.setAttribute('transform', `translate(${(300 + 205 * Math.cos(ra)).toFixed(1)},${(300 + shiftY + 205 * Math.sin(ra)).toFixed(1)})`);
     el.ringHead.setAttribute('opacity', rp > 0.004 ? '1' : '0');
-    const tg = R.tuft ? D(R.tuft.at[0], R.tuft.at[1] - 80 * R.m) : D(R.cx, R.top + 30 * R.m);
+    // the glow at full charge sits on the tuft; on a lantern it sits in the lamp and sways with it
+    const lamp = R.tuft?.light ? rot(tuftTurn(), R.tuft.light[0] - R.tuft.at[0], R.tuft.light[1] - R.tuft.at[1]) : null;
+    const tg = R.tuft ? (lamp ? D(R.tuft.at[0] + lamp[0], R.tuft.at[1] + lamp[1]) : D(R.tuft.at[0], R.tuft.at[1] - 80 * R.m)) : D(R.cx, R.top + 30 * R.m);
     tuftAt = tg;
     el.tuftGlow.setAttribute('cx', tg[0].toFixed(1));
     el.tuftGlow.setAttribute('cy', tg[1].toFixed(1));
@@ -1241,7 +1250,7 @@ void main(){
     };
     if (R.armL.back) drawArm(true);
     if (R.armR.back) drawArm(false);
-    if (R.tuft) hinged('tuft', R.tuft.at, R.tuft.anchor, R.tuft.rest + S.tuft.x, 1, 1, { glow: clamp(lv * 0.9 + flash, 0, 1.2) });
+    if (R.tuft) hinged('tuft', R.tuft.at, R.tuft.anchor, tuftTurn(), 1, 1, { glow: clamp(lv * 0.9 + flash, 0, 1.2) });
     drawGrid('body', gx, gy, onBody, 1, { level: lv, glow: clamp((S.glow.x - lv * 0.6) * 0.6, 0, 1), boost: focus, hem });
 
     const u = R.u,
