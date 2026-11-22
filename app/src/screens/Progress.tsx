@@ -3,7 +3,7 @@ import { GHOSTS, ghost } from '../data/catalog';
 import { fmtDate, fmtNum, nameOf, t } from '../i18n';
 import type { Key } from '../i18n';
 import { ACHIEVEMENTS, CHARGE_DAY_MIN, WEEK_TARGET, achievementValue, chargeWeek, dayRun, minutesByDay, totalMinutes } from '../logic/progress';
-import { DAY, dayKey, fmtMinutes, monthDays, parseDay, weekKey } from '../logic/time';
+import { dayKey, fmtMinutes, lastWeeks, monthDays, parseDay, weekKey } from '../logic/time';
 import { shareImage } from '../platform/device';
 import { TAGS, counters, currentBoss, now, todayMinutes, useAppState } from '../state/store';
 import type { State } from '../state/store';
@@ -129,7 +129,7 @@ function Trend({ s }: { s: State }) {
     const wk = weekKey(parseDay(x.day).getTime());
     by.set(wk, (by.get(wk) ?? 0) + x.min);
   }
-  const weeks = Array.from({ length: 12 }, (_, i) => weekKey(now() - (11 - i) * 7 * DAY));
+  const weeks = lastWeeks(now(), 12);
   const max = Math.max(60, ...weeks.map((w) => by.get(w) ?? 0));
   return (
     <div class="hours trend">

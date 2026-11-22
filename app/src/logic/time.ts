@@ -43,6 +43,16 @@ export function addDays(key: string, n: number): string {
   return dayKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() + n, 12).getTime());
 }
 
+/**
+ * The Mondays of the last n weeks, up to the week that contains ms, oldest first.
+ * Counted in calendar days: a step of 7 × 24 hours lands in the wrong day late in the evening when the
+ * clocks were turned back in between, and then one week shows twice and another is missing.
+ */
+export function lastWeeks(ms: number, n: number): string[] {
+  const monday = weekKey(ms);
+  return Array.from({ length: n }, (_, i) => addDays(monday, -7 * (n - 1 - i)));
+}
+
 /** "1h 25m" style, or "25 min" under an hour. */
 export function fmtMinutes(min: number, short = false): string {
   const m = Math.round(min);
