@@ -80,9 +80,12 @@ NEW = {
     "cloud": dict(up=1.3, height=385, cx=260.5, eye_y=254, eye_dx=55.5, mouth=(266, 285), fs=1.08, ms=0.83,
                   arm_l=(58, 415), arm_r=(392, 415), arm_s=1.0),
     # the cactus arms it holds up
-    "cactus": dict(up=1.3, height=385, cx=254, eye_y=260, eye_dx=54, mouth=(260, 290), fs=1.1, ms=0.79, limbs=dict(
-        L=limb((118, 330), [(100, 252), (55, 232), (5, 238), (-20, 325), (5, 402), (75, 404), (118, 376), (122, 350), (142, 332), (142, 302), (114, 296), (108, 272)], (16, 62)),
-        R=limb((372, 318), [(374, 262), (392, 238), (442, 230), (478, 280), (480, 328), (458, 372), (405, 386), (374, 362), (364, 332), (368, 290)], (12, 50)))),
+    # Its arms are cut out of the figure (build_new.py, ARMS) and hang where they were painted.
+    #   at: the joint. gain: degrees of turn per degree a loose arm would turn. up, down: the most it rises and
+    #   sinks from where it was painted. back: it lies behind the figure.
+    "cactus": dict(up=1.3, height=385, cx=254, eye_y=260, eye_dx=54, mouth=(260, 290), fs=1.1, ms=0.79, arms=dict(
+        L=dict(at=(122, 318), gain=0.4, up=42, down=12),
+        R=dict(at=(383, 350), gain=0.16, up=16, down=0, back=True))),
     # the wings flap; the paws lie in front of the cape and stay
     "dragon": dict(up=1.0, height=385, cx=228.5, eye_y=197, eye_dx=65, mouth=(218.5, 236), fs=0.58, ms=0.58, limbs=dict(
         L=limb((118, 292), [(128, 232), (85, 210), (-15, 285), (-15, 350), (60, 380), (102, 356), (118, 330), (122, 300)], (12, 60)),

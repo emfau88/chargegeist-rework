@@ -9,6 +9,16 @@ export interface ArmRig {
   s: number;
   /** Hand point in the arm image. */
   hand: Vec;
+  /**
+   * Set for an arm that was cut out of the finished figure and hangs where it was painted (often raised
+   * already): degrees of turn per degree a loose arm would turn.
+   */
+  gain?: number;
+  /** The most such an arm rises and sinks from where it was painted, in degrees. */
+  up?: number;
+  down?: number;
+  /** The arm lies behind the body. */
+  back?: boolean;
 }
 
 /**

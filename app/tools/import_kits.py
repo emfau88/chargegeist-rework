@@ -133,7 +133,7 @@ for gid, R in RIGS.items():
 for gid, R in NEW.items():
     dst = PUB / "ghosts" / gid
     f = R["up"]
-    arms = "arm_l" in R
+    arms = "arm_l" in R or "arms" in R
     names = [p for p in PARTS if not p.startswith("blush") and (arms or not p.startswith("arm"))]
     ims = {}
     for p in names:
@@ -148,7 +148,19 @@ for gid, R in NEW.items():
     cy = y1 - (FOOT - 280) / k
     ex, ey = round(R["cx"] * f, 1), round(R["eye_y"] * f, 1)
     mx, my = round(R["mouth"][0] * f, 1), round(R["mouth"][1] * f, 1)
-    if arms:
+    if "arms" in R:
+        # arms cut out of the figure: each hangs where it was painted and turns by a share of what a loose arm does
+        origin = json.loads((kits / gid / "arms.json").read_text())
+
+        def cut_arm(key):
+            A, im = R["arms"][key], ims[f"arm_{key}"]
+            anc = [round((A["at"][0] - origin[key][0]) * f, 1), round((A["at"][1] - origin[key][1]) * f, 1)]
+            d = dict(at=[round(A["at"][0] * f, 1), round(A["at"][1] * f, 1)], anchor=anc, s=1, hand=hand_point(im, anc),
+                     gain=A["gain"], up=A["up"], down=A["down"])
+            return dict(d, back=True) if A.get("back") else d
+
+        armL, armR = cut_arm("L"), cut_arm("R")
+    elif arms:
         aL, aR = ims["arm_L"], ims["arm_R"]
         ancL = [round(aL.width * 0.8, 1), round(aL.height * 0.28, 1)]
         ancR = [round(aR.width * 0.2, 1), round(aR.height * 0.28, 1)]

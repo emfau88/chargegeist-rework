@@ -19,7 +19,7 @@ import { GLINT_FOLLOW, eyePose, lids, pupilShift } from './gaze';
 import { GestureTracker } from './gestures';
 import type { Gesture } from './gestures';
 import { RIGS } from '../data/rigs.gen';
-import type { Limb, RigConfig, Vec } from '../data/rigTypes';
+import type { ArmRig, Limb, RigConfig, Vec } from '../data/rigTypes';
 import { AuraSim, SvgAura } from '../fx/aura';
 import type { AuraBox } from '../fx/aura';
 import { NEUTRAL_LIGHT, lightOn, sceneLight } from '../fx/light';
@@ -104,6 +104,16 @@ interface Lid {
 /** Where the ground shadow lies in the 600-unit stage: close under the ghost, so it reads as its own. */
 const SHADOW_Y = 500;
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+/**
+ * How far an arm is turned. A loose arm turns as far as asked. One that was cut out of the finished figure
+ * hangs where it was painted: it takes a share of the turn and keeps within its limits.
+ */
+function armTurn(a: ArmRig, deg: number, left: boolean): number {
+  if (a.gain === undefined) return deg;
+  // a positive turn raises the left arm and lowers the right one
+  const rise = clamp((left ? deg : -deg) * a.gain, -(a.down ?? 0), a.up ?? 180);
+  return left ? rise : -rise;
+}
 const smooth = (a: number, b: number, v: number) => {
   const x = clamp((v - a) / (b - a), 0, 1);
   return x * x * (3 - 2 * x);
@@ -704,7 +714,7 @@ void main(){
     const a = R.armL;
     const sh = D(a.at[0], a.at[1]);
     // the hand as the arm swings right now: the charm keeps clear of it
-    const off = rot(S.armL.x, (a.hand[0] - a.anchor[0]) * a.s, (a.hand[1] - a.anchor[1]) * a.s);
+    const off = rot(armTurn(a, S.armL.x, true), (a.hand[0] - a.anchor[0]) * a.s, (a.hand[1] - a.anchor[1]) * a.s);
     const hand = D(a.at[0] + off[0], a.at[1] + off[1]);
     const half = CHARM_SIZE / 2;
     const left = view.x + half + 4,
@@ -847,7 +857,7 @@ void main(){
   /** Where a hand is right now, in stage units. */
   function handAt(left: boolean): Vec {
     const a = left ? R.armL : R.armR;
-    const off = rot(left ? S.armL.x : S.armR.x, (a.hand[0] - a.anchor[0]) * a.s, (a.hand[1] - a.anchor[1]) * a.s);
+    const off = rot(armTurn(a, left ? S.armL.x : S.armR.x, left), (a.hand[0] - a.anchor[0]) * a.s, (a.hand[1] - a.anchor[1]) * a.s);
     return D(a.at[0] + off[0], a.at[1] + off[1]);
   }
   function holdEnd() {
@@ -1224,6 +1234,13 @@ void main(){
       return D(x, y);
     };
     const hem: Vec = [(R.cy + R.flow[0]) / body.h, R.flow[1] / body.h];
+    // an arm that lies behind the body is drawn before it, the others after the face
+    const drawArm = (left: boolean) => {
+      const a = left ? R.armL : R.armR;
+      hinged(left ? 'arm_L' : 'arm_R', a.at, a.anchor, armTurn(a, left ? S.armL.x : S.armR.x, left), a.s);
+    };
+    if (R.armL.back) drawArm(true);
+    if (R.armR.back) drawArm(false);
     if (R.tuft) hinged('tuft', R.tuft.at, R.tuft.anchor, R.tuft.rest + S.tuft.x, 1, 1, { glow: clamp(lv * 0.9 + flash, 0, 1.2) });
     drawGrid('body', gx, gy, onBody, 1, { level: lv, glow: clamp((S.glow.x - lv * 0.6) * 0.6, 0, 1), boost: focus, hem });
 
@@ -1300,8 +1317,8 @@ void main(){
     const chatter = 1 + (reduce ? 0 : Math.sin(T * 17) * 0.07 * happy);
     skin('mouth_laugh', mx, my + 16 * u, ms * pop, ms * pop * chatter, M.laugh.x);
 
-    hinged('arm_L', R.armL.at, R.armL.anchor, S.armL.x, R.armL.s);
-    hinged('arm_R', R.armR.at, R.armR.anchor, S.armR.x, R.armR.s);
+    if (!R.armL.back) drawArm(true);
+    if (!R.armR.back) drawArm(false);
     auraSvg.setGlow(glowRgb);
     auraSvg.sync(aura, mode === 'focus');
     drawCharm(sleepy);
@@ -1520,6 +1537,12 @@ export async function renderPortrait(l: Pick<Look, 'ghost'>, size: number): Prom
     ops.push({ im: T[name], p: toStage(u, v), s: s * R.k, deg, anchor });
   };
   if (R.tuft) put('tuft', R.tuft.at[0], R.tuft.at[1], 1, R.tuft.rest, R.tuft.anchor);
+  // an arm that lies behind the body comes first
+  const arm = (name: 'arm_L' | 'arm_R', a: ArmRig, back: boolean) => {
+    if (!!a.back === back) put(name, a.at[0], a.at[1], a.s, 0, a.anchor);
+  };
+  arm('arm_L', R.armL, true);
+  arm('arm_R', R.armR, true);
   const b = T.body;
   put('body', b.naturalWidth / 2, b.naturalHeight / 2);
   put('blush_L', R.cx - R.blush[0], R.blush[1], R.blush[2]);
@@ -1527,8 +1550,8 @@ export async function renderPortrait(l: Pick<Look, 'ghost'>, size: number): Prom
   if (R.eyes.includes('L')) put('eye_open_L', R.cx - R.eyeDX, R.eyeY, R.fs);
   if (R.eyes.includes('R')) put('eye_open_R', R.cx + R.eyeDX, R.eyeY, R.fs);
   put('mouth_smile', R.mouth[0], R.mouth[1], R.ms);
-  put('arm_L', R.armL.at[0], R.armL.at[1], R.armL.s, 0, R.armL.anchor);
-  put('arm_R', R.armR.at[0], R.armR.at[1], R.armR.s, 0, R.armR.anchor);
+  arm('arm_L', R.armL, false);
+  arm('arm_R', R.armR, false);
 
   // frame: the standard box, grown to fit what sticks out
   let x0 = 80,
