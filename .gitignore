@@ -15,6 +15,8 @@ PLAN_INTERAKTION.md
 PLAN_OPTIK.md
 /*.html
 shots/
+# kit sheets as they came from the image tool; the ones in use are copied to rig_input
+bögen/
 
 # editors and OS
 .vscode/
