@@ -3,7 +3,9 @@
   <kits>/<ghost>/_raw/*.png  ->  <kits>/<ghost>/<part>.png   (native sheet resolution)
 
 The body is the finished figure of the sheet, with its painted eyes and mouth taken out again.
-Its blush, and arms it holds up already, stay where the artist put them.
+Its blush stays where the artist put it. Parts that move are cut out of the figure (ARMS).
+Phoenix and moon deer have a picture of their own instead (SHEETS, in rig_input/neu): the figure without
+face, wings or ears, and the wings or ears beside it.
 
 Usage: python -I build_new.py <kits_dir> [ghost ...]
 """
@@ -18,6 +20,7 @@ from scipy.sparse import lil_matrix
 from scipy.sparse.linalg import spsolve
 
 kits = Path(sys.argv[1])
+sheets = kits.parent.parent / "rig_input" / "neu"
 ONLY = sys.argv[2:]
 PAD = 6
 LUM = np.array([0.3, 0.55, 0.15])
@@ -111,8 +114,6 @@ def face(gid, **names):
 
 # ---------- the figures whose face is taken out: shapes in pixels of _raw/figure.png ----------
 FIGURES = {
-    "phoenix": [("r", 155, 173, 205, 203), ("r", 235, 174, 275, 203), ("r", 200, 194, 243, 237)],
-    "moondeer": [("r", 135, 178, 183, 208), ("r", 207, 173, 245, 199), ("r", 179, 196, 220, 234)],
     "cloud": [("r", 169, 232, 240, 273), ("r", 288, 232, 344, 272), ("r", 236, 265, 296, 323)],
     "cactus": [("r", 167, 239, 234, 276), ("r", 280, 239, 336, 276), ("r", 233, 268, 288, 325)],
     "dragon": [("e", 163.5, 200, 34, 44), ("e", 292, 193.5, 45, 49), ("r", 187, 212, 250, 278)],
@@ -400,23 +401,99 @@ def split_arms(gid):
     (kits / gid / "arms.json").write_text(json.dumps(origin))
 
 
+# ---------- figures with a picture of their own: the figure without face and parts, the parts beside it ----------
+# The picture holds three things on a clear ground: the figure (the largest) and a left and a right part.
+#   scale    how much larger the figure is than on the old sheet: the face parts of that sheet grow by it
+#   cheeks   boxes around the painted cheeks; they are cut out as blush_L and blush_R, and the skin closes over them
+#   parts    root: the joint in the part as it lies in the picture (pixels from the corner of its own box).
+#            at: where the joint sits on the figure. size, turn: how the part is scaled and turned (degrees,
+#            counter-clockwise) before it is put there.
+# cheeks and at are in pixels of body.png.
+SHEET_PAD = 6
+SHEETS = {
+    "phoenix": dict(file="fenix_teile.png", scale=1.928, cheeks=[(268, 403, 356, 471), (472, 405, 546, 468)], parts=dict(
+        L=dict(root=(400, 255), at=(231, 528), size=0.63, turn=20),
+        R=dict(root=(42, 269), at=(551, 528), size=0.63, turn=-20))),
+    "moondeer": dict(file="elara_teile.png", scale=2.156, cheeks=[(249, 432, 337, 499), (451, 432, 533, 498)], parts=dict(
+        L=dict(root=(304, 153), at=(253, 406), size=0.63, turn=25),
+        R=dict(root=(27, 156), at=(531, 406), size=0.63, turn=-25))),
+}
+
+
+def build_sheet(gid):
+    spec = SHEETS[gid]
+    im = Image.open(sheets / spec["file"]).convert("RGBA")
+    px = np.asarray(im).copy()
+    lab, n = ndi.label(px[..., 3] > 40)
+    found = ndi.find_objects(lab)
+    order = sorted(range(n), key=lambda i: -(found[i][0].stop - found[i][0].start) * (found[i][1].stop - found[i][1].start))[:3]
+    boxes = [(found[i][1].start, found[i][0].start, found[i][1].stop, found[i][0].stop) for i in order]
+
+    def alone(box):
+        """What lies in a box, without its neighbours and without the crumbs the image tool left beside it."""
+        i = order[boxes.index(box)]
+        one = px.copy()
+        one[~ndi.binary_dilation(lab == i + 1, iterations=3), 3] = 0
+        return Image.fromarray(one).crop(box)
+
+    fbox = boxes[0]
+    left, right = sorted(boxes[1:], key=lambda b: b[0])
+    P = SHEET_PAD
+    fig = Image.new("RGBA", (fbox[2] - fbox[0] + 2 * P, fbox[3] - fbox[1] + 2 * P), (0, 0, 0, 0))
+    fig.alpha_composite(alone(fbox), (P, P))
+
+    # the cheeks: each becomes a picture of its own, centred on the cheek, and the skin closes over the place
+    a = np.asarray(fig).astype(np.float64)
+    h, w = a.shape[:2]
+    rgb = a[..., :3]
+    lum = rgb @ LUM
+    pink = (rgb[..., 0] - rgb[..., 1] > 60) & (rgb[..., 0] > 225) & (rgb[..., 2] > 60) & (a[..., 3] > 200)
+    gone = np.zeros((h, w), bool)
+    for side, (x0, y0, x1, y1) in zip("LR", spec["cheeks"]):
+        cheek = pink & rect((h, w), x0, y0, x1, y1)
+        ys, xs = np.nonzero(cheek)
+        cx, cy = (xs.min() + xs.max() + 1) / 2, (ys.min() + ys.max() + 1) / 2
+        rx, ry = int(np.ceil((xs.max() - xs.min()) / 2)) + 6, int(np.ceil((ys.max() - ys.min()) / 2)) + 6
+        soft = ndi.gaussian_filter(cheek.astype(float), 1.0)
+        blush = a.copy()
+        blush[..., 3] = 255 * np.clip(soft * 1.6 - 0.3, 0, 1)
+        save(gid, f"blush_{side}", Image.fromarray(np.clip(blush, 0, 255).astype(np.uint8)).crop(
+            (int(round(cx - rx)), int(round(cy - ry)), int(round(cx + rx)), int(round(cy + ry)))))
+        print(f"  {gid} cheek {side}: centre ({cx:.1f}, {cy:.1f})")
+        gone |= ndi.binary_dilation(cheek, iterations=6)
+    skin = (lum > 205) & ~gone & (a[..., 3] > 200)
+    a[gone, :3] = carry_in(a, gone, skin)[gone]
+    save(gid, "body", Image.fromarray(np.clip(a, 0, 255).astype(np.uint8)))
+
+    # the parts: turned and scaled around their joint, then set on the figure by that joint
+    origin = {}
+    for key, box in (("L", left), ("R", right)):
+        ps = spec["parts"][key]
+        part = alone(box)
+        big = Image.new("RGBA", (part.width * 3, part.height * 3), (0, 0, 0, 0))
+        big.alpha_composite(part, (part.width, part.height))
+        c = (part.width + ps["root"][0], part.height + ps["root"][1])
+        big = big.rotate(ps["turn"], center=c, resample=Image.BICUBIC)
+        big = big.resize((round(big.width * ps["size"]), round(big.height * ps["size"])), Image.LANCZOS)
+        cut, tb = trim(big)
+        save(gid, f"arm_{key}", cut)
+        origin[key] = [round(ps["at"][0] - c[0] * ps["size"] + tb[0]), round(ps["at"][1] - c[1] * ps["size"] + tb[1])]
+    (kits / gid / "arms.json").write_text(json.dumps(origin))
+
+    # the face comes from the old sheet, grown to the new figure
+    k = spec["scale"]
+    sleep = raw(gid, "eye_sleep_L")
+    for name in ("eye_open_L", "eye_open_R", "eye_happy_L", "eye_happy_R", "eye_sleep_L", "eye_sleep_R", "mouth_laugh", "mouth_o", "mouth_line"):
+        save(gid, name, scaled(raw(gid, name), k))
+    save(gid, "mouth_smile", scaled(sleep, 1.15 * k))
+
+
 def build_phoenix():
-    g = "phoenix"
-    build_figure(g)
-    sleep = raw(g, "eye_sleep_L")
-    face(g, eye_open_L="eye_open_L", eye_open_R="eye_open_R", eye_happy_L="eye_happy_L", eye_happy_R="eye_happy_R",
-         eye_sleep_L="eye_sleep_L", eye_sleep_R="eye_sleep_R", mouth_laugh="mouth_laugh", mouth_o="mouth_o",
-         mouth_line="mouth_line", mouth_smile=scaled(sleep, 1.15), blush_L="blush_L", blush_R="blush_R",
-         arm_L="arm_L", arm_R="arm_R")
+    build_sheet("phoenix")
 
 
 def build_moondeer():
-    g = "moondeer"
-    build_figure(g)
-    sleep = raw(g, "eye_sleep_L")
-    face(g, eye_open_L="eye_open_L", eye_open_R="eye_open_R", eye_happy_L="eye_happy_L", eye_happy_R="eye_happy_R",
-         eye_sleep_L="eye_sleep_L", eye_sleep_R="eye_sleep_R", mouth_laugh="mouth_laugh", mouth_o="mouth_o",
-         mouth_line="mouth_line", mouth_smile=scaled(sleep, 1.15), blush_L="blush_L", blush_R="blush_R")
+    build_sheet("moondeer")
 
 
 def build_cloud():

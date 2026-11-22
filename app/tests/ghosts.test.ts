@@ -32,22 +32,34 @@ describe('ghost parts', () => {
   it('a figure ghost does not draw again what is painted on its body', () => {
     for (const id of FIGURES) {
       const parts = partNames(id, true);
-      expect(RIGS[id].baked, id).toContain('blush');
-      expect(parts.some((p) => p.startsWith('blush_')), id).toBe(false);
-      expect(parts.some((p) => p.startsWith('arm_')), id).toBe(!RIGS[id].baked!.includes('arms'));
+      const baked = RIGS[id].baked!;
+      expect(parts.some((p) => p.startsWith('blush_')), id).toBe(!baked.includes('blush'));
+      expect(parts.some((p) => p.startsWith('arm_')), id).toBe(!baked.includes('arms'));
+      // cheeks that are parts of the face have a place to sit
+      expect(RIGS[id].blush[2] > 0, id).toBe(!baked.includes('blush'));
       expect(parts).toContain('body');
       expect(parts).toContain('mouth_smile');
     }
     // the cloud is the one whose kit brings loose arms the figure does not hold up already
     expect(partNames('cloud')).toContain('arm_L');
-    expect(partNames('phoenix')).not.toContain('arm_L');
+    // phoenix and moon deer have a figure of their own without cheeks, wings or ears: all of these are parts
+    for (const id of ['phoenix', 'moondeer']) for (const p of ['arm_L', 'arm_R', 'blush_L', 'blush_R']) expect(partNames(id), id).toContain(p);
+    // the others keep the cheeks the artist painted
+    for (const id of ['cloud', 'cactus', 'dragon', 'jellyfish']) expect(RIGS[id].baked, id).toContain('blush');
   });
 
-  it('a figure ghost whose arms are painted on has parts that bend instead', () => {
+  it('a figure ghost can wave: with parts on a hinge, or with a part of its picture that bends', () => {
     for (const id of FIGURES) {
       const r = RIGS[id];
-      // every ghost can wave: with arms on a hinge, or with a part of its picture that bends at a joint
       expect(!r.baked?.includes('arms') || (!!r.limbs?.L && !!r.limbs?.R), id).toBe(true);
+      // a part that was cut out of the figure, or set on it, turns by a share of an arm's turn and within limits
+      for (const a of [r.armL, r.armR]) {
+        if (a.gain === undefined) continue;
+        expect(a.gain, id).toBeGreaterThan(0);
+        expect(a.gain, id).toBeLessThanOrEqual(0.6);
+        expect(a.up, id).toBeGreaterThan(0);
+        expect(a.down, id).toBeGreaterThanOrEqual(0);
+      }
       for (const [key, l] of Object.entries(r.limbs ?? {})) {
         const where = `${id}/${key}`;
         expect(l.shape.length % 2, where).toBe(0);

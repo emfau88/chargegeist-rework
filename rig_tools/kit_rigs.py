@@ -67,16 +67,15 @@ def limb(at, shape, ramp, gain=0.3, most=24, lift=None):
 # An outline is drawn with room to spare where the part borders on nothing (there it may lie outside the
 # picture), and close where it borders on the rest of the figure.
 NEW = {
-    # The wings flap. They beat downwards where an arm would rise: above them the flames of the hair lie
-    # close, and a wing turned up into them tears the picture.
-    "phoenix": dict(up=1.6, height=395, cx=218, eye_y=190, eye_dx=37.5, mouth=(221, 209), fs=1.0, ms=0.83, limbs=dict(
-        # the lower edge of each outline keeps close to the wing: right below it the flames of the tail begin
-        L=limb((142, 268), [(138, 206), (70, 192), (-20, 205), (-25, 282), (16, 310), (70, 326), (138, 324)], (15, 70), -0.2, 17, 8),
-        R=limb((264, 284), [(266, 240), (300, 224), (360, 228), (370, 296), (338, 330), (300, 332), (266, 326)], (18, 55), -0.2, 17, 8))),
-    # no arms and no wings: the ears move
-    "moondeer": dict(up=1.6, height=395, cx=192.5, eye_y=191, eye_dx=33.5, mouth=(199, 210), fs=0.92, ms=0.76, limbs=dict(
-        L=limb((112, 205), [(120, 176), (70, 166), (48, 188), (-10, 196), (-10, 240), (60, 250), (112, 238), (124, 210)], (8, 45), 0.35),
-        R=limb((252, 203), [(248, 180), (275, 170), (298, 186), (345, 192), (345, 232), (270, 240), (246, 224)], (6, 34), 0.35))),
+    # Phoenix and moon deer have a picture of their own (build_new.py, SHEETS): the figure without face, and the
+    # wings or ears as loose parts that are set on it. They lie in front of the figure and turn like the cut-out
+    # arms below. blush: half the distance between the cheeks and their height; the cheeks are parts of the face.
+    "phoenix": dict(up=1.0, height=395, cx=409.5, eye_y=391, eye_dx=72.3, mouth=(409.5, 427), fs=1.0, ms=0.83, blush=(101, 435), arms=dict(
+        L=dict(at=(231, 528), gain=0.3, up=22, down=14),
+        R=dict(at=(551, 528), gain=0.3, up=22, down=14))),
+    "moondeer": dict(up=1.0, height=395, cx=392, eye_y=419, eye_dx=72.2, mouth=(392, 460), fs=0.92, ms=0.76, blush=(99.6, 465), arms=dict(
+        L=dict(at=(253, 406), gain=0.35, up=22, down=12),
+        R=dict(at=(531, 406), gain=0.35, up=22, down=12))),
     "cloud": dict(up=1.3, height=385, cx=260.5, eye_y=254, eye_dx=55.5, mouth=(266, 285), fs=1.08, ms=0.83,
                   arm_l=(58, 415), arm_r=(392, 415), arm_s=1.0),
     # the cactus arms it holds up

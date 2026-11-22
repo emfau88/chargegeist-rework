@@ -134,7 +134,8 @@ for gid, R in NEW.items():
     dst = PUB / "ghosts" / gid
     f = R["up"]
     arms = "arm_l" in R or "arms" in R
-    names = [p for p in PARTS if not p.startswith("blush") and (arms or not p.startswith("arm"))]
+    cheeks = "blush" in R   # the cheeks are parts of the face, not painted on the figure
+    names = [p for p in PARTS if (cheeks or not p.startswith("blush")) and (arms or not p.startswith("arm"))]
     top = R.get("arms", {}).get("top")
     if top:
         names.append("tuft")
@@ -187,14 +188,15 @@ for gid, R in NEW.items():
         armR = dict(at=[float(xs.max()), float(chest)], anchor=[0, 0], s=1, hand=[round(12 * m, 1), reach])
     rig = dict(
         k=round(k, 4), cx=ex, cy=round(cy, 1), pivot=round(VOLTI["pivot"] * m, 1),
-        eyeY=ey, eyeDX=round(R["eye_dx"] * f, 1), mouth=[mx, my], blush=[0, 0, 0],
+        eyeY=ey, eyeDX=round(R["eye_dx"] * f, 1), mouth=[mx, my],
+        blush=[round(R["blush"][0] * f, 1), round(R["blush"][1] * f, 1), 1] if cheeks else [0, 0, 0],
         fs=R["fs"], ms=R["ms"], u=round(R["fs"] * ims["eye_open_L"].width / 141, 3), m=round(m, 3),
         eyes="LR", armL=armL, armR=armR, tuft=None,
         flow=[round(VOLTI["flow"][0] * m, 1), round(VOLTI["flow"][1] * m, 1)],
         breath=[round(VOLTI["breath"][0] * m, 1), round(VOLTI["breath"][1] * m, 1)],
         tail=[round(x0 + 0.77 * W, 1), x1, round(y0 + 0.66 * H, 1), round(y0 + 0.77 * H, 1)],
         top=y0,
-        baked=["blush"] if arms else ["arms", "blush"],
+        baked=([] if arms else ["arms"]) + ([] if cheeks else ["blush"]),
     )
     if top:
         # what stands on the head is cut out of the figure as well, and sways as a tuft does
