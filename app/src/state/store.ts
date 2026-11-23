@@ -80,6 +80,8 @@ export interface Settings {
   lang: Lang;
   /** The living sky: fog, shooting stars and the glow of the moment. */
   sky: boolean;
+  /** A notification when a session ends while the app is not in front (the Android app only). */
+  endNotice: boolean;
 }
 export interface State {
   v: 3;
@@ -169,6 +171,7 @@ export function defaultState(): State {
       showWeek: true,
       lang: 'auto',
       sky: true,
+      endNotice: true,
     },
     plus: false,
     plusOfferSeen: false,

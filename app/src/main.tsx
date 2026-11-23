@@ -8,11 +8,12 @@ import '@fontsource/nunito/800.css';
 import './styles.css';
 import { App } from './app';
 import { setLightOn } from './fx/light';
+import { RELEASE } from './platform/build';
 import { playAct } from './rig/acts';
 import { setEyePose } from './rig/gaze';
 import { dev, getState, mutate } from './state/store';
 
-if (import.meta.env.DEV || location.search.includes('debug')) {
+if (!RELEASE && (import.meta.env.DEV || location.search.includes('debug'))) {
   (window as unknown as { __cg: unknown }).__cg = { dev, getState, mutate, light: setLightOn, eyes: setEyePose, act: playAct };
 }
 

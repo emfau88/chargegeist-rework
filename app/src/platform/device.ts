@@ -2,7 +2,15 @@
  * Thin wrappers over device features. The web versions run in the browser prototype;
  * the Android build swaps in Capacitor plugins behind the same functions.
  */
+import { App as NativeApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
+import { Directory, Filesystem } from '@capacitor/filesystem';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { Share } from '@capacitor/share';
 import { getState } from '../state/store';
+
+/** Inside the Android app (Capacitor). In a browser, also on a phone, this is false. */
+export const NATIVE = Capacitor.isNativePlatform();
 
 /* ---------- fullscreen (for testing in the browser) ---------- */
 /** Whether this browser lets a page go fullscreen by itself. An iPhone does not: there only the home screen helps. */
@@ -56,6 +64,13 @@ export function notificationsAllowed(): boolean {
   return 'Notification' in window && Notification.permission === 'granted';
 }
 /**
+ * Whether this build can tell you that a session ended while the phone is locked or the app is in the
+ * background. The Android app plans a notification for that moment; a web page cannot be relied on.
+ */
+export function sessionNoticeSupported(): boolean {
+  return NATIVE;
+}
+/**
  * Whether this build can deliver a reminder every day. A web page cannot: nothing wakes it at the
  * chosen time unless a server pushes to it, and this app has no server. The Android app will plan
  * local notifications and answer true here. Until then the setting is not shown.
@@ -63,7 +78,22 @@ export function notificationsAllowed(): boolean {
 export function dailyReminderSupported(): boolean {
   return false;
 }
-export async function askNotifications(): Promise<boolean> {
+/**
+ * Asks for the permission to notify, if it is not there yet. again: ask even if the question was put
+ * aside before (the switch in the settings does that; a session that starts does not nag).
+ */
+export async function askNotifications(again = false): Promise<boolean> {
+  if (NATIVE) {
+    try {
+      let p = await LocalNotifications.checkPermissions();
+      // Android asks in a dialog of its own. Once it was refused for good, the dialog no longer shows and
+      // the answer stays no: then only the system settings help.
+      if (p.display !== 'granted' && (again || p.display !== 'denied')) p = await LocalNotifications.requestPermissions();
+      return p.display === 'granted';
+    } catch {
+      return false;
+    }
+  }
   if (!('Notification' in window)) return false;
   if (Notification.permission === 'granted') return true;
   if (Notification.permission === 'denied') return false;
@@ -75,9 +105,42 @@ export async function askNotifications(): Promise<boolean> {
 }
 
 let endTimer = 0;
+/** The end that is planned right now, for the Android app (0: none). */
+let planned = 0;
+const END_NOTICE = 1;
+/**
+ * The notification rings a little after the end: in front, the app ends the session itself at the end
+ * and takes the notification back before it rings.
+ */
+const NOTICE_LAG = 3000;
+/**
+ * Android rings at the end, whatever the app is doing then: a locked phone stops the page, so the plan has
+ * to be made while it still runs. The alarm is not an exact one: that would need a permission of its own,
+ * which Android only gives on a page of its settings.
+ */
+async function planNotice(at: number, title: string, body: string) {
+  if (!getState().settings.endNotice) return;
+  try {
+    // the first session asks for the permission, in Android's own dialog
+    if (!(await askNotifications())) return;
+    // paused or ended while Android asked: nothing to plan any more
+    if (planned !== at) return;
+    await LocalNotifications.schedule({
+      notifications: [{ id: END_NOTICE, title, body, schedule: { at: new Date(at + NOTICE_LAG), allowWhileIdle: true }, isExactNotification: false }],
+    });
+  } catch {
+    /* no notification: the session still ends by the clock when the app comes back */
+  }
+}
+
 /** Notify when the session ends while the app is in the background. */
 export function scheduleSessionEnd(inMs: number, title: string, body: string) {
   cancelSessionEnd();
+  if (NATIVE) {
+    planned = Date.now() + Math.max(0, inMs);
+    void planNotice(planned, title, body);
+    return;
+  }
   endTimer = window.setTimeout(() => {
     if (document.visibilityState === 'hidden' && notificationsAllowed()) {
       try {
@@ -90,6 +153,22 @@ export function scheduleSessionEnd(inMs: number, title: string, body: string) {
 }
 export function cancelSessionEnd() {
   clearTimeout(endTimer);
+  if (NATIVE) {
+    planned = 0;
+    // the plan, and a notification that rang already: back in the app it has said what it had to say
+    void LocalNotifications.cancel({ notifications: [{ id: END_NOTICE }] }).catch(() => {});
+    void LocalNotifications.removeAllDeliveredNotifications().catch(() => {});
+  }
+}
+
+/* ---------- the back gesture of Android ---------- */
+/** Calls fn for every back gesture or back button. fn says whether it did something; if not, the app steps back to the home screen. */
+export function onBack(fn: () => boolean): () => void {
+  if (!NATIVE) return () => {};
+  const l = NativeApp.addListener('backButton', () => {
+    if (!fn()) void NativeApp.minimizeApp();
+  });
+  return () => void l.then((h) => h.remove());
 }
 
 /* ---------- keep the screen on ---------- */
@@ -115,6 +194,23 @@ document.addEventListener('visibilitychange', () => {
 
 /* ---------- share ---------- */
 export async function shareImage(blob: Blob, name: string, text: string): Promise<'shared' | 'saved'> {
+  if (NATIVE) {
+    // the page inside the app can neither share nor download: the picture goes to the cache of the app,
+    // and Android's own sheet shares it from there
+    try {
+      const data = await new Promise<string>((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(String(r.result).split(',')[1] ?? '');
+        r.onerror = () => rej(r.error);
+        r.readAsDataURL(blob);
+      });
+      const file = await Filesystem.writeFile({ path: name, data, directory: Directory.Cache });
+      await Share.share({ text, files: [file.uri] });
+    } catch {
+      /* closed without sharing */
+    }
+    return 'shared';
+  }
   const file = new File([blob], name, { type: blob.type });
   if (navigator.canShare?.({ files: [file] })) {
     try {

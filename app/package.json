@@ -9,14 +9,22 @@
     "preview": "vite preview",
     "test": "vitest run",
     "flow": "node tools/flow.mjs",
-    "check": "tsc -b && vitest run && node tools/flow.mjs"
+    "check": "tsc -b && vitest run && node tools/flow.mjs",
+    "android": "tsc -b && vite build --mode android && cap sync android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/local-notifications": "^8.3.1",
+    "@capacitor/share": "^8.0.3",
     "@fontsource/fredoka": "^5.3.0",
     "@fontsource/nunito": "^5.3.0",
     "preact": "^11.1.1"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.6.2",
     "@preact/preset-vite": "^2.10.6",
     "@types/node": "^24.19.2",
     "playwright-core": "^1.65.1",

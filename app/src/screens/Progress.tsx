@@ -4,6 +4,7 @@ import { fmtDate, fmtNum, nameOf, t } from '../i18n';
 import type { Key } from '../i18n';
 import { ACHIEVEMENTS, CHARGE_DAY_MIN, WEEK_TARGET, achievementValue, chargeWeek, dayRun, minutesByDay, totalMinutes } from '../logic/progress';
 import { dayKey, fmtMinutes, lastWeeks, monthDays, parseDay, weekKey } from '../logic/time';
+import { PLUS_FOR_SALE } from '../platform/build';
 import { shareImage } from '../platform/device';
 import { TAGS, counters, currentBoss, now, todayMinutes, useAppState } from '../state/store';
 import type { State } from '../state/store';
@@ -304,7 +305,7 @@ export function Progress({ openPlus }: { openPlus: () => void }) {
             <Trend s={s} />
           </section>
         </>
-      ) : (
+      ) : !PLUS_FOR_SALE ? null : (
         <button type="button" class="card plus-teaser" onClick={openPlus}>
           <span class="teaser-art" aria-hidden="true">
             {Array.from({ length: 21 }, (_, i) => (

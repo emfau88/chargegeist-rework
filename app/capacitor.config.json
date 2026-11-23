@@ -1,0 +1,15 @@
+{
+  "appId": "com.energycrafted.chargegeist",
+  "appName": "ChargeGeist",
+  "webDir": "dist",
+  "backgroundColor": "#14112a",
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_ghost",
+      "iconColor": "#7fd8ff"
+    },
+    "SystemBars": {
+      "style": "DARK"
+    }
+  }
+}

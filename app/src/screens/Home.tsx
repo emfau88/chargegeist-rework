@@ -6,6 +6,7 @@ import { BOND_MAX, bondLevel, bondProgress } from '../logic/bond';
 import { CHARGE_DAY_MIN, WEEK_TARGET, chargeWeek, minutesByDay } from '../logic/progress';
 import { fmtMinutes } from '../logic/time';
 import { sfx } from '../platform/audio';
+import { PLUS_FOR_SALE } from '../platform/build';
 import { haptic } from '../platform/device';
 import type { RigApi } from '../rig/rig';
 import {
@@ -122,11 +123,11 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
           <span class="plus-badge" title="Plus">
             <Icon name="crown" size={16} /> Plus
           </span>
-        ) : (
+        ) : PLUS_FOR_SALE ? (
           <button type="button" class="plus-pill" onClick={openPlus}>
             <Icon name="sparkle" size={15} /> Plus
           </button>
-        )}
+        ) : null}
       </header>
 
       {s.settings.showWeek && (

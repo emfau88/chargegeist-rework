@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import { t } from '../i18n';
 import { sfx } from '../platform/audio';
+import { RELEASE } from '../platform/build';
 import { haptic } from '../platform/device';
 import { setPlus, useAppState } from '../state/store';
 import { Btn, Icon, IconBtn, Sheet, toast } from '../ui/kit';
@@ -68,7 +69,7 @@ export function Plus({ onClose }: { onClose: () => void }) {
           <p class="ok-chip big">
             <Icon name="check" size={18} /> {t('plus_owned')}
           </p>
-        ) : (
+        ) : RELEASE ? null : (
           <>
             <Btn kind="warm" big icon="sparkle" onClick={() => setSim(true)}>
               {t('plus_buy', { price: t('plus_price') })}
@@ -92,16 +93,19 @@ export function Plus({ onClose }: { onClose: () => void }) {
         )}
       </div>
 
-      <Sheet open={sim} onClose={() => setSim(false)} title={t('plus_sim_title')}>
-        <p class="muted">{t('plus_sim_body')}</p>
-        <div class="sim-price">
-          <b>{t('plus_title')}</b>
-          <span>{t('plus_price')}</span>
-        </div>
-        <Btn kind="warm" big onClick={bought}>
-          {t('plus_sim_buy')}
-        </Btn>
-      </Sheet>
+      {/* the simulated purchase belongs to the prototype; the release has no way to get Plus without paying */}
+      {!RELEASE && (
+        <Sheet open={sim} onClose={() => setSim(false)} title={t('plus_sim_title')}>
+          <p class="muted">{t('plus_sim_body')}</p>
+          <div class="sim-price">
+            <b>{t('plus_title')}</b>
+            <span>{t('plus_price')}</span>
+          </div>
+          <Btn kind="warm" big onClick={bought}>
+            {t('plus_sim_buy')}
+          </Btn>
+        </Sheet>
+      )}
     </div>
   );
 }

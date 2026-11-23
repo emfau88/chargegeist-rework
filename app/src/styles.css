@@ -982,8 +982,10 @@ button.row:active {
 }
 /* The ghost's room grows with the height of the screen in one smooth line, without steps: a browser bar
    that slides in or out changes the height by a few pixels, and a step would make the ghost jump. */
+/* On a short screen (a small phone, where the bars of Android take their share) the room shrinks faster,
+   so the start button stays above the tab bar. Both lines meet at a height of 640 pixels. */
 .hero-stage {
-  height: clamp(180px, calc(54.9dvh - 159px), 330px);
+  height: clamp(120px, min(54.9dvh - 159px, 108dvh - 500px), 330px);
 }
 .hero-name {
   display: inline-flex;
@@ -1284,9 +1286,10 @@ button.row:active {
 .pill-btn:active {
   transform: scale(0.96);
 }
+/* on a short screen the stage gives way, so pause and end stay on the screen */
 .focus-stage {
   flex: 1;
-  min-height: 320px;
+  min-height: min(320px, 46dvh);
   max-height: 460px;
 }
 /* spare height goes above the clock and above the buttons, so the buttons sit at the bottom edge */

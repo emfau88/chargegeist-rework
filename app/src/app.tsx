@@ -4,7 +4,8 @@ import { lang, t } from './i18n';
 import { sceneLit } from './fx/ground';
 import { setFx } from './platform/audio';
 import { setEagerActs } from './rig/acts';
-import { haptic } from './platform/device';
+import { PLUS_FOR_SALE } from './platform/build';
+import { haptic, onBack } from './platform/device';
 import { Collection } from './screens/Collection';
 import { Break, Complete } from './screens/Complete';
 import { Drop } from './screens/Drop';
@@ -47,7 +48,8 @@ export function App() {
   }, [s.settings.lang]);
 
   const th = theme(s.plus || !theme(s.settings.theme).plus ? s.settings.theme : 'night');
-  const openPlus = () => setPlusOpen(true);
+  // where Plus is not for sale, nothing leads to its page
+  const openPlus = () => (PLUS_FOR_SALE || s.plus) && setPlusOpen(true);
   const openDrop = (id: string) => setOv({ k: 'drop', id });
 
   let key: string;
@@ -89,6 +91,24 @@ export function App() {
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, [key]);
+
+  // The back gesture of Android: it closes what lies on top, then leads to the first tab. From there, and
+  // while a session runs or the first screen shows, the app steps back to the home screen (see onBack).
+  useEffect(
+    () =>
+      onBack(() => {
+        if (document.querySelector('.sheet-root:not(.leaving)')) {
+          window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+          return true;
+        }
+        if (plusOpen) return setPlusOpen(false), true;
+        if (s.active) return false;
+        if (ov) return setOv(null), true;
+        if (s.onboarded && tab !== 'focus') return setTab('focus'), true;
+        return false;
+      }),
+    [plusOpen, !!s.active, ov, tab, s.onboarded],
+  );
 
   const mood: SkyMood = s.active ? 'focus' : ov?.k === 'complete' ? 'done' : s.pending.length && s.onboarded ? 'drop' : 'idle';
   const unseen = [...Object.values(s.ghosts), ...Object.values(s.styles)].filter((r) => !r.seen).length;

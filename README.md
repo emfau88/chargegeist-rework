@@ -62,6 +62,35 @@ Drei Regeln, auf die sich der Spielstand verlässt:
 
 Jeder Push auf `main` baut die App und veröffentlicht sie über GitHub Actions auf GitHub Pages (`.github/workflows/pages.yml`).
 
+## Android-App
+
+Die Android-App ist dieselbe Web-App, mit [Capacitor](https://capacitorjs.com) verpackt (`app/android`, Konfiguration in `app/capacitor.config.json`). Sie läuft ohne Netz: Alles liegt in der App. Sie gehört zum Store-Eintrag der früheren ChargeGeist-App (`com.energycrafted.chargegeist`).
+
+```bash
+cd app
+npm run android                              # Web-App als Release bauen und ins Android-Projekt kopieren
+cd android
+./gradlew assembleDebug                      # APK zum Testen: app/build/outputs/apk/debug/app-debug.apk
+./gradlew bundleRelease                      # Bundle für den Play Store: app/build/outputs/bundle/release/app-release.aab
+```
+
+Gradle braucht Java 21 (zum Beispiel das von Android Studio: `JAVA_HOME` auf dessen `jbr`-Ordner setzen) und das Android-SDK (`sdk.dir` in `android/local.properties`).
+
+**Was die Release-Fassung anders macht** (`npm run android` baut mit `--mode android`, siehe `app/.env.android` und `src/platform/build.ts`):
+
+- Kein Entwicklermenü, kein Debug-Zugang (`window.__cg`), kein simulierter Kauf.
+- Plus wird weder angeboten noch gezeigt, bis es als Kaufartikel in Google Play existiert und der Kauf über Play Billing läuft (`PLUS_FOR_SALE`).
+
+**Was nur die Android-App kann** (`src/platform/device.ts`, `NATIVE`):
+
+- Eine Mitteilung, wenn eine Sitzung endet, während das Handy gesperrt ist oder die App im Hintergrund liegt. Die erste Sitzung fragt nach der Erlaubnis; der Schalter steht in den Einstellungen.
+- Die Zurück-Geste: Sie schließt, was oben liegt, führt dann zum ersten Tab und von dort zum Startbildschirm.
+- Teilen der Monatskarte über das Teilen-Blatt von Android.
+
+**Signieren:** Der Upload-Schlüssel liegt nicht im Repository. `android/key.properties` (wie im alten Projekt: `keyAlias`, `keyPassword`, `storeFile`, `storePassword`) wird von Git ignoriert; ohne diese Datei entsteht ein unsigniertes Bundle. Versionsnummer und `versionCode` stehen in `android/app/build.gradle`.
+
+**Gerätetests** (`app/tools/android_test.mjs`, brauchen einen Emulator oder ein Handy mit installierter Debug-APK): `node tools/android_test.mjs fresh <apk>` prüft die frische Installation im Flugmodus, `lock`, `sleep`, `home` und `pause` je eine echte Fünf-Minuten-Sitzung, `back` die Zurück-Geste. Das App-Icon entsteht mit `python -I tools/android_icon.py .` aus den Icons der Web-App.
+
 ## Aufbau
 
 | Ordner | Inhalt |

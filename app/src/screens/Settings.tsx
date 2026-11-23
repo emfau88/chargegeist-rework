@@ -1,7 +1,8 @@
 import { useState } from 'preact/hooks';
 import { GHOSTS } from '../data/catalog';
 import { t } from '../i18n';
-import { askNotifications, dailyReminderSupported } from '../platform/device';
+import { PLUS_FOR_SALE, RELEASE } from '../platform/build';
+import { askNotifications, dailyReminderSupported, sessionNoticeSupported } from '../platform/device';
 import { stopAmbient } from '../platform/audio';
 import {
   TAGS,
@@ -13,7 +14,7 @@ import {
   useAppState,
 } from '../state/store';
 import type { Lang } from '../state/store';
-import { Btn, Chip, Row, Sheet, Toggle } from '../ui/kit';
+import { Btn, Chip, Row, Sheet, Toggle, toast } from '../ui/kit';
 import { AmbientSheet, CompanionSheet, OddsSheet, ThemeSheet } from '../ui/sheets';
 import { useReducedMotion } from '../ui/sky';
 import { Portrait } from '../ui/stage';
@@ -63,6 +64,22 @@ export function Settings({ openPlus }: { openPlus: () => void }) {
         <Row icon="moon" label={t('set_awake')}>
           <Toggle on={s.settings.keepAwake} onChange={(v) => setSetting('keepAwake', v)} label={t('set_awake')} />
         </Row>
+        {sessionNoticeSupported() && (
+          <Row icon="bell" label={t('set_notice')}>
+            <Toggle
+              on={s.settings.endNotice}
+              onChange={async (v) => {
+                setSetting('endNotice', v);
+                // switching it on asks Android for the permission; if that was refused before, only the system settings help
+                if (v && !(await askNotifications(true))) {
+                  setSetting('endNotice', false);
+                  toast(t('set_notice_denied'), { icon: 'bell' });
+                }
+              }}
+              label={t('set_notice')}
+            />
+          </Row>
+        )}
         <Row icon="cup" label={t('set_break')}>
           <Toggle on={s.settings.breakOffer} onChange={(v) => setSetting('breakOffer', v)} label={t('set_break')} />
         </Row>
@@ -76,15 +93,17 @@ export function Settings({ openPlus }: { openPlus: () => void }) {
       </div>
 
       <div class="group">
-        <Row icon="crown" label={t('set_plus')} value={s.plus ? '✓' : t('plus_price')} onClick={openPlus} />
+        {(PLUS_FOR_SALE || s.plus) && <Row icon="crown" label={t('set_plus')} value={s.plus ? '✓' : t('plus_price')} onClick={openPlus} />}
         <Row icon="info" label={t('set_odds')} onClick={() => setSheet('odds')} />
         <Row icon="shield" label={t('set_privacy')} onClick={() => setSheet('privacy')} />
         <Row icon="trash" label={t('set_reset')} onClick={() => setSheet('reset')} />
       </div>
 
-      <div class="group dev">
-        <Row icon="wand" label={t('dev_title')} hint={t('dev_open_hint')} onClick={() => setSheet('dev')} />
-      </div>
+      {!RELEASE && (
+        <div class="group dev">
+          <Row icon="wand" label={t('dev_title')} hint={t('dev_open_hint')} onClick={() => setSheet('dev')} />
+        </div>
+      )}
       <p class="muted small center">{t('set_version', { v: '2.0.0' })}</p>
 
       <CompanionSheet open={sheet === 'companion'} onClose={close} />
@@ -99,7 +118,7 @@ export function Settings({ openPlus }: { openPlus: () => void }) {
         preview
       />
       <OddsSheet open={sheet === 'odds'} onClose={close} />
-      <DevMenu open={sheet === 'dev'} onClose={close} />
+      {!RELEASE && <DevMenu open={sheet === 'dev'} onClose={close} />}
 
       <Sheet open={sheet === 'goal'} onClose={close} title={t('set_goal')}>
         <p class="muted">{t('ob_goal_body')}</p>
