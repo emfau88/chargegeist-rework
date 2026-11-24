@@ -151,7 +151,32 @@ export function CompanionStage(p: StageProps) {
 }
 
 const portraitCache = new Map<string, string>();
-/** A still image of a ghost, as a data URL (cached). */
+const portraitWork = new Map<string, Promise<string>>();
+let portraitLine: Promise<unknown> = Promise.resolve();
+/**
+ * Paints a portrait and gives its address. Portraits are painted one after the other, with a breath in
+ * between, and packed into a picture file away from the main thread: a screen full of them (the collection
+ * shows twenty) painted all at once held the app for a quarter of a second when it opened.
+ */
+function paintPortrait(id: string, size: number): Promise<string> {
+  const key = `${id}|${size}`;
+  let work = portraitWork.get(key);
+  if (!work) {
+    const paint = async () => {
+      const cv = await renderPortrait({ ghost: id }, size);
+      const blob = typeof cv.toBlob === 'function' ? await new Promise<Blob | null>((res) => cv.toBlob(res, 'image/png')) : null;
+      const url = blob ? URL.createObjectURL(blob) : cv.toDataURL('image/png');
+      portraitCache.set(key, url);
+      await new Promise((res) => setTimeout(res));
+      return url;
+    };
+    work = portraitLine.then(paint, paint);
+    portraitLine = work.catch(() => {});
+    portraitWork.set(key, work);
+  }
+  return work;
+}
+/** A still image of a ghost, as the address of a picture (cached for as long as the app runs). */
 export function usePortrait(id: string, size = 256): string | null {
   const key = `${id}|${size}`;
   const [url, setUrl] = useState<string | null>(portraitCache.get(key) ?? null);
@@ -161,11 +186,10 @@ export function usePortrait(id: string, size = 256): string | null {
       return;
     }
     let live = true;
-    renderPortrait({ ghost: id }, size).then((cv) => {
-      const u = cv.toDataURL('image/png');
-      portraitCache.set(key, u);
-      if (live) setUrl(u);
-    });
+    paintPortrait(id, size).then(
+      (u) => live && setUrl(u),
+      () => {},
+    );
     return () => {
       live = false;
     };

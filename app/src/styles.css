@@ -188,16 +188,12 @@ img {
   margin: 0 auto;
   min-height: 100dvh;
 }
+/* A screen is there at once; what should arrive with a gesture has its own entrance inside it. The screen
+   as a whole must not fade in: while it fades, the whole page is a picture of its own on the graphics
+   chip, and when the fade ends the phone has to draw the page anew into the picture below. An Android
+   WebView then shows one frame without the page: every change of screen flickered. */
 .screen {
   min-height: 100dvh;
-  animation: screen-in 0.38s var(--ease-out);
-}
-/* A screen fades in where it belongs. It does not slide: texts and buttons are at their place at once,
-   and a ghost can tell the painted land where its ground is while the screen still appears. */
-@keyframes screen-in {
-  from {
-    opacity: 0;
-  }
 }
 .page {
   min-height: 100dvh;
@@ -611,6 +607,8 @@ button.card:active {
   background: rgba(6, 4, 18, 0.62);
   backdrop-filter: blur(4px);
   animation: fade-in 0.22s ease;
+  /* a picture of its own on the graphics chip from the start, like the sheet: see .sheet */
+  will-change: opacity;
 }
 .sheet {
   position: relative;
@@ -625,6 +623,10 @@ button.card:active {
   box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.5);
   animation: sheet-in 0.34s var(--ease-out);
   outline: none;
+  /* A sheet is a picture of its own on the graphics chip for as long as it is there, not only while it slides
+     in. Otherwise the phone draws it anew into the page when the slide ends, and an Android WebView showed a
+     frame with the sheet missing or with holes in it. */
+  will-change: transform;
 }
 .sheet-root.leaving .sheet {
   animation: sheet-out 0.22s ease-in forwards;
@@ -3045,7 +3047,6 @@ input[type='range'] {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  animation: screen-in 0.45s var(--ease-out);
 }
 
 .ob-stage {
@@ -3178,7 +3179,11 @@ input[type='range'] {
   color: #dcd8f6;
   text-wrap: balance;
   text-shadow: 0 1px 8px rgba(20, 13, 56, 0.75);
-  /* a name of its own: the entrance below must count as a new animation, not as this one going on */
+}
+/* The words of a ghost that was just picked fade in. Only those: as a rule for every quote, the fade started a
+   second time when the entrance below was over, the quote blinked, and on a phone the button under it was
+   gone for one frame. */
+.pick-quote.fresh {
   animation: quote-in 0.35s ease;
 }
 @keyframes quote-in {
@@ -3233,6 +3238,16 @@ input[type='range'] {
 /* The entrance. wait: the ghost is loading, the clearing lies dark. enter: the lanterns light up (ENTER in
    Onboarding.tsx), the ghost floats in, then the words, the choice and the button come.
    The ghost's layer moves, not its stage: the stage tells the scene where the ground is. */
+/* Each part of this screen is a picture of its own on the graphics chip, for good. A part that fades is one
+   anyway while it fades, and when a fade starts or ends, its neighbours are sorted into other pictures. An
+   Android WebView shows one frame without them: the button was gone for a frame when the entrance ended, the
+   row of ghosts when one was picked. With a picture each, nothing is sorted anew. */
+.title .title-head,
+.title .pick-row,
+.title .pick-quote,
+.title .title-foot {
+  will-change: opacity;
+}
 .app:has(.title.wait) .bg::after,
 .app:has(.title.enter) .bg::after {
   content: '';
@@ -4449,6 +4464,22 @@ button.spark-meter:active {
   inset: 0;
   will-change: opacity, transform;
 }
+/* where the browser can, it fades them along the scroll position itself, in step with the page */
+.sky-orbs.sd {
+  animation: orbs-leave linear both;
+  animation-timeline: scroll(root);
+  animation-range: 0px var(--orb-fade);
+}
+@keyframes orbs-leave {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, var(--orb-rise), 0);
+  }
+}
 
 .sky-sun,
 .sky-moon {
@@ -4486,7 +4517,11 @@ button.spark-meter:active {
 }
 /* The painted land (ui/sky.tsx, Scene). --sc-s: screen pixels per canvas pixel, --sc-top: where the canvas hangs,
    both set from fx/ground.ts so that the clearing lies under the ghost's shadow. Each layer is one picture
-   as wide as the screen; on a wide screen it repeats sideways. */
+   as wide as the screen; on a wide screen it repeats sideways.
+   The land moves in two ways, and both by transform only, each on a box of its own that is a picture on the
+   graphics chip for good: .scene-move goes along with the scrolling, .scene-shift glides to where the land
+   hangs. Moved by top, the pictures were painted anew in every step of the glide, and the phone showed the
+   forest missing or in pieces. */
 .scene {
   position: absolute;
   inset: 0;
@@ -4499,10 +4534,34 @@ button.spark-meter:active {
 .scene.on {
   opacity: 1;
 }
-.scene-move {
+.scene-move,
+.scene-shift {
   position: absolute;
   inset: 0;
   will-change: transform;
+}
+/* The ground goes along as the page scrolls, the land behind it lags (--sc-rate, from fx/ground.ts). The browser
+   moves the layers along the scroll position itself: a script comes a frame or more late on a phone, and the
+   ground jumped after the ghost. The range is far longer than any page with a ghost on it. An old WebView
+   that cannot do this gets the script (ui/sky.tsx). At rest the hills stand still, as a far horizon does. */
+.scene.sd .scene-move {
+  animation: scene-scroll linear both;
+  animation-timeline: scroll(root);
+  animation-range: 0px 8000px;
+}
+.scene.sd.rest .scene-move {
+  animation: none;
+}
+@keyframes scene-scroll {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(0, calc(var(--sc-rate) * -8000px), 0);
+  }
+}
+.scene-shift {
+  transform: translate3d(0, var(--sc-top), 0);
 }
 .scene-layer,
 .scene-end,
@@ -4511,13 +4570,11 @@ button.spark-meter:active {
   position: absolute;
   left: 0;
   right: 0;
-  top: var(--sc-top);
+  top: 0;
 }
-.scene.glide .scene-layer,
-.scene.glide .scene-end,
-.scene.glide .scene-props,
+.scene.glide .scene-shift,
 .scene.glide .scene-glow {
-  transition: top 0.5s cubic-bezier(0.3, 0.7, 0.2, 1);
+  transition: transform 0.5s cubic-bezier(0.3, 0.7, 0.2, 1);
 }
 .scene-layer {
   height: calc(var(--sc-h) * var(--sc-s));
@@ -4544,20 +4601,20 @@ button.spark-meter:active {
   pointer-events: none;
 }
 /* the ground with its firs has a place of its own: at rest it lies below the screen */
-.scene-ground .scene-layer,
-.scene-ground .scene-props {
-  top: var(--sc-gtop);
+.scene-ground .scene-shift {
+  transform: translate3d(0, var(--sc-gtop), 0);
 }
-/* below the picture the ground goes on in the colour it ends in, as far as the page scrolls */
+/* below the picture the ground goes on in the colour it ends in, as far as a page with a ghost scrolls */
 .scene-end {
-  top: calc(var(--sc-gtop) + var(--sc-h) * var(--sc-s) - 1px);
-  height: 400vh;
+  top: calc(var(--sc-h) * var(--sc-s) - 1px);
+  height: 200vh;
   background: var(--sc-end);
 }
 /* the light in the valley, behind the far mountains: it takes the colour of the time of day */
 .scene-glow {
-  top: calc(var(--sc-top) + 470px * var(--sc-s));
   height: calc(720px * var(--sc-s));
+  transform: translate3d(0, calc(var(--sc-top) + 470px * var(--sc-s)), 0);
+  will-change: transform;
 }
 .scene-glow .hz-glow {
   top: 0;
@@ -4657,6 +4714,11 @@ button.spark-meter:active {
 .sky.paused,
 .sky.paused * {
   animation-play-state: paused !important;
+}
+/* what follows the scroll position has no time of its own to pause */
+.sky.paused .scene-move,
+.sky.paused .sky-orbs {
+  animation-play-state: running !important;
 }
 .fog {
   position: absolute;

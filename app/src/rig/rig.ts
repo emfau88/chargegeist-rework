@@ -217,6 +217,193 @@ export async function preloadLook(l: Pick<Look, 'ghost'>, live = false) {
   return map;
 }
 
+/**
+ * Pictures decoded away from the main thread, ready for the graphics chip. Handed over as plain pictures,
+ * each one is decoded on the spot when it becomes a texture: a ghost of some twenty pictures held the app
+ * for a moment whenever one appeared (measured on a phone-sized emulator: 24 to 36 ms, against 1 to 2 ms).
+ * The ones used last are kept, so that the next stage with the same ghost has them at once.
+ */
+const bitmaps = new Map<HTMLImageElement, Promise<ImageBitmap | null>>();
+/** About four ghosts with all their parts. */
+const BITMAPS_KEPT = 96;
+export async function readyBitmaps(imgs: HTMLImageElement[]): Promise<Map<HTMLImageElement, ImageBitmap>> {
+  const out = new Map<HTMLImageElement, ImageBitmap>();
+  if (typeof createImageBitmap !== 'function') return out;
+  const mine = new Set(imgs);
+  const all = imgs.map((im) => {
+    let b = bitmaps.get(im);
+    // asked for again: the youngest in the line
+    if (b) bitmaps.delete(im);
+    else b = createImageBitmap(im, { premultiplyAlpha: 'premultiply' }).catch(() => null);
+    bitmaps.set(im, b);
+    return b;
+  });
+  for (const [im, b] of bitmaps) {
+    if (bitmaps.size <= BITMAPS_KEPT) break;
+    if (mine.has(im)) continue;
+    bitmaps.delete(im);
+    void b.then((x) => x?.close());
+  }
+  (await Promise.all(all)).forEach((b, i) => b && out.set(imgs[i], b));
+  return out;
+}
+
+/** How many numbers the corners of the finest mesh take: four for each. */
+const VERT_FLOATS = 4 * 61 * 69;
+const UNIFORMS = ['uView', 'uTex', 'uAlpha', 'uLevel', 'uTime', 'uGlow', 'uDim', 'uBoost', 'uFill', 'uSheer', 'uHem', 'uTint', 'uLid', 'uLidOff', 'uInk'];
+/**
+ * What a rig needs on the graphics chip: the canvas with its context, the program, the meshes and the
+ * pictures loaded so far. Making all this takes a phone a tenth of a second and more, and every screen and
+ * sheet with a ghost on it made it anew: the app stood still for that long at each change. So a rig that
+ * goes hands its kit back, and the next one takes it over, with the pictures of the last ghost still in it.
+ */
+interface GlKit {
+  canvas: HTMLCanvasElement;
+  gl: WebGL2RenderingContext;
+  loc: Record<string, WebGLUniformLocation | null>;
+  ibos: Map<string, WebGLBuffer>;
+  /** Textures by picture. */
+  gpu: Map<HTMLImageElement, WebGLTexture>;
+}
+/** Kits that wait for the next rig, the one that waits longest first. */
+const spareKits: GlKit[] = [];
+/** Two ghosts are on screen at most: one on the page and one on a sheet above it. So many kits are kept. */
+const KITS_KEPT = 2;
+/** Kits that exist, in use or waiting. */
+let liveKits = 0;
+
+function makeKit(): GlKit {
+  const canvas = document.createElement('canvas');
+  canvas.className = 'rig-gl';
+  canvas.setAttribute('aria-hidden', 'true');
+  canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block';
+  const g = canvas.getContext('webgl2', { premultipliedAlpha: true, antialias: true, alpha: true });
+  if (!g) throw new Error('no webgl2');
+  const loc: Record<string, WebGLUniformLocation | null> = {};
+  const vs = `#version 300 es
+in vec2 aPos; in vec2 aUV; uniform vec4 uView; out vec2 vUV;
+void main(){ vUV = aUV; gl_Position = vec4((aPos.x - uView.x) * uView.z - 1.0, 1.0 - (aPos.y - uView.y) * uView.w, 0.0, 1.0); }`;
+  const fs = `#version 300 es
+precision mediump float;
+in vec2 vUV; uniform sampler2D uTex; uniform float uAlpha, uLevel, uTime, uGlow, uDim, uBoost; uniform vec3 uFill;
+// the light of the scene: uTint is laid over the figure; uSheer is how much the skin lets through at the hem
+// (0: nothing), uHem where the hem starts and how long it is
+uniform float uSheer; uniform vec2 uHem; uniform vec3 uTint;
+// the lids of an eye. uLid: x upper edge, y lower edge (share of the eye's height), z how far the edges bow towards the
+// corners, w width of the lid line (0: no lids). uLidOff: where this layer lies in the eye. uInk: colour of the lid line
+uniform vec4 uLid; uniform vec2 uLidOff; uniform vec3 uInk; out vec4 outColor;
+void main(){
+  vec4 c = texture(uTex, vUV);
+  vec3 rgb = c.a > 0.0 ? c.rgb / c.a : vec3(0.0);
+  float a = c.a;
+  float skin = smoothstep(0.30, 0.50, dot(rgb, vec3(0.3, 0.55, 0.15)));
+  if (uLevel > 0.001) {
+  float line = 1.0 - uLevel * 1.03 + sin(vUV.x * 14.0 + uTime * 3.2) * 0.012 + sin(vUV.x * 27.0 - uTime * 2.1) * 0.006;
+  float fill = smoothstep(line - 0.004, line + 0.004, vUV.y);
+  float crest = exp(-pow((vUV.y - line) / (0.012 + 0.008 * uBoost), 2.0));
+  // uBoost (focus): the charge shows as light, brightest under the line, softer towards the foot, slowly breathing
+  float depth = clamp((vUV.y - line) / 0.45, 0.0, 1.0);
+  float body = fill * (0.36 + uBoost * (mix(0.30, 0.06, depth) + 0.04 * sin(uTime * 1.4)));
+  vec3 fc = mix(uFill, vec3(1.0), 0.45);
+  rgb = mix(rgb, fc, skin * clamp(body + crest * (0.6 + 0.25 * uBoost), 0.0, 1.0));
+  }
+  rgb += skin * uGlow * (uFill * 0.17 + 0.03);
+  rgb *= uTint;
+  if (uSheer > 0.0) {
+  // the skin lets a little of the scene through towards the hem; outlines stay solid
+  float hem = clamp((vUV.y - uHem.x) / uHem.y, 0.0, 1.0);
+  a *= 1.0 - uSheer * hem * hem * skin;
+  }
+  if (uLid.w > 0.0) {
+  // behind the lids the eye is gone and the skin of the body shows; a line of ink runs along each lid
+  vec2 p = vUV + uLidOff;
+  float q = 2.0 * p.x - 1.0;
+  float bow = uLid.z * q * q;
+  float near = min(p.y - uLid.x - bow, uLid.y + bow - p.y);
+  rgb = mix(rgb, uInk, 1.0 - smoothstep(uLid.w * 0.55, uLid.w, near));
+  a *= smoothstep(-0.012, 0.012, near);
+  }
+  rgb *= 1.0 - uDim * vec3(0.20, 0.14, 0.06);
+  outColor = vec4(rgb * a, a) * uAlpha;
+}`;
+  const sh = (type: number, src: string) => {
+    const s = g.createShader(type)!;
+    g.shaderSource(s, src);
+    g.compileShader(s);
+    if (!g.getShaderParameter(s, g.COMPILE_STATUS)) throw new Error(g.getShaderInfoLog(s) ?? 'shader');
+    return s;
+  };
+  const prog = g.createProgram()!;
+  g.attachShader(prog, sh(g.VERTEX_SHADER, vs));
+  g.attachShader(prog, sh(g.FRAGMENT_SHADER, fs));
+  g.linkProgram(prog);
+  if (!g.getProgramParameter(prog, g.LINK_STATUS)) throw new Error(g.getProgramInfoLog(prog) ?? 'link');
+  g.useProgram(prog);
+  for (const n of UNIFORMS) loc[n] = g.getUniformLocation(prog, n);
+  g.bindVertexArray(g.createVertexArray());
+  const vbo = g.createBuffer();
+  g.bindBuffer(g.ARRAY_BUFFER, vbo);
+  g.bufferData(g.ARRAY_BUFFER, VERT_FLOATS * 4, g.DYNAMIC_DRAW);
+  const aPos = g.getAttribLocation(prog, 'aPos'),
+    aUV = g.getAttribLocation(prog, 'aUV');
+  g.enableVertexAttribArray(aPos);
+  g.vertexAttribPointer(aPos, 2, g.FLOAT, false, 16, 0);
+  g.enableVertexAttribArray(aUV);
+  g.vertexAttribPointer(aUV, 2, g.FLOAT, false, 16, 8);
+  g.uniform1i(loc.uTex, 0);
+  g.enable(g.BLEND);
+  g.blendFunc(g.ONE, g.ONE_MINUS_SRC_ALPHA);
+  return { canvas, gl: g, loc, ibos: new Map(), gpu: new Map() };
+}
+/**
+ * A kit for a new rig: one that waits, or a new one. Throws where there is no WebGL2.
+ * w, h: the size its canvas will get. A new size is what costs time (30 to 100 ms on a phone-sized emulator),
+ * so a kit that has this size already is taken first: the clearing gets its own back at every return. If none
+ * fits and there are still few, the rig gets a kit of its own; only then one that waits gets the new size.
+ */
+function takeKit(w: number, h: number): GlKit {
+  for (let i = spareKits.length - 1; i >= 0; i--) {
+    if (!spareKits[i].gl.isContextLost()) continue;
+    spareKits.splice(i, 1);
+    liveKits--;
+  }
+  let i = spareKits.findIndex((k) => k.canvas.width === w && k.canvas.height === h);
+  if (i < 0 && liveKits >= KITS_KEPT && spareKits.length) i = 0;
+  if (i < 0) {
+    const fresh = makeKit();
+    liveKits++;
+    return fresh;
+  }
+  const [k] = spareKits.splice(i, 1);
+  // as a new program has them: nothing of the last ghost's settings stays
+  const { gl, loc } = k;
+  for (const n of ['uAlpha', 'uLevel', 'uTime', 'uGlow', 'uDim', 'uBoost', 'uSheer']) gl.uniform1f(loc[n], 0);
+  for (const n of ['uHem', 'uLidOff']) gl.uniform2f(loc[n], 0, 0);
+  for (const n of ['uFill', 'uTint', 'uInk']) gl.uniform3f(loc[n], 0, 0, 0);
+  for (const n of ['uView', 'uLid']) gl.uniform4f(loc[n], 0, 0, 0, 0);
+  return k;
+}
+/** A rig is done with its kit. keep: the pictures of the ghost it showed last; the textures of all others go. */
+function releaseKit(k: GlKit, keep: Set<HTMLImageElement>) {
+  const { gl, canvas } = k;
+  canvas.remove();
+  if (gl.isContextLost() || spareKits.length >= KITS_KEPT) {
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    liveKits--;
+    return;
+  }
+  for (const [img, tx] of k.gpu) {
+    if (keep.has(img)) continue;
+    gl.deleteTexture(tx);
+    k.gpu.delete(img);
+  }
+  // While it waits its picture is empty. It keeps its size: the next stage is mostly as large as this one, and
+  // a new size costs about as much as a new kit.
+  gl.clearColor(0, 0, 0, 0);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  spareKits.push(k);
+}
+
 const HEART = 'M0,7 C-13,-3 -11,-14 -4.5,-14 C-1.5,-14 0,-11.5 0,-9.5 C0,-11.5 1.5,-14 4.5,-14 C11,-14 13,-3 0,7 Z';
 const STAR = 'M0,-12 C2,-3 3,-2 12,0 C3,2 2,3 0,12 C-2,3 -3,2 -12,0 C-3,-2 -2,-3 0,-12 Z';
 let uid = 0;
@@ -341,98 +528,34 @@ export function createRig(host: HTMLElement, look: Look, opts: RigOptions = {}):
     back.setAttribute('viewBox', vb);
     front.setAttribute('viewBox', vb);
     const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
-    canvas.width = Math.round(layerBox.w * dpr);
-    canvas.height = Math.round(layerBox.h * dpr);
+    // Only a size that really changed is set: every setting, also of the same number, empties the picture and
+    // has the graphics chip lay it out anew, which holds a phone for a tenth of a second.
+    const cw = Math.round(layerBox.w * dpr),
+      ch = Math.round(layerBox.h * dpr);
+    if (canvas.width !== cw) canvas.width = cw;
+    if (canvas.height !== ch) canvas.height = ch;
   }
 
   /* ---------- renderer ---------- */
   let gl: WebGL2RenderingContext | null = null;
   let ctx2d: CanvasRenderingContext2D | null = null;
-  const loc: Record<string, WebGLUniformLocation | null> = {};
-  const ibos = new Map<string, WebGLBuffer>();
+  let kit: GlKit | null = null;
+  let loc: Record<string, WebGLUniformLocation | null> = {};
+  let ibos = new Map<string, WebGLBuffer>();
   let TEX: Record<string, Tex> = {};
-  const VERTS = new Float32Array(4 * 61 * 69);
+  const VERTS = new Float32Array(VERT_FLOATS);
 
-  function initGL() {
-    const g = canvas.getContext('webgl2', { premultipliedAlpha: true, antialias: true, alpha: true });
-    if (!g) throw new Error('no webgl2');
-    gl = g;
-    const vs = `#version 300 es
-in vec2 aPos; in vec2 aUV; uniform vec4 uView; out vec2 vUV;
-void main(){ vUV = aUV; gl_Position = vec4((aPos.x - uView.x) * uView.z - 1.0, 1.0 - (aPos.y - uView.y) * uView.w, 0.0, 1.0); }`;
-    const fs = `#version 300 es
-precision mediump float;
-in vec2 vUV; uniform sampler2D uTex; uniform float uAlpha, uLevel, uTime, uGlow, uDim, uBoost; uniform vec3 uFill;
-// the light of the scene: uTint is laid over the figure; uSheer is how much the skin lets through at the hem
-// (0: nothing), uHem where the hem starts and how long it is
-uniform float uSheer; uniform vec2 uHem; uniform vec3 uTint;
-// the lids of an eye. uLid: x upper edge, y lower edge (share of the eye's height), z how far the edges bow towards the
-// corners, w width of the lid line (0: no lids). uLidOff: where this layer lies in the eye. uInk: colour of the lid line
-uniform vec4 uLid; uniform vec2 uLidOff; uniform vec3 uInk; out vec4 outColor;
-void main(){
-  vec4 c = texture(uTex, vUV);
-  vec3 rgb = c.a > 0.0 ? c.rgb / c.a : vec3(0.0);
-  float a = c.a;
-  float skin = smoothstep(0.30, 0.50, dot(rgb, vec3(0.3, 0.55, 0.15)));
-  if (uLevel > 0.001) {
-    float line = 1.0 - uLevel * 1.03 + sin(vUV.x * 14.0 + uTime * 3.2) * 0.012 + sin(vUV.x * 27.0 - uTime * 2.1) * 0.006;
-    float fill = smoothstep(line - 0.004, line + 0.004, vUV.y);
-    float crest = exp(-pow((vUV.y - line) / (0.012 + 0.008 * uBoost), 2.0));
-    // uBoost (focus): the charge shows as light, brightest under the line, softer towards the foot, slowly breathing
-    float depth = clamp((vUV.y - line) / 0.45, 0.0, 1.0);
-    float body = fill * (0.36 + uBoost * (mix(0.30, 0.06, depth) + 0.04 * sin(uTime * 1.4)));
-    vec3 fc = mix(uFill, vec3(1.0), 0.45);
-    rgb = mix(rgb, fc, skin * clamp(body + crest * (0.6 + 0.25 * uBoost), 0.0, 1.0));
-  }
-  rgb += skin * uGlow * (uFill * 0.17 + 0.03);
-  rgb *= uTint;
-  if (uSheer > 0.0) {
-    // the skin lets a little of the scene through towards the hem; outlines stay solid
-    float hem = clamp((vUV.y - uHem.x) / uHem.y, 0.0, 1.0);
-    a *= 1.0 - uSheer * hem * hem * skin;
-  }
-  if (uLid.w > 0.0) {
-    // behind the lids the eye is gone and the skin of the body shows; a line of ink runs along each lid
-    vec2 p = vUV + uLidOff;
-    float q = 2.0 * p.x - 1.0;
-    float bow = uLid.z * q * q;
-    float near = min(p.y - uLid.x - bow, uLid.y + bow - p.y);
-    rgb = mix(rgb, uInk, 1.0 - smoothstep(uLid.w * 0.55, uLid.w, near));
-    a *= smoothstep(-0.012, 0.012, near);
-  }
-  rgb *= 1.0 - uDim * vec3(0.20, 0.14, 0.06);
-  outColor = vec4(rgb * a, a) * uAlpha;
-}`;
-    const sh = (type: number, src: string) => {
-      const s = g.createShader(type)!;
-      g.shaderSource(s, src);
-      g.compileShader(s);
-      if (!g.getShaderParameter(s, g.COMPILE_STATUS)) throw new Error(g.getShaderInfoLog(s) ?? 'shader');
-      return s;
-    };
-    const prog = g.createProgram()!;
-    g.attachShader(prog, sh(g.VERTEX_SHADER, vs));
-    g.attachShader(prog, sh(g.FRAGMENT_SHADER, fs));
-    g.linkProgram(prog);
-    if (!g.getProgramParameter(prog, g.LINK_STATUS)) throw new Error(g.getProgramInfoLog(prog) ?? 'link');
-    g.useProgram(prog);
-    for (const n of ['uView', 'uTex', 'uAlpha', 'uLevel', 'uTime', 'uGlow', 'uDim', 'uBoost', 'uFill', 'uSheer', 'uHem', 'uTint', 'uLid', 'uLidOff', 'uInk']) loc[n] = g.getUniformLocation(prog, n);
-    g.bindVertexArray(g.createVertexArray());
-    const vbo = g.createBuffer();
-    g.bindBuffer(g.ARRAY_BUFFER, vbo);
-    g.bufferData(g.ARRAY_BUFFER, VERTS.byteLength, g.DYNAMIC_DRAW);
-    const aPos = g.getAttribLocation(prog, 'aPos'),
-      aUV = g.getAttribLocation(prog, 'aUV');
-    g.enableVertexAttribArray(aPos);
-    g.vertexAttribPointer(aPos, 2, g.FLOAT, false, 16, 0);
-    g.enableVertexAttribArray(aUV);
-    g.vertexAttribPointer(aUV, 2, g.FLOAT, false, 16, 8);
-    g.uniform1i(loc.uTex, 0);
-    g.enable(g.BLEND);
-    g.blendFunc(g.ONE, g.ONE_MINUS_SRC_ALPHA);
-  }
   try {
-    initGL();
+    const W = Math.max(1, host.clientWidth),
+      H = Math.max(1, host.clientHeight),
+      dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    // the size layout() below will ask for
+    kit = takeKit(Math.round((W + 2 * over.side * H) * dpr), Math.round((H + over.top * H + over.bottom * H) * dpr));
+    canvas.replaceWith(kit.canvas);
+    canvas = kit.canvas;
+    gl = kit.gl;
+    loc = kit.loc;
+    ibos = kit.ibos;
   } catch {
     gl = null;
     const c2 = document.createElement('canvas');
@@ -463,9 +586,10 @@ void main(){
     ibos.set(key, buf);
     return buf;
   }
-  /** GPU textures by image url, kept while the rig lives so switching ghosts back and forth is instant. */
-  const gpu = new Map<HTMLImageElement, WebGLTexture>();
-  function makeTex(img: HTMLImageElement): Tex {
+  /** GPU textures by picture, kept while the rig lives so switching ghosts back and forth is instant. */
+  const gpu = kit ? kit.gpu : new Map<HTMLImageElement, WebGLTexture>();
+  /** ready: the picture decoded already (readyBitmaps); without it, or if it is gone by now, the picture itself is taken. */
+  function makeTex(img: HTMLImageElement, ready?: ImageBitmap): Tex {
     const t: Tex = { w: img.naturalWidth, h: img.naturalHeight, img };
     if (gl) {
       let tx = gpu.get(img);
@@ -473,7 +597,16 @@ void main(){
         tx = gl.createTexture()!;
         gl.bindTexture(gl.TEXTURE_2D, tx);
         gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+        let done = false;
+        if (ready) {
+          try {
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, ready);
+            done = true;
+          } catch {
+            /* closed in the meantime: take the picture itself */
+          }
+        }
+        if (!done) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
         gl.generateMipmap(gl.TEXTURE_2D);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -1384,6 +1517,9 @@ void main(){
   /* ---------- loop ---------- */
   layout();
   const ro = new ResizeObserver(() => {
+    // A stage that is leaving has no size any more. It must not shrink its canvas for that: the next stage takes
+    // the canvas over, and a new size is what costs the time.
+    if (!host.isConnected || !host.clientWidth || !host.clientHeight) return;
     layout();
     render();
   });
@@ -1412,9 +1548,10 @@ void main(){
     const ghostChanged = cur.ghost !== l.ghost || !loaded;
     if (ghostChanged) {
       const imgs = await preloadLook(l, true);
+      const ready = gl ? await readyBitmaps(Object.values(imgs).filter((im) => !gpu.has(im))) : null;
       if (!alive || my !== req) return;
       const next: Record<string, Tex> = {};
-      for (const [k, im] of Object.entries(imgs)) next[k] = makeTex(im);
+      for (const [k, im] of Object.entries(imgs)) next[k] = makeTex(im, ready?.get(im));
       TEX = next;
       R = RIGS[l.ghost];
       prepareLimbs();
@@ -1522,7 +1659,7 @@ void main(){
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onCancel);
-      if (gl) gl.getExtension('WEBGL_lose_context')?.loseContext();
+      if (kit) releaseKit(kit, new Set(Object.values(TEX).map((t) => t.img)));
       aura.clear();
       layer.remove();
     },
@@ -1535,6 +1672,8 @@ void main(){
  */
 export async function renderPortrait(l: Pick<Look, 'ghost'>, size: number): Promise<HTMLCanvasElement> {
   const T = await preloadLook(l);
+  // decoded before they are drawn, away from the main thread: drawn undecoded, each picture is decoded on the spot
+  await Promise.all(Object.values(T).map((im) => (typeof im.decode === 'function' ? im.decode().catch(() => {}) : null)));
   const R = RIGS[l.ghost];
   const toStage = (u: number, v: number): Vec => [(u - R.cx) * R.k + 300, (v - R.cy) * R.k + 280];
 
@@ -1587,7 +1726,8 @@ export async function renderPortrait(l: Pick<Look, 'ghost'>, size: number): Prom
   const cv = document.createElement('canvas');
   cv.width = size;
   cv.height = size;
-  const ctx = cv.getContext('2d')!;
+  // painted in memory, not on the graphics chip: the picture is read back right away, and fetching it from the chip holds the app
+  const ctx = cv.getContext('2d', { willReadFrequently: true })!;
   ctx.imageSmoothingQuality = 'high';
   for (const o of ops) {
     ctx.save();

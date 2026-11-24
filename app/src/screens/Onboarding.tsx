@@ -5,6 +5,7 @@ import { stageLights } from '../fx/ground';
 import { nameOf, quoteOf, t } from '../i18n';
 import { sfx } from '../platform/audio';
 import { haptic } from '../platform/device';
+import { preloadLook, readyBitmaps } from '../rig/rig';
 import type { RigApi } from '../rig/rig';
 import { beginWith } from '../state/store';
 import { Btn, Icon } from '../ui/kit';
@@ -65,6 +66,14 @@ function Title({ onGo }: { onGo: (id: string) => void }) {
     setCheer((c) => c + 1);
   };
 
+  // the two ghosts that are not on the clearing yet get ready meanwhile, so a tap on one brings it at once
+  useEffect(() => {
+    if (phase !== 'done') return;
+    const id = window.setTimeout(() => {
+      for (const g of STARTERS) void preloadLook({ ghost: g }, true).then((imgs) => readyBitmaps(Object.values(imgs)), () => {});
+    }, 300);
+    return () => clearTimeout(id);
+  }, [phase]);
   // the lanterns are this screen's while it shows
   useEffect(() => () => stageLights(null), []);
   useEffect(() => {
@@ -131,7 +140,7 @@ function Title({ onGo }: { onGo: (id: string) => void }) {
           );
         })}
       </div>
-      <p class="pick-quote" key={pick}>
+      <p class={`pick-quote ${cheer ? 'fresh' : ''}`} key={pick}>
         “{quoteOf(g)}”
       </p>
       <div class="stack bottom-actions title-foot">

@@ -27,48 +27,76 @@ export function useReducedMotion(): boolean {
   return r;
 }
 
-/** Most stars are tiny, some are medium, and a few are bright ones with a glint. */
-function useStars(n: number, seed0: number, maxY: number) {
-  return useMemo(() => {
-    let seed = seed0;
-    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-    return Array.from({ length: n }, () => {
-      const size = rnd();
-      const r = size < 0.7 ? 0.5 + rnd() * 0.4 : size < 0.94 ? 1 + rnd() * 0.5 : 1.6 + rnd() * 0.5;
-      return { x: rnd() * 100, y: rnd() * maxY, r, bright: size >= 0.95, warm: rnd() < 0.18 };
-    });
-  }, []);
+interface Star {
+  x: number;
+  y: number;
+  r: number;
+  bright: boolean;
+  warm: boolean;
 }
+/** Most stars are tiny, some are medium, and a few are bright ones with a glint. */
+function makeStars(n: number, seed0: number, maxY: number): Star[] {
+  let seed = seed0;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  return Array.from({ length: n }, () => {
+    const size = rnd();
+    const r = size < 0.7 ? 0.5 + rnd() * 0.4 : size < 0.94 ? 1 + rnd() * 0.5 : 1.6 + rnd() * 0.5;
+    return { x: rnd() * 100, y: rnd() * maxY, r, bright: size >= 0.95, warm: rnd() < 0.18 };
+  });
+}
+/** The stars of every sky, and those that only the deep night of the default sky shows. */
+const STARS_ALWAYS = makeStars(70, 7, 70);
+const STARS_NIGHT = makeStars(55, 23, 85);
 
 /**
  * Stars in three layers that twinkle out of step. Each layer fades as a whole, which the GPU does
  * on its own; fading every star by itself would cost the main thread on every frame.
  * Positions are a share of the sky and sizes are pixels, so stars stay round on every screen.
+ * Every layer covers the screen and is blended in every frame, so there are three and no more: the
+ * stars of the deep night lie in the same layers and are dimmed inside them. Their share changes
+ * with the hour only, once a minute at most.
  */
-function Stars({ n, seed, maxY, opacity, cls }: { n: number; seed: number; maxY: number; opacity: number; cls?: string }) {
-  const stars = useStars(n, seed, maxY);
+function Stars({ always, night }: { always: number; night: number }) {
+  const all = Math.max(always, night);
+  if (all < 0.004) return null;
+  const sets = [
+    { stars: STARS_ALWAYS, share: always / all },
+    { stars: STARS_NIGHT, share: night / all },
+  ].filter((x) => x.share >= 0.004);
   return (
-    <div class={`stars ${cls ?? ''}`} style={{ opacity }}>
+    <div class="stars" style={{ opacity: all }}>
       {[0, 1, 2].map((k) => (
         <svg key={k} class={`star-layer tw-${k}`}>
-          {stars
-            .filter((_, i) => i % 3 === k)
-            .map((s, i) =>
-              s.bright ? (
-                <svg key={i} x={`${s.x}%`} y={`${s.y}%`} overflow="visible">
-                  <circle class="halo" r={s.r * 3} />
-                  <path class="glint" d="M0,-6 L0.7,-0.7 L6,0 L0.7,0.7 L0,6 L-0.7,0.7 L-6,0 L-0.7,-0.7Z" transform={`scale(${(s.r / 2.1).toFixed(2)})`} />
-                  <circle r={s.r * 0.7} />
-                </svg>
-              ) : (
-                <circle key={i} class={s.warm ? 'warm' : undefined} cx={`${s.x}%`} cy={`${s.y}%`} r={s.r} />
-              ),
-            )}
+          {sets.map((set, n) => (
+            <g key={n} opacity={set.share < 0.996 ? set.share.toFixed(2) : undefined}>
+              {set.stars
+                .filter((_, i) => i % 3 === k)
+                .map((s, i) =>
+                  s.bright ? (
+                    <svg key={i} x={`${s.x}%`} y={`${s.y}%`} overflow="visible">
+                      <circle class="halo" r={s.r * 3} />
+                      <path class="glint" d="M0,-6 L0.7,-0.7 L6,0 L0.7,0.7 L0,6 L-0.7,0.7 L-6,0 L-0.7,-0.7Z" transform={`scale(${(s.r / 2.1).toFixed(2)})`} />
+                      <circle r={s.r * 0.7} />
+                    </svg>
+                  ) : (
+                    <circle key={i} class={s.warm ? 'warm' : undefined} cx={`${s.x}%`} cy={`${s.y}%`} r={s.r} />
+                  ),
+                )}
+            </g>
+          ))}
         </svg>
       ))}
     </div>
   );
 }
+
+/**
+ * Whether the browser itself can move things along the scroll position (animation-timeline: scroll()).
+ * A phone scrolls the page without waiting for scripts. Whatever a script moves along comes a frame or
+ * more late, and unevenly: the painted ground would lag behind the ghost that floats over it and jump
+ * after it. Where the browser cannot do it (an old WebView), a script does, as well as it can.
+ */
+const SCROLL_DRIVEN = typeof CSS !== 'undefined' && typeof CSS.supports === 'function' && CSS.supports('animation-timeline: scroll()') && CSS.supports('animation-range: 0px 100px');
 
 /** The lit side of the moon for a phase (0 new, 0.5 full): the right limb plus the terminator. */
 function moonLit(phase: number, r: number): { d: string; flip: boolean } {
@@ -79,7 +107,7 @@ function moonLit(phase: number, r: number): { d: string; flip: boolean } {
   return { d: `M0,${-r} A${r},${r} 0 0 1 0,${r} A${(Math.abs(k) * r).toFixed(2)},${r} 0 0 ${k > 0 ? 0 : 1} 0,${-r}Z`, flip: waning };
 }
 
-/** After this many pixels of scrolling, sun and moon are gone; on the way they rise a little. */
+/** After this many pixels of scrolling, sun and moon are gone; on the way they rise a little (CSS: .sky-orbs). */
 const ORB_FADE_PX = 90;
 const ORB_RISE = 0.3;
 
@@ -95,6 +123,7 @@ function Orbs({ hour }: { hour: number }) {
   const lit = useMemo(() => moonLit(moonPhase(now()), 26), []);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    if (SCROLL_DRIVEN) return;
     let raf = 0;
     const place = () => {
       raf = 0;
@@ -116,7 +145,7 @@ function Orbs({ hour }: { hour: number }) {
     };
   }, []);
   return (
-    <div class="sky-orbs" ref={box}>
+    <div class={`sky-orbs ${SCROLL_DRIVEN ? 'sd' : ''}`} ref={box} style={{ '--orb-fade': `${ORB_FADE_PX}px`, '--orb-rise': `${-ORB_FADE_PX * ORB_RISE}px` } as CSSProperties}>
       {sun && <i class="sky-sun" style={{ left: `${sun.x * 100}%`, top: `${sun.y * 100}%`, opacity: orbAlpha(sun.alt), '--low': (1 - sun.alt).toFixed(3) } as CSSProperties} />}
       {moon && (
         <svg class="sky-moon" viewBox="-60 -60 120 120" style={{ left: `${moon.x * 100}%`, top: `${moon.y * 100}%`, opacity: orbAlpha(moon.alt) }}>
@@ -208,6 +237,10 @@ function loadScene(): Promise<boolean> {
  * low. The ground goes along as the page scrolls, the land behind it lags a little. Two lanterns
  * stand in it: the first burns once there was focus today, the second when the daily goal is reached.
  * A screen can light them itself (stageLights in fx/ground.ts).
+ *
+ * Each layer has two boxes, and both are moved by transform only, so nothing is painted anew while the
+ * land moves: .scene-move follows the scrolling (the browser does that itself where it can, see
+ * SCROLL_DRIVEN), .scene-shift inside it glides to where the land hangs.
  */
 function Scene({ glow, lit }: { glow: { morning: number; day: number; evening: number }; lit: SceneLit }) {
   const [state, setState] = useState<'wait' | 'ok' | 'none'>('wait');
@@ -253,13 +286,13 @@ function Scene({ glow, lit }: { glow: { morning: number; day: number; evening: n
       }
     };
     function onScroll() {
-      if (!raf) raf = requestAnimationFrame(scroll);
+      if (!SCROLL_DRIVEN && !raf) raf = requestAnimationFrame(scroll);
     }
     place();
-    scroll();
+    if (!SCROLL_DRIVEN) scroll();
     const off = onGround(place);
     window.addEventListener('resize', place);
-    window.addEventListener('scroll', onScroll, { passive: true });
+    if (!SCROLL_DRIVEN) window.addEventListener('scroll', onScroll, { passive: true });
     return () => {
       off();
       window.removeEventListener('resize', place);
@@ -270,7 +303,7 @@ function Scene({ glow, lit }: { glow: { morning: number; day: number; evening: n
 
   if (state === 'none') return <Horizon glow={glow} />;
   return (
-    <div class={`scene ${state === 'ok' ? 'on' : ''}`} ref={root} style={{ '--sc-w': `${SCENE.w}px`, '--sc-h': `${SCENE.h}px`, '--sc-end': SCENE.ground.bottom } as CSSProperties}>
+    <div class={`scene ${state === 'ok' ? 'on' : ''} ${SCROLL_DRIVEN ? 'sd' : ''}`} ref={root} style={{ '--sc-w': `${SCENE.w}px`, '--sc-h': `${SCENE.h}px`, '--sc-end': SCENE.ground.bottom } as CSSProperties}>
       <div class="scene-glow">
         <i class="hz-glow night" />
         <i class="hz-glow morning" style={{ opacity: glow.morning }} />
@@ -279,40 +312,49 @@ function Scene({ glow, lit }: { glow: { morning: number; day: number; evening: n
       </div>
       <div
         class="scene-move scene-far"
+        style={{ '--sc-rate': SCROLL_RATE.far } as CSSProperties}
         ref={(e) => {
           parts.current.far = e;
         }}
       >
-        <div class="scene-layer" style={{ backgroundImage: `url(${SCENE_URL('far')})` }} />
+        <div class="scene-shift">
+          <div class="scene-layer" style={{ backgroundImage: `url(${SCENE_URL('far')})` }} />
+        </div>
       </div>
       <div
         class="scene-move"
+        style={{ '--sc-rate': SCROLL_RATE.mid } as CSSProperties}
         ref={(e) => {
           parts.current.mid = e;
         }}
       >
-        <div class="scene-layer" style={{ backgroundImage: `url(${SCENE_URL('mid')})` }} />
+        <div class="scene-shift">
+          <div class="scene-layer" style={{ backgroundImage: `url(${SCENE_URL('mid')})` }} />
+        </div>
       </div>
       <div
         class="scene-move scene-ground"
+        style={{ '--sc-rate': SCROLL_RATE.ground } as CSSProperties}
         ref={(e) => {
           parts.current.ground = e;
         }}
       >
-        <div class="scene-layer" style={{ backgroundImage: `url(${SCENE_URL('ground')})` }} />
-        <div class="scene-end" />
-        <div class="scene-props">
-          {LANTERNS.map((l) => {
-            const [w, h] = SCENE_PROPS[l.off];
-            const on = (staged ?? lit)[l.lit];
-            return (
-              <div key={l.id} class={`scene-prop ${l.id} ${on ? 'lit' : ''}`} style={{ '--px': l.x, '--py': l.y, '--pw': w * l.k, '--ph': h * l.k } as CSSProperties}>
-                <i class="pool" />
-                <img src={SCENE_URL(l.off)} alt="" draggable={false} />
-                <img class="glowing" src={SCENE_URL(l.on)} alt="" draggable={false} />
-              </div>
-            );
-          })}
+        <div class="scene-shift">
+          <div class="scene-layer" style={{ backgroundImage: `url(${SCENE_URL('ground')})` }} />
+          <div class="scene-end" />
+          <div class="scene-props">
+            {LANTERNS.map((l) => {
+              const [w, h] = SCENE_PROPS[l.off];
+              const on = (staged ?? lit)[l.lit];
+              return (
+                <div key={l.id} class={`scene-prop ${l.id} ${on ? 'lit' : ''}`} style={{ '--px': l.x, '--py': l.y, '--pw': w * l.k, '--ph': h * l.k } as CSSProperties}>
+                  <i class="pool" />
+                  <img src={SCENE_URL(l.off)} alt="" draggable={false} />
+                  <img class="glowing" src={SCENE_URL(l.on)} alt="" draggable={false} />
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
@@ -399,8 +441,7 @@ export function Sky({ timeOfDay, stars, moving, mood, glow, hour, orbs = true, l
           <div class="sky-layer sky-evening" style={{ opacity: o.evening }} />
         </>
       )}
-      {stars && <Stars n={70} seed={7} maxY={70} opacity={sa} />}
-      {stars && timeOfDay && <Stars n={55} seed={23} maxY={85} opacity={Math.max(0, w.night - 0.2) / 0.8} cls="more" />}
+      {stars && <Stars always={sa} night={timeOfDay ? Math.max(0, w.night - 0.2) / 0.8 : 0} />}
       {timeOfDay && <Orbs hour={h} />}
       {moving && (
         <>
