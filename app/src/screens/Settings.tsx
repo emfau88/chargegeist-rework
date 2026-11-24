@@ -104,7 +104,8 @@ export function Settings({ openPlus }: { openPlus: () => void }) {
           <Row icon="wand" label={t('dev_title')} hint={t('dev_open_hint')} onClick={() => setSheet('dev')} />
         </div>
       )}
-      <p class="muted small center">{t('set_version', { v: '2.0.0' })}</p>
+      {/* the store release is no prototype any more */}
+      <p class="muted small center">{RELEASE ? 'Version 2.0.0' : t('set_version', { v: '2.0.0' })}</p>
 
       <CompanionSheet open={sheet === 'companion'} onClose={close} />
       <ThemeSheet open={sheet === 'theme'} onClose={close} onPlus={openPlus} />
