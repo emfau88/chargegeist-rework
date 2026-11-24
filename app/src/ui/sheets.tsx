@@ -19,7 +19,7 @@ import type { StyleKind } from '../data/types';
 import { fmtDate, nameOf, quoteOf, t } from '../i18n';
 import type { Key } from '../i18n';
 import { playAmbient, sfx, stopAmbient } from '../platform/audio';
-import { PLUS_FOR_SALE } from '../platform/build';
+import { plusForSale } from '../platform/billing';
 import { haptic } from '../platform/device';
 import {
   TAGS,
@@ -212,7 +212,7 @@ export function StyleSheet({ open, onClose, ghostId, onPlus }: { open: boolean; 
   const anyOn = Object.keys(look).length > 0;
   const owned = DROP_STYLES.filter((x) => s.styles[x.id]);
   // one tab per kind that has something to show; the tab picked last stays open
-  const lists = STYLE_KINDS.map((k) => ({ k, list: stylesOf(k).filter((x) => s.styles[x.id] || (x.plus && (PLUS_FOR_SALE || s.plus))) })).filter((e) => e.list.length > 0);
+  const lists = STYLE_KINDS.map((k) => ({ k, list: stylesOf(k).filter((x) => s.styles[x.id] || (x.plus && (plusForSale() || s.plus))) })).filter((e) => e.list.length > 0);
   const cur = lists.find((e) => e.k === kind) ?? lists[0];
   return (
     <Sheet open={open} onClose={onClose} title={t('style_title')} class="style-sheet">
@@ -318,7 +318,7 @@ export function AmbientSheet({ open, onClose, onPlus, preview }: { open: boolean
   return (
     <Sheet open={open} onClose={onClose} title={t('set_ambient')}>
       <div class="pick-list">
-        {AMBIENTS.filter((a) => PLUS_FOR_SALE || s.plus || !a.plus).map((a) => {
+        {AMBIENTS.filter((a) => plusForSale() || s.plus || !a.plus).map((a) => {
           const locked = a.plus && !s.plus;
           return (
             <button
@@ -364,7 +364,7 @@ export function ThemeSheet({ open, onClose, onPlus }: { open: boolean; onClose: 
   return (
     <Sheet open={open} onClose={onClose} title={t('set_theme')}>
       <div class="theme-grid">
-        {THEMES.filter((th) => PLUS_FOR_SALE || s.plus || !th.plus).map((th) => {
+        {THEMES.filter((th) => plusForSale() || s.plus || !th.plus).map((th) => {
           const locked = th.plus && !s.plus;
           return (
             <button
@@ -692,7 +692,7 @@ export function StyleItemSheet({ id, onClose, onWish, onStyle, onPlus }: { id: s
               </Btn>
             </div>
           </>
-        ) : x.plus && !PLUS_FOR_SALE ? null : x.plus ? (
+        ) : x.plus && !plusForSale() ? null : x.plus ? (
           <Btn kind="warm" icon="crown" onClick={() => onPlus?.()}>
             {t('col_style_plus')}
           </Btn>

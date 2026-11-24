@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import { t } from '../i18n';
 import { sfx } from '../platform/audio';
+import { REAL_PURCHASE, buyPlus, plusForSale, plusPrice, syncPlus } from '../platform/billing';
 import { RELEASE } from '../platform/build';
 import { haptic } from '../platform/device';
 import { setPlus, useAppState } from '../state/store';
@@ -19,6 +20,8 @@ export function Plus({ onClose }: { onClose: () => void }) {
   const s = useAppState();
   const [sim, setSim] = useState(false);
   const [cheer, setCheer] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const price = plusPrice() ?? t('plus_price');
   const themes = THEMES.filter((x) => x.plus);
 
   const bought = () => {
@@ -27,6 +30,20 @@ export function Plus({ onClose }: { onClose: () => void }) {
     sfx.unlock();
     haptic.big();
     setCheer((c) => c + 1);
+  };
+  // in the release Google Play takes the payment; the prototype only pretends
+  const buy = async () => {
+    if (!REAL_PURCHASE) return setSim(true);
+    if (busy) return;
+    setBusy(true);
+    const r = await buyPlus();
+    setBusy(false);
+    if (r === 'bought') bought();
+    else if (r !== 'cancelled') toast(t(r === 'pending' ? 'plus_pending' : 'plus_failed'), { icon: 'crown' });
+  };
+  const restore = async () => {
+    const r = await syncPlus();
+    toast(t(r ? 'plus_restored' : r === false ? 'plus_nothing' : 'plus_failed'), { icon: 'restore' });
   };
 
   return (
@@ -69,20 +86,14 @@ export function Plus({ onClose }: { onClose: () => void }) {
           <p class="ok-chip big">
             <Icon name="check" size={18} /> {t('plus_owned')}
           </p>
-        ) : RELEASE ? null : (
+        ) : !plusForSale() ? null : (
           <>
-            <Btn kind="warm" big icon="sparkle" onClick={() => setSim(true)}>
-              {t('plus_buy', { price: t('plus_price') })}
+            <Btn kind="warm" big icon="sparkle" onClick={buy}>
+              {t('plus_buy', { price })}
             </Btn>
             <small class="muted center">{t('plus_once')}</small>
             <div class="plus-links">
-              <button
-                type="button"
-                class="link-btn"
-                onClick={() => {
-                  toast(s.plus ? t('plus_restored') : t('plus_nothing'), { icon: 'restore' });
-                }}
-              >
+              <button type="button" class="link-btn" onClick={restore}>
                 {t('plus_restore')}
               </button>
               <button type="button" class="link-btn" onClick={onClose}>
@@ -99,7 +110,7 @@ export function Plus({ onClose }: { onClose: () => void }) {
           <p class="muted">{t('plus_sim_body')}</p>
           <div class="sim-price">
             <b>{t('plus_title')}</b>
-            <span>{t('plus_price')}</span>
+            <span>{price}</span>
           </div>
           <Btn kind="warm" big onClick={bought}>
             {t('plus_sim_buy')}

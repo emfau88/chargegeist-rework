@@ -369,6 +369,11 @@ export function mutate(fn: (s: State) => void) {
   subs.forEach((f) => f());
 }
 
+/** Draws every screen again: something outside the save has changed (the price the store names for Plus). */
+export function redraw() {
+  subs.forEach((f) => f());
+}
+
 export function useAppState(): State {
   const [, force] = useState(0);
   const drawn = state;

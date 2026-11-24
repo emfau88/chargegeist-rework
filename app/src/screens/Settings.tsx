@@ -1,7 +1,8 @@
 import { useState } from 'preact/hooks';
 import { GHOSTS } from '../data/catalog';
 import { t } from '../i18n';
-import { PLUS_FOR_SALE, RELEASE } from '../platform/build';
+import { plusForSale, plusPrice } from '../platform/billing';
+import { RELEASE } from '../platform/build';
 import { askNotifications, dailyReminderSupported, sessionNoticeSupported } from '../platform/device';
 import { stopAmbient } from '../platform/audio';
 import {
@@ -93,7 +94,7 @@ export function Settings({ openPlus }: { openPlus: () => void }) {
       </div>
 
       <div class="group">
-        {(PLUS_FOR_SALE || s.plus) && <Row icon="crown" label={t('set_plus')} value={s.plus ? '✓' : t('plus_price')} onClick={openPlus} />}
+        {(plusForSale() || s.plus) && <Row icon="crown" label={t('set_plus')} value={s.plus ? '✓' : (plusPrice() ?? t('plus_price'))} onClick={openPlus} />}
         <Row icon="info" label={t('set_odds')} onClick={() => setSheet('odds')} />
         <Row icon="shield" label={t('set_privacy')} onClick={() => setSheet('privacy')} />
         <Row icon="trash" label={t('set_reset')} onClick={() => setSheet('reset')} />

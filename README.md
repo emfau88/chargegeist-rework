@@ -79,7 +79,7 @@ Gradle braucht Java 21 (zum Beispiel das von Android Studio: `JAVA_HOME` auf des
 **Was die Release-Fassung anders macht** (`npm run android` baut mit `--mode android`, siehe `app/.env.android` und `src/platform/build.ts`):
 
 - Kein Entwicklermenü, kein Debug-Zugang (`window.__cg`), kein simulierter Kauf.
-- Plus wird weder angeboten noch gezeigt, bis es als Kaufartikel in Google Play existiert und der Kauf über Play Billing läuft (`PLUS_FOR_SALE`).
+- Plus ist der Einmalkauf `plus` in Google Play und läuft über Play Billing (`src/platform/billing.ts`, `android/…/BillingPlugin.java`). Die App bietet Plus nur an, wenn der Store einen Preis nennt: ohne Konto, ohne Store oder bei einem Build, den Google Play nicht kennt, taucht Plus nirgends auf. Ein Kauf wird beim Start und bei jeder Rückkehr in die App wiederhergestellt.
 
 **Was nur die Android-App kann** (`src/platform/device.ts`, `NATIVE`):
 

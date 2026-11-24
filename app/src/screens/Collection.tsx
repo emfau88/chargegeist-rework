@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'preact';
 import { useState } from 'preact/hooks';
-import { PLUS_FOR_SALE } from '../platform/build';
+import { plusForSale } from '../platform/billing';
 import { COMPANIONS, COMPANION_UNLOCK_HOURS, COSTUME_GHOSTS, DROP_STYLES, GHOSTS, RARITY_COLOR, STYLE_KINDS, WISH_COST, ghost, style, stylesOf, unlockOrder } from '../data/catalog';
 import type { Key } from '../i18n';
 import { nameOf, t } from '../i18n';
@@ -224,7 +224,7 @@ export function Collection({ openPlus }: { openPlus: () => void }) {
           </button>
 
           {STYLE_KINDS.map((k) => {
-            const list = stylesOf(k).filter((x) => PLUS_FOR_SALE || s.plus || !x.plus);
+            const list = stylesOf(k).filter((x) => plusForSale() || s.plus || !x.plus);
             if (!list.length) return null;
             const own = list.filter((x) => canUseStyle(s, x.id)).length;
             return (

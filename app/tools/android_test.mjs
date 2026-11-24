@@ -342,12 +342,16 @@ const TESTS = {
     await page.locator('.tab').nth(3).click();
     await until(() => has(page, '.page.settings'));
     check('no developer menu in the settings', (await page.locator('.group.dev').count()) === 0);
-    check('nothing offers Plus', (await page.locator('.plus-pill, .plus-teaser').count()) === 0 && !(await page.locator('.page.settings').innerText()).includes('Plus'));
+    // Plus is for sale only where Google Play names a price: not on a phone without an account, not for a build the store does not know
+    const offer = await page.evaluate(() => window.Capacitor.Plugins.Billing.product({ id: 'plus' }).then((r) => r.price ?? null, (e) => `no answer (${e.code ?? e.message})`));
+    const offered = (await page.locator('.page.settings').innerText()).includes('Plus');
+    check('Plus is offered exactly when the store names a price', offered === (typeof offer === 'string' && !offer.startsWith('no answer')), `store: ${offer}`);
     snap('settings');
     back();
     await until(() => has(page, '.page.home'), 5000);
     back();
-    check('back on the first tab leaves to the home screen', await until(() => !inFront(), 5000));
+    const left = await until(() => !inFront(), 5000);
+    check('back on the first tab leaves to the home screen', left, left ? '' : await page.evaluate(() => `still on ${document.querySelector('.page')?.className}, sheets ${document.querySelectorAll('.sheet-root').length}, tab ${[...document.querySelectorAll('.tab')].findIndex((x) => x.classList.contains('on'))}`).catch((e) => e.message));
     launch();
     const p = await attach();
     check('the app comes back where it was', await until(() => has(p, '.page.home'), 15000));

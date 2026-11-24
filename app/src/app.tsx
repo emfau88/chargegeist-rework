@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { ghost } from './data/catalog';
 import { lang, t } from './i18n';
 import { sceneLit } from './fx/ground';
 import { setFx } from './platform/audio';
 import { setEagerActs } from './rig/acts';
-import { PLUS_FOR_SALE } from './platform/build';
+import { plusForSale } from './platform/billing';
 import { haptic, onBack } from './platform/device';
 import { Collection } from './screens/Collection';
 import { Break, Complete } from './screens/Complete';
@@ -49,7 +49,7 @@ export function App() {
 
   const th = theme(s.plus || !theme(s.settings.theme).plus ? s.settings.theme : 'night');
   // where Plus is not for sale, nothing leads to its page
-  const openPlus = () => (PLUS_FOR_SALE || s.plus) && setPlusOpen(true);
+  const openPlus = () => (plusForSale() || s.plus) && setPlusOpen(true);
   const openDrop = (id: string) => setOv({ k: 'drop', id });
 
   let key: string;
@@ -94,21 +94,21 @@ export function App() {
 
   // The back gesture of Android: it closes what lies on top, then leads to the first tab. From there, and
   // while a session runs or the first screen shows, the app steps back to the home screen (see onBack).
-  useEffect(
-    () =>
-      onBack(() => {
-        if (document.querySelector('.sheet-root:not(.leaving)')) {
-          window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-          return true;
-        }
-        if (plusOpen) return setPlusOpen(false), true;
-        if (s.active) return false;
-        if (ov) return setOv(null), true;
-        if (s.onboarded && tab !== 'focus') return setTab('focus'), true;
-        return false;
-      }),
-    [plusOpen, !!s.active, ov, tab, s.onboarded],
-  );
+  // The listener is set once and asks for the state of this moment: set anew with every change, it reached
+  // Android a moment late, and a second quick back still met the old one, which did nothing.
+  const onBackNow = useRef<() => boolean>(() => false);
+  onBackNow.current = () => {
+    if (document.querySelector('.sheet-root:not(.leaving)')) {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      return true;
+    }
+    if (plusOpen) return setPlusOpen(false), true;
+    if (s.active) return false;
+    if (ov) return setOv(null), true;
+    if (s.onboarded && tab !== 'focus') return setTab('focus'), true;
+    return false;
+  };
+  useEffect(() => onBack(() => onBackNow.current()), []);
 
   const mood: SkyMood = s.active ? 'focus' : ov?.k === 'complete' ? 'done' : s.pending.length && s.onboarded ? 'drop' : 'idle';
   const unseen = [...Object.values(s.ghosts), ...Object.values(s.styles)].filter((r) => !r.seen).length;

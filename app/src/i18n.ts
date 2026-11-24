@@ -223,6 +223,8 @@ const en = {
   plus_sim_buy: 'Simulate purchase',
   plus_restored: 'Plus restored',
   plus_nothing: 'No purchase found',
+  plus_pending: 'Your payment is still open. Plus arrives as soon as it has gone through.',
+  plus_failed: 'That did not work just now. Please try again later.',
   plus_locked: 'Plus',
 
   // settings
@@ -636,6 +638,8 @@ const de: Record<Key, string> = {
   plus_sim_buy: 'Kauf simulieren',
   plus_restored: 'Plus wiederhergestellt',
   plus_nothing: 'Kein Kauf gefunden',
+  plus_pending: 'Deine Zahlung ist noch offen. Plus kommt, sobald sie durch ist.',
+  plus_failed: 'Das hat gerade nicht geklappt. Versuch es später noch einmal.',
   plus_locked: 'Plus',
 
   set_title: 'Einstellungen',
