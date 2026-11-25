@@ -9,9 +9,9 @@
  */
 import { App as NativeApp } from '@capacitor/app';
 import { registerPlugin } from '@capacitor/core';
-import { widgetData } from '../logic/widget';
+import { widgetData, widgetHintDue } from '../logic/widget';
 import { renderPortrait } from '../rig/rig';
-import { getState, onChange, startSession } from '../state/store';
+import { getState, onChange, setWidgetPlaced, startSession, widgetOffered } from '../state/store';
 import type { State } from '../state/store';
 import { NATIVE, haptic } from './device';
 
@@ -41,6 +41,31 @@ async function takeStart() {
     /* the tap opened the app, nothing more */
   }
 }
+
+/**
+ * Asks Android for its dialog that puts the widget on the home screen. false: it cannot ask here, only
+ * the way by hand is left (and on some phones the dialog never comes, so that way is always shown too).
+ */
+export async function addWidget(): Promise<boolean> {
+  try {
+    return (await bridge.pin()).asked;
+  } catch {
+    return false;
+  }
+}
+
+/** Whether a widget lies on the home screen: asked when the app starts and whenever it comes back. */
+async function checkPlaced() {
+  try {
+    setWidgetPlaced((await bridge.placed()).placed);
+  } catch {
+    /* the last answer stays */
+  }
+}
+
+/** Home offers the widget at this app open; decided once at the start, before Home is drawn. */
+let hint = false;
+export const widgetHintOpen = () => hint;
 
 /** Side of the portrait in pixels: sharp on a 2×2 widget and far below what a widget may carry. */
 const PORTRAIT_PX = 256;
@@ -102,6 +127,8 @@ function changed() {
   try {
     const k = sessionOf(getState());
     const urgent = k !== sessionKey;
+    // after a session Home is busy enough: the offer waits for another open
+    if (urgent && k) hint = false;
     sessionKey = k;
     later(urgent ? 0 : WAIT_MS);
   } catch {
@@ -113,6 +140,8 @@ export function initWidget() {
   if (!NATIVE) return;
   try {
     sessionKey = sessionOf(getState());
+    hint = widgetHintDue(getState());
+    if (hint) widgetOffered();
     onChange(changed);
     // In the background the page may be put to sleep before a timer fires: what is due goes now.
     document.addEventListener('visibilitychange', () => {
@@ -121,9 +150,14 @@ export function initWidget() {
       void send();
     });
     later(FIRST_MS);
-    // a tap on the start button opens the app: from scratch, or brings it back from the background
+    // a tap on the start button opens the app: from scratch, or brings it back from the background.
+    // Coming back also follows the dialog that adds the widget, or a widget added by hand.
     void takeStart();
-    void NativeApp.addListener('resume', () => void takeStart());
+    void checkPlaced();
+    void NativeApp.addListener('resume', () => {
+      void takeStart();
+      void checkPlaced();
+    });
   } catch {
     /* no widget then, the app as always */
   }

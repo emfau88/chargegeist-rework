@@ -123,6 +123,12 @@ export interface State {
   /** The ghost has thanked you for Plus (once, also for a purchase made before he could). */
   plusThanked: boolean;
   /**
+   * The widget on the home screen (the Android app). placed: one lies there, as Android said when the
+   * app last came to the front. offered: on how many app opens Home offered it; answered: a button of
+   * that offer was tapped, then it never comes again (logic/widget.ts, widgetHintDue).
+   */
+  widget: { placed: boolean; offered: number; answered: boolean };
+  /**
    * For testing. skyHour: a fixed hour for the sky, to preview the time of day. acts: he does one of
    * his little acts every few seconds. tools: a button on the focus screen ends the session at once.
    */
@@ -178,13 +184,21 @@ export function defaultState(): State {
     plus: false,
     plusOfferSeen: false,
     plusThanked: false,
+    widget: { placed: false, offered: 0, answered: false },
     dev: { speed: false, dayOffset: 0, skyHour: null, acts: false, tools: false },
   };
 }
 
 function fill(s: State): State {
   const d = defaultState();
-  return { ...d, ...s, settings: { ...d.settings, ...s.settings }, dev: { ...d.dev, ...s.dev }, sparks: { ...d.sparks, ...s.sparks } };
+  return {
+    ...d,
+    ...s,
+    settings: { ...d.settings, ...s.settings },
+    dev: { ...d.dev, ...s.dev },
+    sparks: { ...d.sparks, ...s.sparks },
+    widget: { ...d.widget, ...s.widget },
+  };
 }
 
 /**
@@ -908,6 +922,20 @@ export function setPlus(v: boolean) {
 export function thankedForPlus() {
   mutate((s) => {
     s.plusThanked = true;
+  });
+}
+/** Whether a widget lies on the home screen; saved only when that changed. */
+export function setWidgetPlaced(v: boolean) {
+  if (state.widget.placed === v) return;
+  mutate((s) => {
+    s.widget.placed = v;
+  });
+}
+/** Home offers the widget at this app open; answered: a button of the offer was tapped. */
+export function widgetOffered(answered = false) {
+  mutate((s) => {
+    if (answered) s.widget.answered = true;
+    else s.widget.offered += 1;
   });
 }
 

@@ -109,6 +109,14 @@ const P: Record<string, JSX.Element> = {
       <path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" />
     </>
   ),
+  widget: (
+    <>
+      <rect x="4" y="4" width="7" height="7" rx="2" />
+      <rect x="13" y="4" width="7" height="7" rx="2" />
+      <rect x="4" y="13" width="7" height="7" rx="2" />
+      <path d="M16.5 13.5v6M13.5 16.5h6" />
+    </>
+  ),
   hanger: <path d="M12 8.2V7a2.3 2.3 0 1 0-2.3-2.3M12 8.2 3.6 14.6a1.4 1.4 0 0 0 .9 2.5h15a1.4 1.4 0 0 0 .9-2.5z" />,
   trophy: (
     <>

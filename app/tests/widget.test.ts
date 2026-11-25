@@ -1,6 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { widgetData } from '../src/logic/widget';
-import { defaultState, dev, finishSession, getState, pauseSession, resumeSession, startSession } from '../src/state/store';
+import { widgetData, widgetHintDue } from '../src/logic/widget';
+import {
+  defaultState,
+  dev,
+  finishSession,
+  getState,
+  pauseSession,
+  resumeSession,
+  setWidgetPlaced,
+  startSession,
+  thankedForPlus,
+  widgetOffered,
+} from '../src/state/store';
 import type { State } from '../src/state/store';
 
 const at = (d: number, h: number, m: number, s = 0) => new Date(2026, 10, d, h, m, s).getTime();
@@ -90,5 +101,55 @@ describe('what the widget shows', () => {
   it('before the first ride through the app it may not start a session', () => {
     fresh({ onboarded: false });
     expect(data().ready).toBe(false);
+  });
+});
+
+describe('when Home offers the widget', () => {
+  const due = () => widgetHintDue(getState());
+  const finished = () => {
+    startSession(5, 'study');
+    vi.setSystemTime(Date.now() + 5 * 60_000);
+    finishSession();
+  };
+
+  it('from the app open after the first finished session on, twice at most', () => {
+    expect(due()).toBe(false);
+    finished();
+    expect(due()).toBe(true);
+    widgetOffered();
+    expect(due()).toBe(true);
+    widgetOffered();
+    expect(due()).toBe(false);
+  });
+
+  it('a session ended early does not count, a finished one does', () => {
+    startSession(25, 'study');
+    vi.setSystemTime(at(16, 12, 10));
+    finishSession();
+    expect(getState().sessions[0].done).toBe(false);
+    expect(due()).toBe(false);
+  });
+
+  it('never again after a button, and not while a widget lies on the home screen', () => {
+    finished();
+    widgetOffered(true);
+    expect(due()).toBe(false);
+    fresh();
+    finished();
+    setWidgetPlaced(true);
+    expect(due()).toBe(false);
+    setWidgetPlaced(false);
+    expect(due()).toBe(true);
+  });
+
+  it('waits on an open that goes into a session or belongs to the thank-you for Plus', () => {
+    finished();
+    startSession(25, 'study');
+    expect(due()).toBe(false);
+    fresh({ plus: true, plusThanked: false });
+    finished();
+    expect(due()).toBe(false);
+    thankedForPlus();
+    expect(due()).toBe(true);
   });
 });

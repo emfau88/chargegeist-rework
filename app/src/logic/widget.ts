@@ -36,6 +36,27 @@ export interface WidgetData {
   };
 }
 
+/** Home offers the widget on this many app opens at most. */
+export const WIDGET_HINT_OPENS = 2;
+
+/**
+ * Whether Home offers the widget at this app open: from the open after the first finished session on,
+ * while none lies on the home screen and no button of an earlier offer was tapped. Not on an open that
+ * goes straight into a session, and not on one that belongs to the thank-you for Plus: then it waits.
+ */
+export function widgetHintDue(s: State): boolean {
+  const w = s.widget;
+  return (
+    s.onboarded &&
+    !s.active &&
+    !w.placed &&
+    !w.answered &&
+    w.offered < WIDGET_HINT_OPENS &&
+    !(s.plus && !s.plusThanked) &&
+    s.sessions.some((x) => x.done)
+  );
+}
+
 /** real: the clock of the phone. The tool that skips days only moves the app's clock, not the widget's. */
 export function widgetData(s: State, real: number): WidgetData {
   const off = s.dev.dayOffset * DAY;

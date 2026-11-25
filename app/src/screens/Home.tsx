@@ -8,6 +8,7 @@ import { fmtMinutes } from '../logic/time';
 import { sfx } from '../platform/audio';
 import { plusForSale } from '../platform/billing';
 import { haptic } from '../platform/device';
+import { addWidget, widgetHintOpen } from '../platform/widget';
 import type { RigApi } from '../rig/rig';
 import {
   bondOf,
@@ -20,9 +21,10 @@ import {
   thankedForPlus,
   todayMinutes,
   useAppState,
+  widgetOffered,
 } from '../state/store';
 import type { TagId } from '../state/store';
-import { Bar, Btn, Icon } from '../ui/kit';
+import { Bar, Btn, Icon, toast } from '../ui/kit';
 import { CompanionSheet, DurationSheet, GhostSheet, SparkMeter, StyleSheet, TagSheet, WishSheet } from '../ui/sheets';
 import { CompanionStage, Portrait } from '../ui/stage';
 import { StyleBadge } from '../ui/style';
@@ -122,6 +124,13 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
     sfx.start();
     haptic.success();
     startSession(dur, tag);
+  };
+
+  // the offer of the widget, on an app open after the first finished session (platform/widget.ts)
+  const widgetHint = widgetHintOpen() && !s.widget.placed && !s.widget.answered;
+  const answerWidget = async (add: boolean) => {
+    widgetOffered(true);
+    if (add && !(await addWidget())) toast(t('widget_how'), { icon: 'widget' });
   };
 
   return (
@@ -248,6 +257,24 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
           </Btn>
         </div>
       </section>
+
+      {widgetHint && (
+        <div class="card drop-card widget-hint">
+          <Portrait id={s.companion} size={50} />
+          <span class="card-text">
+            <b>{t('widget_hint_title', { name })}</b>
+            <small>{t('widget_hint_body')}</small>
+            <span class="widget-hint-btns">
+              <Btn kind="ghost" class="btn-small" onClick={() => void answerWidget(false)}>
+                {t('widget_hint_no')}
+              </Btn>
+              <Btn kind="primary" icon="widget" class="btn-small" onClick={() => void answerWidget(true)}>
+                {t('widget_hint_add')}
+              </Btn>
+            </span>
+          </span>
+        </div>
+      )}
 
       {pending ? (
         <button type="button" class="card drop-card ready" onClick={() => openDrop(pending.id)}>

@@ -109,6 +109,13 @@ const en = {
   // the widget on the home screen of the phone
   widget_ends: 'Ends {time}',
   widget_done: 'Done – tap to see',
+  widget_hint_title: 'Take {name} to your home screen',
+  widget_hint_body: 'A widget with today’s minutes and a start button.',
+  widget_hint_add: 'Add',
+  widget_hint_no: 'No thanks',
+  widget_how: 'Touch and hold your home screen → Widgets → ChargeGeist',
+  set_widget: 'Add widget to home screen',
+  set_widget_how: 'Or by hand: touch and hold your home screen → Widgets → ChargeGeist',
 
   // complete
   done_title: 'Charged!',
@@ -536,6 +543,13 @@ const de: Record<Key, string> = {
   focus_demo: 'Demo-Tempo: 1 s = 1 Min.',
   widget_ends: 'Ende {time}',
   widget_done: 'Fertig – tippen',
+  widget_hint_title: 'Hol dir {name} auf den Startbildschirm',
+  widget_hint_body: 'Ein Widget mit deinen Minuten von heute und einem Start-Knopf.',
+  widget_hint_add: 'Hinzufügen',
+  widget_hint_no: 'Nein danke',
+  widget_how: 'Lange auf den Startbildschirm drücken → Widgets → ChargeGeist',
+  set_widget: 'Widget zum Startbildschirm hinzufügen',
+  set_widget_how: 'Oder von Hand: lange auf den Startbildschirm drücken → Widgets → ChargeGeist',
 
   done_title: 'Aufgeladen!',
   done_title_early: 'Gut gemacht',

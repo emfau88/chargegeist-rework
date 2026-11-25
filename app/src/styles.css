@@ -1122,6 +1122,19 @@ button.row:active {
 .drop-card.ready .card-text {
   min-width: 0;
 }
+/* the offer of the widget on Home, on one or two app opens below the start button */
+.widget-hint {
+  align-items: flex-start;
+}
+.widget-hint > :first-child {
+  flex: none;
+}
+.widget-hint-btns {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
 /* the bond with the companion, in words: the stage and the way to the next one */
 .bond-line {
   display: inline-flex;

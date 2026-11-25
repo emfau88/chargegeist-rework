@@ -3,8 +3,9 @@ import { GHOSTS } from '../data/catalog';
 import { t } from '../i18n';
 import { plusForSale, plusPrice } from '../platform/billing';
 import { RELEASE } from '../platform/build';
-import { askNotifications, dailyReminderSupported, sessionNoticeSupported } from '../platform/device';
+import { NATIVE, askNotifications, dailyReminderSupported, sessionNoticeSupported } from '../platform/device';
 import { stopAmbient } from '../platform/audio';
+import { addWidget } from '../platform/widget';
 import {
   TAGS,
   companionName,
@@ -51,6 +52,18 @@ export function Settings({ openPlus }: { openPlus: () => void }) {
         <Row icon="tag" label={t('set_tags')} value={s.tags.map((x) => t(`tag_${x}`)).join(', ')} onClick={() => setSheet('tags')} />
         {/* only where a reminder can really be delivered (see dailyReminderSupported) */}
         {dailyReminderSupported() && <Row icon="bell" label={t('set_reminder')} hint={s.settings.reminder ? s.settings.reminderTime : t('set_reminder_hint')} onClick={() => setSheet('reminder')} />}
+        {/* the Android app only; the way by hand always stands below, as some phones never show the dialog */}
+        {NATIVE && (
+          <Row
+            icon="widget"
+            label={t('set_widget')}
+            hint={t('set_widget_how')}
+            value={s.widget.placed ? '✓' : undefined}
+            onClick={async () => {
+              if (!(await addWidget())) toast(t('widget_how'), { icon: 'widget' });
+            }}
+          />
+        )}
       </div>
 
       <div class="group">
