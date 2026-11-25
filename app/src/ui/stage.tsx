@@ -39,6 +39,8 @@ interface StageProps {
   apiRef?: { current: RigApi | null };
   /** He floats in front of the open sky: the painted scene puts its clearing under his shadow. */
   ground?: boolean;
+  /** false: no shadow under him. */
+  shadow?: boolean;
 }
 
 const styleKey = (o: RigStyle) => `${o.aura ?? ''},${o.shimmer ?? ''},${o.charm ?? ''}`;
@@ -68,6 +70,7 @@ export function CompanionStage(p: StageProps) {
       zoom: p.zoom,
       overscan: p.overscan,
       shiftY: p.shiftY,
+      showShadow: p.shadow,
       onPoke: () => poke.current?.(),
       onWake: () => wake.current?.(),
       onGesture: p.interactive

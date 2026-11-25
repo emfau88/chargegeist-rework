@@ -126,6 +126,8 @@ function Title({ onGo }: { onGo: (id: string) => void }) {
         attend={['.title-foot .btn', '.pick-chip.on']}
         label={nameOf(g)}
         ground
+        // on phones his shadow flickered while he jumped for joy at being picked
+        shadow={false}
       />
       <div class="pick-row" role="radiogroup" aria-label={t('ob_pick_title')}>
         {STARTERS.map((id) => {
