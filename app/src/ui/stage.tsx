@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { ghost } from '../data/catalog';
 import { nameOf } from '../i18n';
 import { createRig, renderPortrait } from '../rig/rig';
@@ -60,7 +60,9 @@ export function CompanionStage(p: StageProps) {
   const key = `${p.ghostId}|${styleKey(look)}`;
   const shown = useRef(key);
 
-  useEffect(() => {
+  // The canvas is there before the first frame. Added a frame later, it made the phone split what it had drawn
+  // into new layers, and an Android WebView showed one frame with holes in it: the style sheet flickered.
+  useLayoutEffect(() => {
     const r = createRig(host.current!, { ghost: p.ghostId, style: look }, {
       interactive: p.interactive,
       zoom: p.zoom,

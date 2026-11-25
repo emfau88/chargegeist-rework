@@ -3241,11 +3241,14 @@ input[type='range'] {
 /* Each part of this screen is a picture of its own on the graphics chip, for good. A part that fades is one
    anyway while it fades, and when a fade starts or ends, its neighbours are sorted into other pictures. An
    Android WebView shows one frame without them: the button was gone for a frame when the entrance ended, the
-   row of ghosts when one was picked. With a picture each, nothing is sorted anew. */
+   row of ghosts when one was picked. With a picture each, nothing is sorted anew. Each of the three to choose
+   from too, as its fade drew the name under it into a picture of its own and out again. Not their faces: a
+   picture of its own for good is not drawn anew when the face grows, and the picked face looked soft. */
 .title .title-head,
 .title .pick-row,
 .title .pick-quote,
-.title .title-foot {
+.title .title-foot,
+.title .pick-chip {
   will-change: opacity;
 }
 .app:has(.title.wait) .bg::after,

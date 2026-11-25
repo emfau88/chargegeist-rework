@@ -227,7 +227,8 @@ export function StyleSheet({ open, onClose, ghostId, onPlus }: { open: boolean; 
       )}
       <div class="style-top">
         <div class="style-stage" style={{ '--cg': ghost(who).glow } as CSSProperties}>
-          {open && <CompanionStage key={who} ghostId={who} level={0.35} interactive zoom={1.15} overscan={{ top: 0.18, side: 0.1, bottom: 0.02 }} cheer={cheer} cheerBig={false} onPoke={() => sfx.poke()} />}
+          {/* the ghost stays while the sheet slides away; a closed sheet is gone with all in it */}
+          <CompanionStage key={who} ghostId={who} level={0.35} interactive zoom={1.15} overscan={{ top: 0.18, side: 0.1, bottom: 0.02 }} cheer={cheer} cheerBig={false} onPoke={() => sfx.poke()} />
         </div>
         {lists.length > 1 && (
           <div class="segments style-tabs" role="tablist" style={{ gridTemplateColumns: `repeat(${lists.length}, 1fr)` }}>
