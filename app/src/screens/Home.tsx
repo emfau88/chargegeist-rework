@@ -338,7 +338,8 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
           <span class="mini-head">
             <Icon name="flame" size={15} /> {t('home_boss')}
           </span>
-          <Portrait id={bossG.id} size={62} class="mini-ghost" />
+          {/* 64 as .mini-ghost.portrait draws it: asked for at 62, the empty place was 2 px lower than the picture, and the tiles below jumped when it came */}
+          <Portrait id={bossG.id} size={64} class="mini-ghost" />
           <b class="mini-title">{nameOf(bossG)}</b>
           <Bar value={wk.minutes / boss.goal} thin color="var(--season)" />
           <small>{boss.done ? (s.ghosts[boss.ghost]?.via === 'boss' ? t('home_boss_calmed') : t('home_boss_calmed_dupe')) : `${fmtMinutes(wk.minutes, true)} / ${fmtMinutes(boss.goal, true)}`}</small>

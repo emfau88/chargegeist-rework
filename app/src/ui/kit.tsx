@@ -1,6 +1,7 @@
 import type { ComponentChildren, CSSProperties, JSX } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { RARITY_COLOR } from '../data/catalog';
+import { cover } from '../fx/cover';
 import type { Rarity } from '../data/types';
 import { t } from '../i18n';
 import { sfx } from '../platform/audio';
@@ -273,6 +274,11 @@ export function Sheet({ open, onClose, title, children, class: cls }: { open: bo
   const [shown, setShown] = useState(open);
   const [leaving, setLeaving] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
+  const root = useRef<HTMLDivElement>(null);
+  // a ghost under the sheet keeps still while it lies there (fx/cover.ts), and moves again as soon as the sheet starts to leave
+  useEffect(() => {
+    if (shown && !leaving && root.current) return cover(root.current);
+  }, [shown, leaving]);
   useEffect(() => {
     if (open) {
       setShown(true);
@@ -295,7 +301,7 @@ export function Sheet({ open, onClose, title, children, class: cls }: { open: bo
   }, [open]);
   if (!shown) return null;
   return (
-    <div class={`sheet-root ${leaving ? 'leaving' : ''}`}>
+    <div class={`sheet-root ${leaving ? 'leaving' : ''}`} ref={root}>
       <div class="sheet-backdrop" onClick={onClose} />
       <div class={`sheet ${cls ?? ''}`} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} ref={panel}>
         <div class="sheet-grab" />

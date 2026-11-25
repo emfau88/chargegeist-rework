@@ -20,6 +20,7 @@ import type { Gesture } from './gestures';
 import { RIGS } from '../data/rigs.gen';
 import type { ArmRig, Limb, RigConfig, Vec } from '../data/rigTypes';
 import { AuraSim, SvgAura } from '../fx/aura';
+import { covered, onCover } from '../fx/cover';
 import type { AuraBox } from '../fx/aura';
 import { NEUTRAL_LIGHT, lightOn, sceneLight } from '../fx/light';
 import type { SceneLight } from '../logic/sky';
@@ -1525,12 +1526,46 @@ export function createRig(host: HTMLElement, look: Look, opts: RigOptions = {}):
   ro.observe(host);
   let last = performance.now();
   let raf = 0;
+  let started = false;
+  // Out of sight he is not drawn: scrolled off the screen, or under a sheet (fx/cover.ts). He stands still there
+  // and goes on where he stopped. The margin keeps him moving while his hat still reaches into the screen.
+  let inView = true;
+  let under = covered(host);
+  const unseen = () => !inView || under;
+  const io =
+    typeof IntersectionObserver === 'function'
+      ? new IntersectionObserver(
+          (es) => {
+            inView = es[es.length - 1].isIntersecting;
+            wake();
+          },
+          { rootMargin: '300px 0px' },
+        )
+      : null;
+  io?.observe(host);
+  const offCover = onCover(() => {
+    under = covered(host);
+    wake();
+  });
+  /** Asleep or charging he moves slowly, and half the pictures show it just as well. A touch or a reaction brings all of them back. */
+  const calm = () => mode !== 'idle' && !act && !holding && !stroking && hopY === 0 && jumpAt < 0 && T >= happyUntil && T - hugAt >= HUG_S && T - pointer.last > 3;
   function frame(now: number) {
-    if (!alive) return;
-    const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
+    raf = 0;
+    if (!alive || unseen()) return;
+    raf = requestAnimationFrame(frame);
+    // At most 60 pictures a second, 30 while he is calm. Without a limit he was drawn as often as the display
+    // asked, 120 times on many phones, for a motion that looks the same at 60: twice the work and the battery.
+    // The 3 ms let a display through that is a little early with its own 60 or 30.
+    const gap = now - last;
+    if (gap < 1000 / (calm() ? 30 : 60) - 3) return;
     last = now;
-    tick(dt);
+    tick(Math.min(0.05, Math.max(0, gap / 1000)));
     render();
+  }
+  /** Starts the loop, or starts it again after he was out of sight. */
+  function wake() {
+    if (!alive || !started || raf || unseen()) return;
+    last = performance.now();
     raf = requestAnimationFrame(frame);
   }
 
@@ -1569,8 +1604,8 @@ export function createRig(host: HTMLElement, look: Look, opts: RigOptions = {}):
     render();
   }
   const ready = apply(look).then(() => {
-    last = performance.now();
-    raf = requestAnimationFrame(frame);
+    started = true;
+    wake();
   });
 
   return {
@@ -1654,6 +1689,8 @@ export function createRig(host: HTMLElement, look: Look, opts: RigOptions = {}):
       offPlay();
       cancelAnimationFrame(raf);
       ro.disconnect();
+      io?.disconnect();
+      offCover();
       window.removeEventListener('pointerdown', onSee);
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
