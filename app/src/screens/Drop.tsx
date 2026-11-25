@@ -77,7 +77,8 @@ function SparkGain({ kept }: { kept: KeepResult }) {
   if (sp.joined) {
     return (
       <div class="unlock-card joined" style={{ '--rc': g.glow } as CSSProperties}>
-        <CompanionStage ghostId={g.id} level={0.6} zoom={1.3} class="joined-stage" cheer={1} ground />
+        {/* no ground: the land lies under the companion above; two ghosts placing it made it swing between them */}
+        <CompanionStage ghostId={g.id} level={0.6} zoom={1.3} class="joined-stage" cheer={1} />
         <span>
           <b>{t('drop_ghost_joined', { name: nameOf(g) })}</b>
           <small>“{quoteOf(g)}”</small>

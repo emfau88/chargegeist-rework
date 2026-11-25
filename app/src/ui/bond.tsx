@@ -89,7 +89,8 @@ export function BondUpHost({ active }: { active: boolean }) {
   return (
     <Sheet open={open} onClose={close} class="bond-up-sheet">
       <div class="bond-up" style={{ '--cg': ghost(up.id).glow } as CSSProperties}>
-        <CompanionStage ghostId={up.id} level={0.8} zoom={1.1} overscan={{ top: 0.3, side: 0.12, bottom: 0.04 }} class="bond-up-stage" cheer={cheer} interactive />
+        {/* the drawing stays inside the sheet, which cuts off the rest anyway: wider, it could push the sheet sideways */}
+        <CompanionStage ghostId={up.id} level={0.8} zoom={1.1} overscan={{ top: 0.09, side: 0.07, bottom: 0.04 }} class="bond-up-stage" cheer={cheer} interactive />
         <span class={`bond-chip big ${up.to >= BOND_MAX ? 'gold' : ''}`}>
           <Icon name="heart" size={16} /> {stage(up.to)}
         </span>
