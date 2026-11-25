@@ -106,6 +106,9 @@ const en = {
   focus_notif_title: '{name} is fully charged!',
   focus_notif_body: '{n} minutes of focus. Come see what you earned.',
   focus_demo: 'Demo speed: 1 s = 1 min',
+  // the widget on the home screen of the phone
+  widget_ends: 'Ends {time}',
+  widget_done: 'Done – tap to see',
 
   // complete
   done_title: 'Charged!',
@@ -531,6 +534,8 @@ const de: Record<Key, string> = {
   focus_notif_title: '{name} ist voll geladen!',
   focus_notif_body: '{n} Minuten Fokus. Schau dir an, was du verdient hast.',
   focus_demo: 'Demo-Tempo: 1 s = 1 Min.',
+  widget_ends: 'Ende {time}',
+  widget_done: 'Fertig – tippen',
 
   done_title: 'Aufgeladen!',
   done_title_early: 'Gut gemacht',

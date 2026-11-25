@@ -377,6 +377,12 @@ export function redraw() {
   subs.forEach((f) => f());
 }
 
+/** Calls fn after every change of the save, also one another instance wrote. Returns how to stop that. */
+export function onChange(fn: () => void): () => void {
+  subs.add(fn);
+  return () => subs.delete(fn);
+}
+
 export function useAppState(): State {
   const [, force] = useState(0);
   const drawn = state;

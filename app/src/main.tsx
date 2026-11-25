@@ -10,6 +10,7 @@ import { App } from './app';
 import { setLightOn } from './fx/light';
 import { initBilling } from './platform/billing';
 import { RELEASE } from './platform/build';
+import { initWidget } from './platform/widget';
 import { playAct } from './rig/acts';
 import { setEyePose } from './rig/gaze';
 import { dev, getState, mutate } from './state/store';
@@ -19,4 +20,5 @@ if (!RELEASE && (import.meta.env.DEV || location.search.includes('debug'))) {
 }
 
 initBilling();
+initWidget();
 render(<App />, document.getElementById('app')!);
