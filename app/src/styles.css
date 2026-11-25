@@ -3410,14 +3410,14 @@ input[type='range'] {
 .hero-dress:active {
   transform: scale(0.92);
 }
-/* While he thanks you for Plus, the button to the gift glows. Only its border and shadow change: a moving
-   button would get a layer of its own for those seconds, and layers that come and go flicker on Android. */
+/* While he thanks you for Plus, the button to the gift glows. Only its shadow changes: a moving button would
+   get a layer of its own for those seconds, and layers that come and go flicker on Android. Its border stays:
+   from its mixed colour to gold, an older Android WebView drew it red. */
 .hero-dress.gift {
   animation: dress-gift 1.6s ease-in-out 3;
 }
 @keyframes dress-gift {
   50% {
-    border-color: var(--warm);
     box-shadow:
       0 6px 18px rgba(0, 0, 0, 0.3),
       0 0 0 4px rgba(255, 199, 107, 0.35),
