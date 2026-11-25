@@ -368,7 +368,6 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
       <StyleSheet
         open={!!styleFor}
         ghostId={styleFor}
-        onPlus={openPlus}
         onClose={() => {
           setStyleFor(null);
           setCheer((c) => c + 1);

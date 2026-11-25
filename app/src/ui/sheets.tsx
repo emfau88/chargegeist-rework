@@ -201,7 +201,7 @@ export function CompanionSheet({ open, onClose }: { open: boolean; onClose: () =
 
 /* ---------------- style ---------------- */
 /** Pick a ghost, see it live, and choose its aura, shimmer and charm. */
-export function StyleSheet({ open, onClose, ghostId, onPlus }: { open: boolean; onClose: () => void; ghostId?: string | null; onPlus?: () => void }) {
+export function StyleSheet({ open, onClose, ghostId }: { open: boolean; onClose: () => void; ghostId?: string | null }) {
   const s = useAppState();
   const mine = GHOSTS.filter((g) => s.ghosts[g.id]);
   const [who, setWho] = useState(ghostId ?? s.companion);
@@ -213,8 +213,10 @@ export function StyleSheet({ open, onClose, ghostId, onPlus }: { open: boolean; 
   const look = lookOf(s, who);
   const anyOn = Object.keys(look).length > 0;
   const owned = DROP_STYLES.filter((x) => s.styles[x.id]);
-  // one tab per kind that has something to show; the tab picked last stays open
-  const lists = STYLE_KINDS.map((k) => ({ k, list: stylesOf(k).filter((x) => s.styles[x.id] || (x.plus && (plusForSale() || s.plus))) })).filter((e) => e.list.length > 0);
+  // One tab per kind that has something to show; the tab picked last stays open. Only what can be worn is here.
+  // The styles that come with Plus used to lie here with a lock for everyone, one in each tab, between the styles
+  // one had earned: it read as an ad at every change of clothes. Who has no Plus finds them in the collection.
+  const lists = STYLE_KINDS.map((k) => ({ k, list: stylesOf(k).filter((x) => canUseStyle(s, x.id)) })).filter((e) => e.list.length > 0);
   const cur = lists.find((e) => e.k === kind) ?? lists[0];
   return (
     <Sheet open={open} onClose={onClose} title={t('style_title')} class="style-sheet">
@@ -263,21 +265,16 @@ export function StyleSheet({ open, onClose, ghostId, onPlus }: { open: boolean; 
             <div class="style-grid">
               {list.map((x) => {
                 const on = look[k] === x.id;
-                const usable = canUseStyle(s, x.id);
                 return (
                   <button
                     type="button"
                     key={x.id}
-                    class={`style-pick ${on ? 'on' : ''} ${usable ? '' : 'locked'}`}
+                    class={`style-pick ${on ? 'on' : ''}`}
                     style={{ '--rc': RARITY_COLOR[x.rarity] } as CSSProperties}
                     aria-pressed={on}
                     aria-label={nameOf(x)}
                     onClick={() => {
                       haptic.tap();
-                      if (!usable) {
-                        onPlus?.();
-                        return;
-                      }
                       sfx.toggle();
                       toggleStyle(who, x.id);
                       if (!on) setCheer((c) => c + 1);
@@ -288,11 +285,6 @@ export function StyleSheet({ open, onClose, ghostId, onPlus }: { open: boolean; 
                     {on && (
                       <span class="style-check">
                         <Icon name="check" size={12} />
-                      </span>
-                    )}
-                    {!usable && (
-                      <span class="style-lock">
-                        <Icon name="crown" size={11} /> Plus
                       </span>
                     )}
                   </button>

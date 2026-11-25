@@ -4197,24 +4197,6 @@ button.spark-meter:active {
 .style-row .sheet-sub {
   margin: 4px 0 0;
 }
-.style-pick.locked {
-  opacity: 0.75;
-}
-.style-lock {
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  font-size: 9px;
-  font-weight: 800;
-  padding: 1px 5px;
-  border-radius: 999px;
-  background: var(--mythic);
-  color: #2d1a00;
-}
-
 /* a charm in a preview bobs gently (the rig moves its own) */
 .style-preview .charm-bob {
   animation: charm-bob 3.4s ease-in-out infinite;

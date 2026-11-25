@@ -246,7 +246,7 @@ export function Collection({ openPlus }: { openPlus: () => void }) {
       <GhostSheet id={selGhost} onClose={() => setSelGhost(null)} onStyle={toStyle} />
       <StyleItemSheet id={selStyle} onClose={() => setSelStyle(null)} onWish={() => setWishOpen(true)} onStyle={toStyle} onPlus={openPlus} />
       <WishSheet open={wishOpen} onClose={() => setWishOpen(false)} onClaimed={(r) => openStyle(r.style)} />
-      <StyleSheet open={!!styleFor} onClose={() => setStyleFor(null)} ghostId={styleFor} onPlus={openPlus} />
+      <StyleSheet open={!!styleFor} onClose={() => setStyleFor(null)} ghostId={styleFor} />
     </div>
   );
 }
