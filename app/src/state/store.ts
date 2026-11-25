@@ -33,7 +33,7 @@ import type { Counters, SessionRec } from '../logic/progress';
 import { DAY, dayKey, weekKey } from '../logic/time';
 
 export type Lang = 'auto' | 'en' | 'de';
-export type AmbientId = 'off' | 'rain' | 'brown' | 'fire' | 'forest' | 'ocean' | 'cafe';
+export type AmbientId = 'off' | 'rain' | 'brown' | 'fire' | 'forest' | 'ocean' | 'cafe' | 'storm' | 'creek';
 export type ThemeId = 'night' | 'cozynight' | 'forestglow' | 'cottonsky' | 'mysticpurple' | 'aurora' | 'dusk';
 export type Via = 'start' | 'hours' | 'drop' | 'wish' | 'boss' | 'spark';
 export type TagId = 'study' | 'work' | 'create' | 'read' | 'home' | 'other';
@@ -120,6 +120,8 @@ export interface State {
   settings: Settings;
   plus: boolean;
   plusOfferSeen: boolean;
+  /** The ghost has thanked you for Plus (once, also for a purchase made before he could). */
+  plusThanked: boolean;
   /**
    * For testing. skyHour: a fixed hour for the sky, to preview the time of day. acts: he does one of
    * his little acts every few seconds. tools: a button on the focus screen ends the session at once.
@@ -175,6 +177,7 @@ export function defaultState(): State {
     },
     plus: false,
     plusOfferSeen: false,
+    plusThanked: false,
     dev: { speed: false, dayOffset: 0, skyHour: null, acts: false, tools: false },
   };
 }
@@ -894,6 +897,11 @@ export function setTags(tags: TagId[]) {
 export function setPlus(v: boolean) {
   mutate((s) => {
     s.plus = v;
+  });
+}
+export function thankedForPlus() {
+  mutate((s) => {
+    s.plusThanked = true;
   });
 }
 

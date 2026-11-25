@@ -20,7 +20,7 @@ export interface AuraBox {
   glow: Rgb;
 }
 
-export type Shape = 'fly' | 'spark' | 'bubble' | 'leaf' | 'snow' | 'petal' | 'star' | 'note' | 'arc' | 'comet' | 'dot';
+export type Shape = 'fly' | 'spark' | 'bubble' | 'leaf' | 'snow' | 'petal' | 'star' | 'note' | 'arc' | 'comet' | 'lantern' | 'dot';
 
 export interface AuraParticle {
   shape: Shape;
@@ -309,6 +309,28 @@ export const AURAS: Record<string, AuraDef> = {
     alpha: (_p, k) => fade(k, 0.1, 0.35),
     extra: TWINKLE,
   },
+  // the Plus aura: paper lanterns rise slowly beside him, swaying, their flames flickering a little
+  aura_lanterns: {
+    rate: 1.3,
+    max: 8,
+    spawn(r, b, p) {
+      p.shape = 'lantern';
+      p.back = r() < 0.65;
+      // the ones in front keep to his sides, clear of his face
+      const side = r() < 0.5 ? -1 : 1;
+      p.x = b.cx + side * b.rx * (p.back ? 0.35 + r() * 1.15 : 0.95 + r() * 0.55);
+      p.y = b.cy + b.ry * (0.45 + r() * 0.5);
+      p.vy = -24 - r() * 12;
+      p.life = 5.5 + r() * 2;
+      p.size = 8.5 + r() * 3.5;
+    },
+    move(p, dt) {
+      p.x += Math.sin(p.age * 1.1 + p.ph) * 10 * dt;
+      p.rot = Math.sin(p.age * 1.3 + p.ph) * 7;
+    },
+    alpha: (p, k) => fade(k, 0.15, 0.3) * (0.92 + 0.08 * Math.sin(p.age * 9 + p.ph)),
+    scale: (_p, k) => 0.85 + Math.min(1, k * 4) * 0.15,
+  },
 };
 
 const blank = (): AuraParticle => ({
@@ -427,8 +449,10 @@ const LEAF = 'M0,-10 C7,-6 7,5 0,10 C-7,5 -7,-6 0,-10 Z M0,-7 L0,8';
 const PETAL = 'M0,9 C-8,3 -6,-7 -2,-9 L0,-6 L2,-9 C6,-7 8,3 0,9 Z';
 const SNOW = 'M0,-9 L0,9 M-7.8,-4.5 L7.8,4.5 M-7.8,4.5 L7.8,-4.5 M-2.5,-7 L0,-5 L2.5,-7 M-2.5,7 L0,5 L2.5,7';
 const STAR = 'M0,-12 C2,-3 3,-2 12,0 C3,2 2,3 0,12 C-2,3 -3,2 -12,0 C-3,-2 -2,-3 0,-12 Z';
+/** A sky lantern: a paper body with round shoulders, a little narrower at the open bottom where its flame is. */
+const LANTERN = 'M-6,-8.5 C-7.8,-3 -6.8,4 -4.6,8 L4.6,8 C6.8,4 7.8,-3 6,-8.5 C3,-10.4 -3,-10.4 -6,-8.5 Z';
 /** The path shapes are drawn about 10 units wide; this brings them to a common scale with the circles (a path reads about twice a circle's radius). */
-const UNIT: Partial<Record<Shape, number>> = { leaf: 1 / 5, petal: 1 / 4.5, snow: 1 / 5, star: 1 / 7 };
+const UNIT: Partial<Record<Shape, number>> = { leaf: 1 / 5, petal: 1 / 4.5, snow: 1 / 5, star: 1 / 7, lantern: 1 / 5 };
 const OUTLINE = '#0e2533';
 let svgUid = 0;
 
@@ -448,7 +472,9 @@ export class SvgAura {
     defs.innerHTML = `
       <radialGradient id="${this.id}fly"><stop offset="0" stop-color="#fffbe0"/><stop offset="0.3" stop-color="#f2ff8a" stop-opacity="0.9"/><stop offset="1" stop-color="#c8ff5a" stop-opacity="0"/></radialGradient>
       <radialGradient id="${this.id}spark"><stop offset="0" stop-color="#ffffff"/><stop offset="0.35" stop-color="#ffffff" stop-opacity="0.85"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
-      <linearGradient id="${this.id}tail" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/><stop offset="0.25" stop-color="#fff" stop-opacity="0.5"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`;
+      <linearGradient id="${this.id}tail" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/><stop offset="0.25" stop-color="#fff" stop-opacity="0.5"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+      <radialGradient id="${this.id}lantern" cx="0.5" cy="0.85" r="0.95"><stop offset="0" stop-color="#fff6c8"/><stop offset="0.45" stop-color="#ffc85a"/><stop offset="1" stop-color="#f07a2e"/></radialGradient>
+      <radialGradient id="${this.id}lanternGlow"><stop offset="0" stop-color="#ffd27a" stop-opacity="0.55"/><stop offset="1" stop-color="#ff9a3c" stop-opacity="0"/></radialGradient>`;
     back.appendChild(defs);
     this.stops = [...defs.querySelectorAll(`#${this.id}spark stop:not(:first-child), #${this.id}tail stop:not(:first-child)`)] as SVGStopElement[];
   }
@@ -516,6 +542,16 @@ export class SvgAura {
       case 'comet': {
         e = document.createElementNS(NS, 'g');
         e.innerHTML = `<path d="M2,-3.5 L-90,0 L2,3.5 Z" fill="url(#${this.id}tail)"/><path d="${STAR}" fill="#ffffff" transform="scale(0.55)"/>`;
+        break;
+      }
+      case 'lantern': {
+        e = document.createElementNS(NS, 'g');
+        e.innerHTML =
+          `<circle cy="1" r="18" fill="url(#${this.id}lanternGlow)"/>` +
+          `<path d="${LANTERN}" fill="url(#${this.id}lantern)" stroke="${OUTLINE}" stroke-width="1.6" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>` +
+          `<path d="M-2.4,-9.6 C-3.4,-3 -2.8,3 -1.7,8 M2.4,-9.6 C3.4,-3 2.8,3 1.7,8" fill="none" stroke="#c9601f" stroke-opacity="0.5" stroke-width="1" vector-effect="non-scaling-stroke"/>` +
+          `<path d="M-4.4,-5.5 C-5.2,-2 -4.8,1.5 -3.8,4" fill="none" stroke="#fffbe6" stroke-opacity="0.7" stroke-width="1.4" stroke-linecap="round" vector-effect="non-scaling-stroke"/>` +
+          `<ellipse cy="8.6" rx="2.2" ry="1.5" fill="#fff2a8" stroke="${OUTLINE}" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
         break;
       }
       default:

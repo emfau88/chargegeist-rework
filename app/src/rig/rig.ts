@@ -10,8 +10,7 @@
  * (600 x 620 units): k scales it, (cx, cy) lands on (300, 280). Motion constants were tuned on
  * Volti and are scaled by m (body motion) and u (face motion) for the others.
  */
-import { charmImg, ghost, partUrl } from '../data/catalog';
-import { CHARMS } from '../data/charms.gen';
+import { ALL_CHARMS, charmImg, ghost, partUrl } from '../data/catalog';
 import { EYES } from '../data/eyes.gen';
 import { ACT_SECONDS, CHARM_PUSH_AT, IDLE_ACTS, PROUD_SPARKLE_AT, actGap, actPose, eagerActs, mayAct, onPlayAct, pickAct } from './acts';
 import type { ActName } from './acts';
@@ -834,7 +833,7 @@ export function createRig(host: HTMLElement, look: Look, opts: RigOptions = {}):
     charmFresh = true,
     spinAt = -9;
   function setCharm(cid: string | undefined) {
-    const def = cid ? CHARMS.find((c) => c.id === cid) : undefined;
+    const def = cid ? ALL_CHARMS.find((c) => c.id === cid) : undefined;
     charmOn = !!def;
     charmG.style.display = def ? '' : 'none';
     if (!def) return;

@@ -53,6 +53,8 @@ export const AMBIENTS: { id: AmbientId; plus: boolean; icon: string }[] = [
   { id: 'forest', plus: true, icon: 'moon' },
   { id: 'ocean', plus: true, icon: 'music' },
   { id: 'cafe', plus: true, icon: 'cup' },
+  { id: 'storm', plus: true, icon: 'bolt' },
+  { id: 'creek', plus: true, icon: 'music' },
 ];
 
 /** Toasts for a claimed wish. */

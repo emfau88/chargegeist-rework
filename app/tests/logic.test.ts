@@ -35,16 +35,16 @@ describe('catalog', () => {
     for (const g of COSTUME_GHOSTS) expect(sparksNeeded(g.id)).toBe(g.rarity === 'mythic' ? 5 : 3);
     for (const g of COMPANIONS) expect(sparksNeeded(g.id)).toBe(0);
   });
-  it('has 10 auras, 9 shimmers and 10 charms with unique ids; the Plus shimmer never drops', () => {
-    expect(stylesOf('aura')).toHaveLength(10);
+  it('has 11 auras, 9 shimmers and 11 charms with unique ids; the Plus set never drops', () => {
+    expect(stylesOf('aura')).toHaveLength(11);
     expect(stylesOf('shimmer')).toHaveLength(9);
-    expect(stylesOf('charm')).toHaveLength(10);
+    expect(stylesOf('charm')).toHaveLength(11);
     // charms come in every rarity, so they can show up in any drop
     expect(new Set(stylesOf('charm').map((x) => x.rarity))).toEqual(new Set(['common', 'rare', 'epic', 'mythic']));
     expect(DROP_STYLES.filter((x) => x.kind === 'charm')).toHaveLength(10);
     expect(new Set(STYLES.map((x) => x.id)).size).toBe(STYLES.length);
     for (const x of STYLES) expect(x.id.startsWith(`${x.kind}_`)).toBe(true);
-    expect(STYLES.filter((x) => x.plus).map((x) => x.id)).toEqual(['shimmer_heart']);
+    expect(STYLES.filter((x) => x.plus).map((x) => x.id)).toEqual(['aura_lanterns', 'shimmer_heart', 'charm_crown']);
     expect(DROP_STYLES.some((x) => x.plus)).toBe(false);
   });
   it('every rarity has enough styles for a full drop', () => {

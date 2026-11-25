@@ -3410,6 +3410,20 @@ input[type='range'] {
 .hero-dress:active {
   transform: scale(0.92);
 }
+/* While he thanks you for Plus, the button to the gift glows. Only its border and shadow change: a moving
+   button would get a layer of its own for those seconds, and layers that come and go flicker on Android. */
+.hero-dress.gift {
+  animation: dress-gift 1.6s ease-in-out 3;
+}
+@keyframes dress-gift {
+  50% {
+    border-color: var(--warm);
+    box-shadow:
+      0 6px 18px rgba(0, 0, 0, 0.3),
+      0 0 0 4px rgba(255, 199, 107, 0.35),
+      0 0 22px rgba(255, 199, 107, 0.7);
+  }
+}
 /* A waiting drop: a gift beside the ghost, under the style button. It glows and breathes so it is seen,
    and takes no room in the page: the ghost keeps its size and the start button its place. */
 .hero-drop {
@@ -4351,7 +4365,9 @@ button.spark-meter:active {
   top: 4px;
   left: 50%;
   z-index: 4;
-  max-width: min(78%, 300px);
+  /* as wide as its words need: from the middle of the stage it would otherwise stop at half its width */
+  width: max-content;
+  max-width: min(72%, 260px);
   padding: 9px 14px;
   border-radius: 18px;
   background: var(--surface-solid);

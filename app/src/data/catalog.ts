@@ -10,7 +10,7 @@
 import { CHARMS } from './charms.gen';
 import { RIGS } from './rigs.gen';
 import type { RigConfig } from './rigTypes';
-import type { GhostDef, Rarity, StyleDef, StyleKind } from './types';
+import type { CharmDef, GhostDef, Rarity, StyleDef, StyleKind } from './types';
 
 export const RARITIES: Rarity[] = ['common', 'rare', 'epic', 'mythic'];
 
@@ -114,6 +114,11 @@ export const STYLE_KINDS: StyleKind[] = ['aura', 'shimmer', 'charm'];
 
 const S = (id: string, kind: StyleKind, nameEn: string, nameDe: string, rarity: Rarity, plus = false): StyleDef => ({ id, kind, nameEn, nameDe, rarity, plus });
 
+/** The Plus charm: drawn as rig_input/krone_v1.svg, not cut from the talisman sheet. */
+const CROWN: CharmDef = { id: 'charm_crown', nameEn: 'Little Crown', nameDe: 'Kleine Krone', rarity: 'mythic', w: 220, h: 171 };
+/** Every charm, the Plus one last. */
+export const ALL_CHARMS: CharmDef[] = [...CHARMS, CROWN];
+
 export const STYLES: StyleDef[] = [
   S('aura_fireflies', 'aura', 'Fireflies', 'Glühwürmchen', 'common'),
   S('aura_sparks', 'aura', 'Spark Flurry', 'Funkenflug', 'common'),
@@ -125,6 +130,7 @@ export const STYLES: StyleDef[] = [
   S('aura_notes', 'aura', 'Melody', 'Notenwirbel', 'epic'),
   S('aura_storm', 'aura', 'Storm Ring', 'Blitzring', 'mythic'),
   S('aura_comets', 'aura', 'Shooting Stars', 'Sternschnuppen', 'mythic'),
+  S('aura_lanterns', 'aura', 'Sky Lanterns', 'Himmelslaternen', 'mythic', true),
   S('shimmer_moon', 'shimmer', 'Moonsilver', 'Mondsilber', 'common'),
   S('shimmer_mint', 'shimmer', 'Mint', 'Minze', 'common'),
   S('shimmer_gold', 'shimmer', 'Sungold', 'Sonnengold', 'rare'),
@@ -135,6 +141,7 @@ export const STYLES: StyleDef[] = [
   S('shimmer_holo', 'shimmer', 'Holo', 'Holo', 'mythic'),
   S('shimmer_heart', 'shimmer', 'Heartlight', 'Herzlicht', 'mythic', true),
   ...CHARMS.map((c) => S(c.id, 'charm', c.nameEn, c.nameDe, c.rarity)),
+  S(CROWN.id, 'charm', CROWN.nameEn, CROWN.nameDe, CROWN.rarity, true),
 ];
 
 /** Styles that can come from drops and wishes (Plus styles never do). */

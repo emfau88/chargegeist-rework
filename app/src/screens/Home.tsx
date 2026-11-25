@@ -17,6 +17,7 @@ import {
   now,
   sparkTarget,
   startSession,
+  thankedForPlus,
   todayMinutes,
   useAppState,
 } from '../state/store';
@@ -89,22 +90,33 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
     setDur(n);
   };
 
-  // from the Familiar stage on he greets you: a wave and his saying in a bubble
+  // from the Familiar stage on he greets you: a wave and his saying in a bubble. Once after Plus came he
+  // thanks you instead, with a jump for joy, and points to the gift in the style menu.
   const rig = useRef<RigApi | null>(null);
-  const [bubble, setBubble] = useState(false);
+  const [bubble, setBubble] = useState<string | null>(null);
+  const thanks = s.plus && !s.plusThanked;
   useEffect(() => {
-    if (greeted || bondLevel(bondOf(s, s.companion)) < 1 || sleepy) return;
+    const say = thanks ? t('plus_thanks') : !greeted && !sleepy && bondLevel(bondOf(s, s.companion)) >= 1 ? `“${quoteOf(ghost(s.companion))}”` : null;
+    if (!say) return;
     greeted = true;
     const a = setTimeout(() => {
-      rig.current?.greet();
-      setBubble(true);
+      if (thanks) {
+        setWoke(true);
+        rig.current?.celebrate(true);
+        sfx.unlock();
+        haptic.big();
+      } else rig.current?.greet();
+      setBubble(say);
     }, 800);
-    const b = setTimeout(() => setBubble(false), 5600);
+    const b = setTimeout(() => {
+      setBubble(null);
+      if (thanks) thankedForPlus();
+    }, 5600);
     return () => {
       clearTimeout(a);
       clearTimeout(b);
     };
-  }, []);
+  }, [thanks]);
 
   const start = () => {
     sfx.start();
@@ -162,10 +174,10 @@ export function Home({ openDrop, openPlus }: { openDrop: (id: string) => void; o
         />
         {bubble && (
           <p class="greet-bubble" role="status">
-            “{quoteOf(ghost(s.companion))}”
+            {bubble}
           </p>
         )}
-        <button type="button" class="hero-dress" onClick={() => setStyleFor(s.companion)} aria-label={t('style_title')}>
+        <button type="button" class={`hero-dress ${thanks && bubble ? 'gift' : ''}`} onClick={() => setStyleFor(s.companion)} aria-label={t('style_title')}>
           <Icon name="palette" size={20} />
         </button>
         {/* a waiting drop is a mark beside the ghost: it takes no room, so nothing below it moves when one comes */}

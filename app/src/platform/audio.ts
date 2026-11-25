@@ -2,7 +2,7 @@
  * All sound is synthesised with WebAudio: no audio files, works offline.
  * Effects: tap, start, complete, tick and goal (the session result), flip (per rarity), keep, unlock, poke, and the gesture sounds
  * (a purring hum while stroked, a squeak when held, a pop on release, a giggle when tickled).
- * Ambient soundscapes: rain, brown noise, fireplace, night forest, ocean, café.
+ * Ambient soundscapes: rain, brown noise, fireplace, night forest, ocean, café, thunderstorm, creek.
  */
 import type { AmbientId } from '../state/store';
 import type { Rarity } from '../data/types';
@@ -364,6 +364,25 @@ function crackle(dest: AudioNode, gain: number, hp: number) {
   src.stop(t0 + dur + 0.02);
 }
 
+/** Far-off thunder: a low roll that swells, rolls once more and fades over a few seconds. */
+function rumble(dest: AudioNode, gain: number) {
+  const c = ac();
+  const src = c.createBufferSource();
+  src.buffer = noise('brown');
+  src.loop = true;
+  const v = c.createGain();
+  const t0 = c.currentTime;
+  const dur = 3.5 + Math.random() * 3;
+  v.gain.setValueAtTime(0.0001, t0);
+  v.gain.exponentialRampToValueAtTime(gain, t0 + 0.4 + Math.random() * 0.6);
+  v.gain.exponentialRampToValueAtTime(gain * 0.4, t0 + dur * 0.45);
+  v.gain.exponentialRampToValueAtTime(gain * 0.75, t0 + dur * 0.55);
+  v.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  src.connect(filt('lowpass', 130 + Math.random() * 70)).connect(v).connect(dest);
+  src.start(t0, Math.random() * 3);
+  src.stop(t0 + dur + 0.05);
+}
+
 function build(id: AmbientId, out: GainNode): () => void {
   const stops: (() => void)[] = [];
   const srcs: AudioScheduledSourceNode[] = [];
@@ -408,6 +427,21 @@ function build(id: AmbientId, out: GainNode): () => void {
       blip(out, f, 0.35, 0.02, 'sine');
       blip(out, f * 1.48, 0.25, 0.01, 'sine');
     }, 2.5, 7));
+  } else if (id === 'storm') {
+    // heavy rain, and thunder far away now and then
+    add(loop('pink', out, [filt('highpass', 300), filt('lowpass', 4200)], 0.5));
+    add(loop('brown', out, [filt('lowpass', 260)], 0.45));
+    stops.push(events(() => blip(out, 1800 + Math.random() * 2400, 0.04, 0.025 + Math.random() * 0.025, 'sine', 0.6), 0.03, 0.14));
+    stops.push(events(() => rumble(out, 0.9 + Math.random() * 0.5), 9, 22));
+  } else if (id === 'creek') {
+    // water running over stones: a steady rush, a gurgle that wanders, and small bubbles
+    add(loop('pink', out, [filt('highpass', 250), filt('lowpass', 3200)], 0.58));
+    const f = filt('bandpass', 1300, 1.4);
+    const g = loop('white', out, [f], 0.18);
+    add(g);
+    srcs.push(lfo(f.frequency, 0.6, 450));
+    srcs.push(lfo(g.g.gain, 2.7, 0.09));
+    stops.push(events(() => blip(out, 500 + Math.random() * 700, 0.07 + Math.random() * 0.06, 0.02 + Math.random() * 0.02, 'sine', 1.7), 0.08, 0.4));
   }
   return () => {
     stops.forEach((s) => s());
