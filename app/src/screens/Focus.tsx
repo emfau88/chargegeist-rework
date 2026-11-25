@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { t } from '../i18n';
-import { fmtClock } from '../logic/time';
 import { playAmbient, setAmbientVolume, sfx, stopAmbient } from '../platform/audio';
 import { cancelSessionEnd, haptic, keepAwake, scheduleSessionEnd } from '../platform/device';
 import {
@@ -15,7 +14,7 @@ import {
   useAppState,
 } from '../state/store';
 import type { SessionResult } from '../state/store';
-import { Btn, Icon, Sheet } from '../ui/kit';
+import { Btn, Clock, Icon, Sheet } from '../ui/kit';
 import { AMBIENTS, AmbientSheet } from '../ui/sheets';
 import { CompanionStage } from '../ui/stage';
 
@@ -127,7 +126,7 @@ export function Focus({ onDone, openPlus }: { onDone: (r: SessionResult | null) 
       />
 
       <div class="focus-clock" aria-live="off">
-        <span class="clock">{fmtClock(remaining)}</span>
+        <Clock sec={remaining} />
         <p class="focus-sub">{paused ? t('focus_paused') : t('focus_charging', { name })}</p>
         <p class="focus-tip" key={tip}>
           {tip}

@@ -4,6 +4,7 @@ import { RARITY_COLOR } from '../data/catalog';
 import { cover } from '../fx/cover';
 import type { Rarity } from '../data/types';
 import { t } from '../i18n';
+import { fmtClock } from '../logic/time';
 import { sfx } from '../platform/audio';
 import { haptic } from '../platform/device';
 import { Portrait } from './stage';
@@ -265,6 +266,25 @@ export function RarityTag({ r }: { r: Rarity }) {
   return (
     <span class="rarity" style={{ '--rc': RARITY_COLOR[r] } as CSSProperties}>
       {t(`r_${r}`)}
+    </span>
+  );
+}
+
+/* ---------------- clock ---------------- */
+/**
+ * The time left, as on a clock. Every digit sits in a cell of one width: the display font draws a 1 much
+ * narrower than a 0 and has no digits of equal width, so set as plain text the clock changed its width with
+ * every second, and in the middle of the screen all of it moved sideways each time.
+ */
+export function Clock({ sec }: { sec: number }) {
+  const text = fmtClock(sec);
+  return (
+    <span class="clock" role="timer" aria-label={text}>
+      {[...text].map((c, i) => (
+        <span key={i} class={c === ':' ? 'clock-sep' : 'clock-digit'} aria-hidden="true">
+          {c}
+        </span>
+      ))}
     </span>
   );
 }

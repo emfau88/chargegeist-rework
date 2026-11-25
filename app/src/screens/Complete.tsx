@@ -6,12 +6,12 @@ import type { Key } from '../i18n';
 import { bondProgress } from '../logic/bond';
 import { ACHIEVEMENTS } from '../logic/progress';
 import { WEEK_TARGET } from '../logic/progress';
-import { fmtClock, fmtMinutes } from '../logic/time';
+import { fmtMinutes } from '../logic/time';
 import { sfx } from '../platform/audio';
 import { cancelSessionEnd, haptic, scheduleSessionEnd } from '../platform/device';
 import { bondOf, companionName, now, useAppState } from '../state/store';
 import type { SessionResult } from '../state/store';
-import { Bar, Btn, Icon, toast, useCountUp } from '../ui/kit';
+import { Bar, Btn, Clock, Icon, toast, useCountUp } from '../ui/kit';
 import { StyleBadge } from '../ui/style';
 import { CompanionStage, Portrait } from '../ui/stage';
 import { WeekDots } from './Home';
@@ -299,7 +299,7 @@ export function Break({ onClose }: { onClose: () => void }) {
     <div class="page break">
       <CompanionStage ghostId={s.companion} mode="sleep" level={0.2} zoom={1.1} class="focus-stage" ring={1 - left / total} acts={false} ground />
       <div class="focus-clock">
-        <span class="clock">{fmtClock(left)}</span>
+        <Clock sec={left} />
         <p class="focus-sub">{t('break_title')}</p>
         <p class="focus-tip">{t('break_body')}</p>
       </div>

@@ -1322,8 +1322,15 @@ button.row:active {
   font-size: clamp(60px, 18vw, 80px);
   line-height: 1;
   letter-spacing: 0.01em;
-  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   text-shadow: 0 0 30px rgba(91, 227, 255, 0.35);
+}
+/* One cell for every digit, as wide as the widest of them (ui/kit.tsx, Clock): the font has no digits of equal
+   width, and font-variant-numeric changed nothing. */
+.clock-digit {
+  display: inline-block;
+  width: 0.6em;
+  text-align: center;
 }
 .is-paused .clock {
   opacity: 0.55;
