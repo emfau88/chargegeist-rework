@@ -7,18 +7,40 @@
  * change is passed on after a short wait, so a burst of them goes as one; a session that starts,
  * pauses, goes on or ends goes at once, and so does everything when the app leaves the screen.
  */
+import { App as NativeApp } from '@capacitor/app';
 import { registerPlugin } from '@capacitor/core';
 import { widgetData } from '../logic/widget';
 import { renderPortrait } from '../rig/rig';
-import { getState, onChange } from '../state/store';
+import { getState, onChange, startSession } from '../state/store';
 import type { State } from '../state/store';
-import { NATIVE } from './device';
+import { NATIVE, haptic } from './device';
 
 interface Bridge {
   /** data: WidgetData as JSON. portrait: a PNG in base64, only when the companion changed. */
   update(o: { data: string; portrait?: string }): Promise<void>;
+  placed(): Promise<{ placed: boolean }>;
+  pin(): Promise<{ asked: boolean }>;
+  /** The start button of the widget was tapped just now: true once per tap. */
+  takeStart(): Promise<{ start: boolean }>;
 }
 const bridge = registerPlugin<Bridge>('Widget');
+
+/**
+ * The start button of the widget: a session with the span and tag chosen last, as the start button on
+ * the clearing would start it. Not before the first ride through the app, and not over a running one:
+ * then the tap only opened the app.
+ */
+async function takeStart() {
+  try {
+    if (!(await bridge.takeStart()).start) return;
+    const s = getState();
+    if (!s.onboarded || s.active) return;
+    startSession(s.lastDuration, s.lastTag);
+    haptic.success();
+  } catch {
+    /* the tap opened the app, nothing more */
+  }
+}
 
 /** Side of the portrait in pixels: sharp on a 2×2 widget and far below what a widget may carry. */
 const PORTRAIT_PX = 256;
@@ -99,6 +121,9 @@ export function initWidget() {
       void send();
     });
     later(FIRST_MS);
+    // a tap on the start button opens the app: from scratch, or brings it back from the background
+    void takeStart();
+    void NativeApp.addListener('resume', () => void takeStart());
   } catch {
     /* no widget then, the app as always */
   }

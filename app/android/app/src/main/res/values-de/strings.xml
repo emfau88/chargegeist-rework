@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The widget, until the app has handed it its own texts (src/logic/widget.ts). -->
+    <string name="widget_fallback">Tippen zum Aufladen</string>
+    <string name="widget_start">▶ Start</string>
+    <string name="widget_description">Dein Geist und deine Ladung von heute auf einen Blick. Mit einem Tipp startest du eine Sitzung.</string>
+</resources>

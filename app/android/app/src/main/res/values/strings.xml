@@ -4,4 +4,8 @@
     <string name="title_activity_main">ChargeGeist</string>
     <string name="package_name">com.energycrafted.chargegeist</string>
     <string name="custom_url_scheme">com.energycrafted.chargegeist</string>
+    <!-- The widget, until the app has handed it its own texts (src/logic/widget.ts). -->
+    <string name="widget_fallback">Tap to charge</string>
+    <string name="widget_start">▶ Start</string>
+    <string name="widget_description">Your ghost and today’s charge at a glance. Start a session with one tap.</string>
 </resources>

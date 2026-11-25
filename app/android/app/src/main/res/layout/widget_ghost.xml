@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The widget on the home screen (GhostWidget): the companion, today's charge against the goal, and
+     a button that starts a session; while one runs, when it ends. What it shows before the app has
+     handed it anything is written here. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:paddingLeft="12dp"
+    android:paddingTop="8dp"
+    android:paddingRight="12dp"
+    android:paddingBottom="10dp">
+
+    <ImageView
+        android:id="@+id/widget_ghost"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:contentDescription="@string/app_name"
+        android:scaleType="fitCenter"
+        android:src="@drawable/widget_ghost_fallback" />
+
+    <TextView
+        android:id="@+id/widget_today"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:ellipsize="end"
+        android:fontFamily="sans-serif-medium"
+        android:maxLines="1"
+        android:text="@string/widget_fallback"
+        android:textColor="#F3F1FF"
+        android:textSize="13sp" />
+
+    <ProgressBar
+        android:id="@+id/widget_bar"
+        style="@android:style/Widget.ProgressBar.Horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="5dp"
+        android:layout_marginTop="5dp"
+        android:max="30"
+        android:progress="0"
+        android:progressDrawable="@drawable/widget_bar" />
+
+    <TextView
+        android:id="@+id/widget_start"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/widget_start_bg"
+        android:fontFamily="sans-serif-black"
+        android:maxLines="1"
+        android:paddingLeft="16dp"
+        android:paddingTop="6dp"
+        android:paddingRight="16dp"
+        android:paddingBottom="6dp"
+        android:text="@string/widget_start"
+        android:textColor="#04222C"
+        android:textSize="14sp" />
+
+    <TextView
+        android:id="@+id/widget_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:fontFamily="sans-serif-medium"
+        android:maxLines="1"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp"
+        android:textColor="#5BE3FF"
+        android:textSize="14sp"
+        android:visibility="gone" />
+</LinearLayout>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The widget as the home screen sees it: 2 x 2 cells, can be pulled wider and higher. Android asks
+     for a new drawing every 30 minutes at most (that is when a day that ended shows 0 minutes);
+     everything else comes from the app as it happens. No settings window when it is added. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_description"
+    android:initialLayout="@layout/widget_ghost"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
+    android:minResizeWidth="110dp"
+    android:minResizeHeight="110dp"
+    android:previewImage="@drawable/widget_preview"
+    android:previewLayout="@layout/widget_ghost"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="1800000"
+    android:widgetCategory="home_screen" />
