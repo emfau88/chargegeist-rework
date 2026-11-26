@@ -17,17 +17,21 @@ export const SCROLL_RATE = { far: 0.72, mid: 0.86, ground: 1 } as const;
 
 type Listener = () => void;
 let ground: number | null = null;
-let owner: object | null = null;
+/** Every stage that wants to place the land, with where its shadow lies, in the order they came. */
+const claims = new Map<object, number>();
 const subs = new Set<Listener>();
 
-/** A stage says where its ghost's shadow lies (pixels from the top of the page), or null when it leaves. */
+/**
+ * A stage says where its ghost's shadow lies (pixels from the top of the page), or null when it leaves.
+ * The first stage keeps the land until it leaves; one that comes while it is there waits behind it and takes
+ * over at once. Two stages that each set the land in turn made it swing between them every 0.4 s (a ghost
+ * that joined with a drop did).
+ */
 export function setGround(who: object, y: number | null) {
-  if (y === null) {
-    // only the stage that set the ground may take it away again (a new screen mounts before the old one is gone)
-    if (owner !== who) return;
-    owner = null;
-  } else owner = who;
-  const next = y === null ? null : Math.round(y);
+  if (y === null) claims.delete(who);
+  else claims.set(who, Math.round(y));
+  const first = claims.values().next();
+  const next = first.done ? null : first.value;
   if (next === ground) return;
   ground = next;
   for (const fn of subs) fn();

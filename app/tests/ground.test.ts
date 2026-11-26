@@ -103,6 +103,18 @@ describe('the painted scene: who says where the ground is', () => {
     setGround(B, null);
     expect(groundY()).toBeNull();
   });
+
+  it('two stages at once: the land stays with the first until it leaves, so it cannot swing between them', () => {
+    setGround(A, 410);
+    setGround(B, 245);
+    expect(groundY()).toBe(410);
+    // each says it again, as they do every 0.4 s
+    setGround(A, 411);
+    setGround(B, 246);
+    expect(groundY()).toBe(411);
+    setGround(A, null);
+    expect(groundY()).toBe(246);
+  });
 });
 
 describe('the painted scene: what the day lights', () => {

@@ -289,6 +289,25 @@ export function Clock({ sec }: { sec: number }) {
   );
 }
 
+/**
+ * A number that counts up in the display font, with every digit in a cell of one width like the clock's: as
+ * plain text it grew and shrank with each step and moved from side to side while it counted.
+ */
+export function Digits({ text }: { text: string }) {
+  return (
+    <>
+      <span class="sr-only">{text}</span>
+      <span aria-hidden="true">
+        {[...text].map((c, i) => (
+          <span key={i} class={/\d/.test(c) ? 'clock-digit' : undefined}>
+            {c}
+          </span>
+        ))}
+      </span>
+    </>
+  );
+}
+
 /* ---------------- sheet ---------------- */
 export function Sheet({ open, onClose, title, children, class: cls }: { open: boolean; onClose: () => void; title?: string; children: ComponentChildren; class?: string }) {
   const [shown, setShown] = useState(open);

@@ -103,6 +103,10 @@ interface Lid {
 }
 /** Where the ground shadow lies in the 600-unit stage: close under the ghost, so it reads as its own. */
 const SHADOW_Y = 500;
+/** The ground shadow's own picture: the ellipse (112 by 15) with room around it for its blur (three times 9 and a bit). */
+const SHADOW_BOX = { x: 300 - 112 - 30, y: SHADOW_Y - 15 - 30, w: 2 * (112 + 30), h: 2 * (15 + 30) };
+/** The glow behind the ghost, in stage units. */
+const GLOW_R = 270;
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 /**
  * How far an arm is turned. A loose arm turns as far as asked. One that was cut out of the finished figure
@@ -448,7 +452,14 @@ export function createRig(host: HTMLElement, look: Look, opts: RigOptions = {}):
   layer.style.cssText = 'position:absolute;pointer-events:none;';
   // touch-action sits on the front svg itself: Chrome ignores it on SVG shapes like the hit ellipse.
   // pan-y lets a vertical swipe scroll the page while a sideways one strokes the ghost.
+  // Glow and shadow have a picture of their own each, painted once and then only moved, scaled and faded by
+  // the graphics chip. Drawn in the large picture behind the ghost, they had all of it painted anew with
+  // every frame, the blurred shadow most of all (on the home screen 213 paintings a second, now 17).
+  const cy0 = 300 + shiftY;
   layer.innerHTML = `
+  <svg class="rig-glow" data-k="glow" viewBox="${300 - GLOW_R} ${cy0 - GLOW_R} ${2 * GLOW_R} ${2 * GLOW_R}" style="position:absolute;overflow:visible;opacity:0.3;will-change:transform,opacity" aria-hidden="true">
+    <circle cx="300" cy="${cy0}" r="${GLOW_R}" fill="url(#${id}glow)"/>
+  </svg>
   <svg class="rig-back" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible" aria-hidden="true">
     <defs>
       <radialGradient id="${id}glow"><stop offset="0" stop-color="${glow0}" stop-opacity="0.5"/><stop offset="0.5" stop-color="${glow0}" stop-opacity="0.12"/><stop offset="1" stop-color="${glow0}" stop-opacity="0"/></radialGradient>
@@ -456,10 +467,9 @@ export function createRig(host: HTMLElement, look: Look, opts: RigOptions = {}):
       <radialGradient id="${id}spark"><stop offset="0" stop-color="#ffffff"/><stop offset="0.35" stop-color="#e4fbff" stop-opacity="0.9"/><stop offset="1" stop-color="${glow0}" stop-opacity="0"/></radialGradient>
       <filter id="${id}blur" x="-60%" y="-200%" width="220%" height="500%"><feGaussianBlur stdDeviation="9"/></filter>
     </defs>
-    <circle data-k="glow" cx="300" cy="300" r="270" fill="url(#${id}glow)" opacity="0.3"/>
-    <g data-k="ring" opacity="0" transform="rotate(-90 300 300)">
-      <circle cx="300" cy="300" r="205" fill="none" stroke="${glow0}" stroke-opacity="0.2" stroke-width="11"/>
-      <circle data-k="ringFill" cx="300" cy="300" r="205" fill="none" stroke="${glow0}" stroke-width="11" stroke-linecap="round" stroke-dasharray="1288.05" stroke-dashoffset="1288.05"/>
+    <g data-k="ring" opacity="0" transform="rotate(-90 300 ${cy0})">
+      <circle cx="300" cy="${cy0}" r="205" fill="none" stroke="${glow0}" stroke-opacity="0.2" stroke-width="11"/>
+      <circle data-k="ringFill" cx="300" cy="${cy0}" r="205" fill="none" stroke="${glow0}" stroke-width="11" stroke-linecap="round" stroke-dasharray="1288.05" stroke-dashoffset="1288.05"/>
       <g data-k="ringHead" opacity="0">
         <ellipse data-k="ringHalo" rx="22" ry="22" fill="${glow0}" opacity="0.75" filter="url(#${id}blur)"/>
         <ellipse rx="8.5" ry="8.5" fill="#ffffff"/>
@@ -467,7 +477,10 @@ export function createRig(host: HTMLElement, look: Look, opts: RigOptions = {}):
     </g>
     <circle data-k="tuftGlow" cx="300" cy="120" r="70" fill="url(#${id}tuft)" opacity="0"/>
     <g data-k="pBack"></g>
-    <ellipse data-k="shadow" cx="300" cy="${SHADOW_Y}" rx="112" ry="15" fill="#03020a" opacity="0.55" filter="url(#${id}blur)"/>
+  </svg>
+  <svg class="rig-shadow" data-k="shadow" viewBox="${SHADOW_BOX.x} ${SHADOW_BOX.y + shiftY} ${SHADOW_BOX.w} ${SHADOW_BOX.h}" style="position:absolute;overflow:visible;opacity:0.55;will-change:transform,opacity" aria-hidden="true">
+    <defs><filter id="${id}shade" x="-60%" y="-200%" width="220%" height="500%"><feGaussianBlur stdDeviation="9"/></filter></defs>
+    <ellipse cx="300" cy="${SHADOW_Y + shiftY}" rx="112" ry="15" fill="#03020a" filter="url(#${id}shade)"/>
   </svg>
   <canvas class="rig-gl" style="position:absolute;inset:0;width:100%;height:100%;display:block" aria-hidden="true"></canvas>
   <svg class="rig-front" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;touch-action:pan-y pinch-zoom" aria-hidden="true">
@@ -480,21 +493,24 @@ export function createRig(host: HTMLElement, look: Look, opts: RigOptions = {}):
   const front = layer.querySelector('.rig-front') as SVGSVGElement;
   let canvas = layer.querySelector('.rig-gl') as HTMLCanvasElement;
   const el = {
-    glow: q<SVGCircleElement>('glow'),
+    glow: q<SVGSVGElement>('glow'),
     ring: q<SVGGElement>('ring'),
     ringFill: q<SVGCircleElement>('ringFill'),
     ringHead: q<SVGGElement>('ringHead'),
     tuftGlow: q<SVGCircleElement>('tuftGlow'),
-    shadow: q<SVGEllipseElement>('shadow'),
+    shadow: q<SVGSVGElement>('shadow'),
     hit: q<SVGEllipseElement>('hit'),
     pBack: q<SVGGElement>('pBack'),
     pFront: q<SVGGElement>('pFront'),
   };
   if (opts.showShadow === false) el.shadow.style.display = 'none';
+  el.shadow.style.transformOrigin = el.glow.style.transformOrigin = '50% 50%';
 
   /* ---------- view ---------- */
   const view = { x: 0, y: 0, w: 600, h: 620 };
   const layerBox = { left: 0, top: 0, w: 1, h: 1 };
+  /** Screen pixels per stage unit. */
+  let unitPx = 1;
   function layout() {
     const W = Math.max(1, host.clientWidth),
       H = Math.max(1, host.clientHeight);
@@ -527,6 +543,16 @@ export function createRig(host: HTMLElement, look: Look, opts: RigOptions = {}):
     const vb = `${view.x.toFixed(2)} ${view.y.toFixed(2)} ${view.w.toFixed(2)} ${view.h.toFixed(2)}`;
     back.setAttribute('viewBox', vb);
     front.setAttribute('viewBox', vb);
+    unitPx = 1 / upp;
+    // glow and shadow lie on the stage where the units they cover are
+    const place = (e: SVGSVGElement, x: number, y: number, w: number, h: number) => {
+      e.style.left = `${((x - view.x) * unitPx).toFixed(2)}px`;
+      e.style.top = `${((y - view.y) * unitPx).toFixed(2)}px`;
+      e.style.width = `${(w * unitPx).toFixed(2)}px`;
+      e.style.height = `${(h * unitPx).toFixed(2)}px`;
+    };
+    place(el.glow, 300 - GLOW_R, cy0 - GLOW_R, 2 * GLOW_R, 2 * GLOW_R);
+    place(el.shadow, SHADOW_BOX.x, SHADOW_BOX.y + shiftY, SHADOW_BOX.w, SHADOW_BOX.h);
     const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
     // Only a size that really changed is set: every setting, also of the same number, empties the picture and
     // has the graphics chip lay it out anew, which holds a phone for a tenth of a second.
@@ -1264,6 +1290,22 @@ export function createRig(host: HTMLElement, look: Look, opts: RigOptions = {}):
   /* ---------- draw ---------- */
   const RING_C = 2 * Math.PI * 205;
   let loaded = false;
+  /**
+   * Attributes and styles are set only when they changed: every setting, also of the same value, has the
+   * browser look at the picture again, and it painted the whole picture behind the ghost anew for a ring
+   * that did not show.
+   */
+  const was: Record<string, string> = {};
+  function setAttr(key: string, e: Element, name: string, v: string) {
+    if (was[key] === v) return;
+    was[key] = v;
+    e.setAttribute(name, v);
+  }
+  function setStyle(key: string, e: SVGSVGElement, name: 'transform' | 'opacity', v: string) {
+    if (was[key] === v) return;
+    was[key] = v;
+    e.style[name] = v;
+  }
   function render() {
     if (!loaded || !alive) return;
     const sleepy = clamp(S.sleepy.x, 0, 1),
@@ -1305,28 +1347,33 @@ export function createRig(host: HTMLElement, look: Look, opts: RigOptions = {}):
     }
 
     const lift = -(floatY + hopY);
-    const shY = SHADOW_Y + shiftY + S.low.x * 12;
-    el.shadow.setAttribute('transform', `translate(300,${shY.toFixed(1)}) scale(${clamp(1 - lift * 0.0028, 0.45, 1.2).toFixed(3)},1) translate(-300,-${SHADOW_Y})`);
-    el.shadow.setAttribute('opacity', clamp(0.55 - lift * 0.0022, 0.12, 0.7).toFixed(3));
-    el.glow.setAttribute('cy', (F.gy + 20).toFixed(1));
-    el.glow.setAttribute('opacity', clamp(0.3 + S.glow.x * 0.6, 0.1, 1).toFixed(3));
-    el.ring.setAttribute('opacity', clamp(S.ring.x, 0, 1).toFixed(3));
-    el.ring.setAttribute('transform', `rotate(-90 300 ${300 + shiftY})`);
-    el.ring.querySelectorAll('circle').forEach((c) => c.setAttribute('cy', String(300 + shiftY)));
-    const rp = clamp(ringP ?? 0, 0, 1);
-    el.ringFill.setAttribute('stroke-dashoffset', (RING_C * (1 - rp)).toFixed(1));
-    // a point of light leads the arc; the ring group is turned, so angle 0 is at the top
-    const ra = rp * Math.PI * 2;
-    el.ringHead.setAttribute('transform', `translate(${(300 + 205 * Math.cos(ra)).toFixed(1)},${(300 + shiftY + 205 * Math.sin(ra)).toFixed(1)})`);
-    el.ringHead.setAttribute('opacity', rp > 0.004 ? '1' : '0');
+    // glow and shadow: moved, scaled and faded as pictures of their own (see the layer above)
+    setStyle('shadowT', el.shadow, 'transform', `translateY(${(S.low.x * 12 * unitPx).toFixed(2)}px) scaleX(${clamp(1 - lift * 0.0028, 0.45, 1.2).toFixed(3)})`);
+    setStyle('shadowO', el.shadow, 'opacity', clamp(0.55 - lift * 0.0022, 0.12, 0.7).toFixed(3));
+    setStyle('glowT', el.glow, 'transform', `translateY(${((F.gy + 20 - cy0) * unitPx).toFixed(2)}px)`);
+    setStyle('glowO', el.glow, 'opacity', clamp(0.3 + S.glow.x * 0.6, 0.1, 1).toFixed(3));
+    const ringO = clamp(S.ring.x, 0, 1);
+    setAttr('ringO', el.ring, 'opacity', ringO.toFixed(3));
+    if (ringO > 0.001) {
+      const rp = clamp(ringP ?? 0, 0, 1);
+      setAttr('ringFill', el.ringFill, 'stroke-dashoffset', (RING_C * (1 - rp)).toFixed(1));
+      // a point of light leads the arc; the ring group is turned, so angle 0 is at the top
+      const ra = rp * Math.PI * 2;
+      setAttr('ringHeadT', el.ringHead, 'transform', `translate(${(300 + 205 * Math.cos(ra)).toFixed(1)},${(cy0 + 205 * Math.sin(ra)).toFixed(1)})`);
+      setAttr('ringHeadO', el.ringHead, 'opacity', rp > 0.004 ? '1' : '0');
+    }
     // the glow at full charge sits on the tuft; on a lantern it sits in the lamp and sways with it
     const lamp = R.tuft?.light ? rot(tuftTurn(), R.tuft.light[0] - R.tuft.at[0], R.tuft.light[1] - R.tuft.at[1]) : null;
     const tg = R.tuft ? (lamp ? D(R.tuft.at[0] + lamp[0], R.tuft.at[1] + lamp[1]) : D(R.tuft.at[0], R.tuft.at[1] - 80 * R.m)) : D(R.cx, R.top + 30 * R.m);
     tuftAt = tg;
-    el.tuftGlow.setAttribute('cx', tg[0].toFixed(1));
-    el.tuftGlow.setAttribute('cy', tg[1].toFixed(1));
-    el.tuftGlow.setAttribute('opacity', clamp(lv * 1.1 + (T < flashUntil ? 0.8 : 0), 0, 1).toFixed(3));
-    el.hit.setAttribute('cy', (F.gy + 22).toFixed(1));
+    const tuftO = clamp(lv * 1.1 + (T < flashUntil ? 0.8 : 0), 0, 1);
+    setAttr('tuftO', el.tuftGlow, 'opacity', tuftO.toFixed(3));
+    if (tuftO > 0.001) {
+      setAttr('tuftX', el.tuftGlow, 'cx', tg[0].toFixed(1));
+      setAttr('tuftY', el.tuftGlow, 'cy', tg[1].toFixed(1));
+    }
+    // the place he can be touched: a unit either way makes no difference to a finger
+    setAttr('hitY', el.hit, 'cy', (F.gy + 22).toFixed(0));
 
     if (gl) {
       gl.viewport(0, 0, canvas.width, canvas.height);

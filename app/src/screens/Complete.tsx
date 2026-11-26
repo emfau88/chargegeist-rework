@@ -11,7 +11,7 @@ import { sfx } from '../platform/audio';
 import { cancelSessionEnd, haptic, scheduleSessionEnd } from '../platform/device';
 import { bondOf, companionName, now, useAppState } from '../state/store';
 import type { SessionResult } from '../state/store';
-import { Bar, Btn, Clock, Icon, toast, useCountUp } from '../ui/kit';
+import { Bar, Btn, Clock, Digits, Icon, toast, useCountUp } from '../ui/kit';
 import { StyleBadge } from '../ui/style';
 import { CompanionStage, Portrait } from '../ui/stage';
 import { WeekDots } from './Home';
@@ -129,7 +129,9 @@ export function Complete({ res, onDrop, onBreak, onClose }: { res: SessionResult
       <div class="complete-head">
         <h1>{res.completed ? t('done_title') : t('done_title_early')}</h1>
         <p class="big-num">
-          +{Math.round(mins)}
+          <b>
+            <Digits text={`+${Math.round(mins)}`} />
+          </b>
           <span>{res.minutes === 1 ? t('done_minute') : t('done_minutes')}</span>
         </p>
       </div>
